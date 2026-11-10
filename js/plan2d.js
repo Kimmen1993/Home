@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794339685';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794339685';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794339859';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794339859';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -26,7 +26,7 @@ export function createPlan(canvas, ui) {
 
   // ---------- snäpp ----------
   function snap(p, step = 0.1) {
-    const h = home(), R = 12 / scale;
+    const h = home(), R = (free ? 7 : 12) / scale;
     for (const w of h.walls) for (const q of [w.a, w.b]) if (Math.hypot(q.x - p.x, q.y - p.y) < R) return { ...q, snapped: true };
     for (const r of h.rooms) for (const q of r.pts) if (Math.hypot(q.x - p.x, q.y - p.y) < R) return { ...q, snapped: true };
     if (S.tool === 'wall' || S.tool === 'divider') for (const w of h.walls) { const pr = proj(p, w.a, w.b);   // fäst mitt på en vägg
@@ -256,13 +256,13 @@ export function createPlan(canvas, ui) {
     if (drag?.pan) { ox = drag.ox + sx - drag.sx; oy = drag.oy + sy - drag.sy; draw(); ui.onPan?.(); return; }
     if (rect) { rect.b = snap(p); draw(); return; }
     if (drag?.item) {
-      const it = drag.item; let q = { x: Math.round((p.x - drag.dx) / .05) * .05, y: Math.round((p.y - drag.dy) / .05) * .05 };
+      const it = drag.item; const st = free ? .001 : .05; let q = { x: Math.round((p.x - drag.dx) / st) * st, y: Math.round((p.y - drag.dy) / st) * st };
       if (ITEMS[it.type].snap && !e.altKey) { const sw = snapToWall(h, it, q); if (sw) { q = sw; it.rot = sw.rot; } }
       it.x = q.x; it.y = q.y; drag.moved = true; emit('item', it.id); return;
     }
     if (drag?.opening) { const o = drag.opening, w = h.walls.find(w => w.id === o.wall); const pr = proj(p, w.a, w.b);
-      o.t = Math.round(Math.min(Math.max(pr.t, o.w / 2), pr.L - o.w / 2) / .05) * .05; emit('full', 'drag'); return; }
-    if (drag?.wall) { moveWall(drag, p, e.altKey); emit('full', 'drag'); return; }
+      o.t = Math.round(Math.min(Math.max(pr.t, o.w / 2), pr.L - o.w / 2) / (free ? .001 : .05)) * (free ? .001 : .05); emit('full', 'drag'); return; }
+    if (drag?.wall) { moveWall(drag, p, e.altKey, free); emit('full', 'drag'); return; }
     if (drag?.end) { const w = drag.wallE, key = (w.a.x === drag.end.x && w.a.y === drag.end.y) ? 'a' : 'b';
       w[key] = { x: NaN, y: NaN }; drag.rooms.forEach(([r, i]) => r.pts[i] = { x: NaN, y: NaN }); const q = snap(p, .05); w[key] = { x: q.x, y: q.y }; drag.end = w[key];
       drag.rooms.forEach(([r, i]) => r.pts[i] = { x: q.x, y: q.y }); emit('full', 'drag'); return; }
@@ -374,16 +374,17 @@ function wallDrag(h, w, p) {
     ends.push({ k, P, nbs, rooms: roomRefs(h, P) }); }
   return { wall: w, start: p, n, ends };
 }
-function moveWall(d, p, free) {
+function moveWall(d, p, any, free) {
+  const st = free ? .001 : .05;
   const w = d.wall, dx = p.x - d.start.x, dy = p.y - d.start.y;
-  let mx, my; if (free) { mx = Math.round(dx / .05) * .05; my = Math.round(dy / .05) * .05; }
-  else { const dist = Math.round((dx * d.n.x + dy * d.n.y) / .05) * .05; mx = d.n.x * dist; my = d.n.y * dist; }
+  let mx, my; if (any) { mx = Math.round(dx / st) * st; my = Math.round(dy / st) * st; }
+  else { const dist = Math.round((dx * d.n.x + dy * d.n.y) / st) * st; mx = d.n.x * dist; my = d.n.y * dist; }
   const r3 = v => Math.round(v * 1000) / 1000;
   for (const e of d.ends) {
     const np = { x: r3(e.P.x + mx), y: r3(e.P.y + my) }; w[e.k] = np;
     e.rooms.forEach(([r, i]) => r.pts[i] = np);
     for (const nb of e.nbs) { const along = mx * d.n.x + my * d.n.y;
-      if (free || Math.abs(nb.dot) < .35) { nb.o[nb.ok] = { ...e.P }; continue; }   // rak fortsättning: rörs inte
+      if (any || Math.abs(nb.dot) < .35) { nb.o[nb.ok] = { ...e.P }; continue; }   // rak fortsättning: rörs inte
       const s = along / nb.dot; nb.o[nb.ok] = { x: r3(e.P.x + nb.u.x * s), y: r3(e.P.y + nb.u.y * s) }; }
   }
 }

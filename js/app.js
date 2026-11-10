@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794339685';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794339685';
-import { createPlan } from './plan2d.js?v=1794339685';
-import { createView } from './view3d.js?v=1794339685';
-import { createHA } from './ha.js?v=1794339685';
-import { detectPlan } from './autoplan.js?v=1794339685';
+import { rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794339859';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794339859';
+import { createPlan } from './plan2d.js?v=1794339859';
+import { createView } from './view3d.js?v=1794339859';
+import { createHA } from './ha.js?v=1794339859';
+import { detectPlan } from './autoplan.js?v=1794339859';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
