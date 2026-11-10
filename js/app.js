@@ -1,5 +1,5 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem } from './store.js';
+import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate } from './store.js';
 import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, HOME_TYPES } from './catalog.js';
 import { createPlan } from './plan2d.js';
 import { createView } from './view3d.js';
@@ -472,7 +472,7 @@ function exportHome() {
 }
 $('#fileJson').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try { const h = JSON.parse(await f.text()); if (!h.walls || !h.items) throw 0; h.id = uid(); S.homes.push(h); switchHome(h.id); window.toast('Öppnade ' + h.name); }
+  try { const h = JSON.parse(await f.text()); if (!h.walls || !h.items) throw 0; h.id = uid(); migrate([h]); S.homes.push(h); switchHome(h.id); window.toast('Öppnade ' + h.name); }
   catch (err) { window.toast('Filen gick inte att läsa'); }
 });
 $('#fileImg').addEventListener('change', async e => {

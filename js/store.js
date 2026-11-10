@@ -28,11 +28,14 @@ export function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (d && d.homes && d.homes.length) {
-      S.homes = d.homes; S.cur = d.homes.some(h => h.id === d.cur) ? d.cur : d.homes[0].id; S.ha = d.ha || S.ha; return;
+      S.homes = d.homes; migrate(S.homes); S.cur = d.homes.some(h => h.id === d.cur) ? d.cur : d.homes[0].id; S.ha = d.ha || S.ha; return;
     }
   } catch (e) { /* börja om */ }
   const h = template('villa'); S.homes = [h]; S.cur = h.id;
 }
+
+// äldre sparade hem: fönsterdörrar var fönster förut
+export function migrate(homes) { for (const h of homes) for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } }
 
 // ---------- ångra ----------
 const undoStack = [], redoStack = [];
@@ -135,7 +138,7 @@ export function makeItem(h, type, x, y, rot = 0, extra = {}) {
 }
 export function makeOpening(h, key, wall, t, extra = {}) {
   const c = OPENINGS[key];
-  const o = { id: uid(), key, kind: c.kind, wall: wall.id, t, w: c.w, h: c.h, sill: c.sill, color: c.color, hinge: 'L', swing: 1,
+  const o = { id: uid(), key, kind: c.kind, glass: !!c.glass, wall: wall.id, t, w: c.w, h: c.h, sill: c.sill, color: c.color, hinge: 'L', swing: 1,
     blind: 'none', blindColor: '#ece6da', entity: '', blindEntity: '', name: '', state: { open: 0, blind: 0 }, ...extra };
   h.openings.push(o); return o;
 }

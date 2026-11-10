@@ -15,7 +15,7 @@ export const OPENINGS = {
   dorr:        { name: 'Innerdörr',   icon: '🚪', kind: 'door',   w: 0.9, h: 2.1, sill: 0,    color: '#f2efe9' },
   ytterdorr:   { name: 'Ytterdörr',   icon: '🚪', kind: 'door',   w: 1.0, h: 2.1, sill: 0,    color: '#3a2a1a' },
   fonster:     { name: 'Fönster',     icon: '🪟', kind: 'window', w: 1.2, h: 1.2, sill: 0.9,  color: '#ffffff' },
-  fonsterdorr: { name: 'Fönsterdörr', icon: '🪟', kind: 'window', w: 0.9, h: 2.1, sill: 0,    color: '#ffffff' },
+  fonsterdorr: { name: 'Fönsterdörr', icon: '🪟', kind: 'door', glass: 1, w: 0.9, h: 2.1, sill: 0, color: '#ffffff' },
   garageport:  { name: 'Garageport',  icon: '🚘', kind: 'garage', w: 2.5, h: 2.1, sill: 0,    color: '#c8ccd0' },
   oppning:     { name: 'Öppning',     icon: '⬚',  kind: 'hole',   w: 1.2, h: 2.1, sill: 0,    color: '#ffffff' },
 };

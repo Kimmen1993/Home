@@ -254,7 +254,13 @@ export function createView(host, api) {
       if (o.h <= H) pickIt(B(g, o.w, f, fz, fm, o.t, o.h - f / 2, 0));
       const lw = o.w - f * 2, lh = Math.min(o.h - f - .01, H - .01), hingeX = o.hinge === 'L' ? s + f : e - f, dir = o.hinge === 'L' ? 1 : -1;
       const pivot = new THREE.Group(); pivot.position.set(hingeX, 0, 0); g.add(pivot);
-      const leaf = B(pivot, lw, lh, .04, M(o.color, { roughness: .45 }), dir * lw / 2, .01 + lh / 2, 0);
+      let leaf;
+      if (o.glass) { const fm2 = M(o.color, { roughness: .45 }), st = .07, top = .1, bot = .14, x0 = dir * lw / 2;
+        leaf = B(pivot, st, lh, .05, fm2, dir * st / 2, .01 + lh / 2, 0); B(pivot, st, lh, .05, fm2, dir * (lw - st / 2), .01 + lh / 2, 0);
+        B(pivot, lw, bot, .05, fm2, x0, .01 + bot / 2, 0); B(pivot, lw, top, .05, fm2, x0, .01 + lh - top / 2, 0);
+        const gl = new THREE.Mesh(new THREE.BoxGeometry(lw - st * 2, lh - top - bot, .01), M('#9fc3d6', { transparent: true, opacity: .25, roughness: .05, metalness: .2 }));
+        gl.position.set(x0, .01 + bot + (lh - top - bot) / 2, 0); gl.castShadow = false; pivot.add(gl); }
+      else leaf = B(pivot, lw, lh, .04, M(o.color, { roughness: .45 }), dir * lw / 2, .01 + lh / 2, 0);
       B(pivot, .12, .02, .05, metalM(), dir * (lw - .08), 1.0, .04); B(pivot, .12, .02, .05, metalM(), dir * (lw - .08), 1.0, -.04);
       pickIt(pivot); ref.pivot = pivot; ref.sign = -dir * o.swing; ref.leaf = leaf;
     } else if (o.kind === 'garage') {

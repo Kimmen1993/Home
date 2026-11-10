@@ -151,6 +151,7 @@ export function createPlan(canvas, ui) {
         const hingeT = o.hinge === 'L' ? o.t - o.w / 2 : o.t + o.w / 2, other = o.hinge === 'L' ? o.t + o.w / 2 : o.t - o.w / 2, sd = o.swing;
         const hp = P(hingeT, 0), tip = P(hingeT, sd * o.w), op = P(other, 0);
         ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+        if (o.glass) for (const d of [-t2 / 2, t2 / 2]) { const p0 = P(o.t - o.w / 2, d), p1 = P(o.t + o.w / 2, d); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); }
         const a0 = Math.atan2(tip.y - hp.y, tip.x - hp.x), a1 = Math.atan2(op.y - hp.y, op.x - hp.x);
         let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
         ctx.beginPath(); ctx.arc(hp.x, hp.y, o.w * scale, a0, a1, da < 0); ctx.stroke();
