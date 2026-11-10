@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794340533';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794340533';
-import { createPlan } from './plan2d.js?v=1794340533';
-import { createView } from './view3d.js?v=1794340533';
-import { createHA } from './ha.js?v=1794340533';
-import { detectPlan } from './autoplan.js?v=1794340533';
+import { syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794340929';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794340929';
+import { createPlan } from './plan2d.js?v=1794340929';
+import { createView } from './view3d.js?v=1794340929';
+import { createHA } from './ha.js?v=1794340929';
+import { detectPlan } from './autoplan.js?v=1794340929';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -12,7 +12,7 @@ let toastT = 0;
 window.toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); };
 
 load();
-const ui = { toast: window.toast, ptSel() { renderRight(); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
+const ui = { toast: window.toast, ptSel() { renderRight(); }, rotated(it) { const r = right.querySelector('[data-rot]'), b = right.querySelector('[data-f=rot]'); if (r) r.value = Math.round(it.rot); if (b) b.value = Math.round(it.rot); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
 const plan = createPlan($('#plan'), ui);
 const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone, levelChanged() { renderAll(); emit('full'); } });
 const ha = createHA({ onState: haState, onStatus: (s, msg) => { renderSide(); if (msg) window.toast(msg); if (s === 'on') { window.toast('Ansluten till Home Assistant ✔'); renderRight(); } } });
@@ -183,7 +183,9 @@ function itemPanel(it) {
   return `<h2>${c.icon} ${esc(c.name)}</h2>
     ${field('Namn (valfritt)', 'name', it.name, 'text')}
     <div class="g2">${field('Bredd (cm)', 'w', it.w)}${field('Djup (cm)', 'd', it.d)}${field('Höjd (cm)', 'h', it.h)}${field('Över golvet (cm)', 'elev', it.elev)}</div>
-    <label class="f">Vrid</label><div class="btns" style="margin-bottom:10px"><button class="btn" data-act="rot-90">⟲ 90°</button><button class="btn" data-act="rot-15">⟲ 15°</button><button class="btn" data-act="rot15">⟳ 15°</button><button class="btn" data-act="rot90">⟳ 90°</button></div>
+    <label class="f">Vinkel</label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="range" min="0" max="359" value="${Math.round(it.rot)}" data-rot style="flex:1"><input data-f="rot" data-u="deg" value="${Math.round(it.rot)}" inputmode="decimal" style="width:64px"><span class="note">°</span></div>
+    <div class="btns" style="margin-bottom:10px"><button class="btn" data-act="rot-90">⟲ 90°</button><button class="btn" data-act="rot-15">⟲ 15°</button><button class="btn" data-act="rot15">⟳ 15°</button><button class="btn" data-act="rot90">⟳ 90°</button></div>
     <label class="f">${c.c1 || 'Färg'}</label>${swatches('color', it.color)}
     ${c.c2 ? `<label class="f">${c.c2}</label>${swatches('color2', it.color2)}` : ''}
     ${HANDLE_TYPES.includes(it.type) ? handles(it.handleColor) : ''}
@@ -314,6 +316,7 @@ right.addEventListener('click', e => {
 right.addEventListener('change', e => {
   const t = e.target; if (!t.dataset.f) return;
   commit(); let v = t.value;
+  if (t.dataset.u === 'deg') { v = ((parseFloat(String(v).replace(',', '.')) % 360) + 360) % 360; if (!isFinite(v)) { renderRight(); return; } }
   if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v >= 0) && !(t.dataset.f === 'level.z' && isFinite(v))) { renderRight(); return; } }
   if (t.dataset.f === 'depth' && !t.value.trim()) { delete selected().depth; emit('full'); return; }
   setField(t.dataset.f, v); if (S.sel?.type === 'wall' && ['len', 't'].includes(t.dataset.f)) rebuildRooms(home()); emit('full', t.dataset.u === 'color' ? 'panel' : undefined);
@@ -321,6 +324,7 @@ right.addEventListener('change', e => {
 right.addEventListener('input', e => {
   const t = e.target, h = home();
   if (t.dataset.u === 'color') { setField(t.dataset.f, t.value); emit('full', 'panel'); }
+  if (t.hasAttribute('data-rot')) { const it = selected(); if (!t._c) { commit(); t._c = true; } it.rot = +t.value; emit('item', it.id); const box = right.querySelector('[data-f=rot]'); if (box) box.value = t.value; }
   if (t.dataset.bri) { const it = h.items.find(i => i.id === t.dataset.bri); lightSet(it, true, t.value / 100); }
   if (t.dataset.blind) { const o = h.openings.find(i => i.id === t.dataset.blind); blindSet(o, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Nere: ${t.value}%`; }
   if (t.hasAttribute('data-bgop')) { h.bg.opacity = t.value / 100; plan.draw(); save(); }

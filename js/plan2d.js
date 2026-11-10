@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794340533';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794340533';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794340929';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340929';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -208,7 +208,10 @@ export function createPlan(canvas, ui) {
     }
     ctx.restore();
     if (sel) { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(it.rot * Math.PI / 180); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
-      ctx.strokeRect(-Math.max(w, 10) / 2 - 3, -Math.max(d, 10) / 2 - 3, Math.max(w, 10) + 6, Math.max(d, 10) + 6); ctx.setLineDash([]); ctx.restore(); }
+      ctx.strokeRect(-Math.max(w, 10) / 2 - 3, -Math.max(d, 10) / 2 - 3, Math.max(w, 10) + 6, Math.max(d, 10) + 6); ctx.setLineDash([]);
+      const hy = -Math.max(d, 10) / 2 - 26; ctx.beginPath(); ctx.moveTo(0, -Math.max(d, 10) / 2 - 3); ctx.lineTo(0, hy + 9); ctx.stroke();   // vridhandtag
+      ctx.fillStyle = '#ff7a2f'; ctx.beginPath(); ctx.arc(0, hy, 9, 0, 7); ctx.fill(); ctx.rotate(-it.rot * Math.PI / 180); ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const hp = { x: -Math.sin(-it.rot * Math.PI / 180) * hy, y: Math.cos(-it.rot * Math.PI / 180) * hy }; ctx.fillText('⟳', hp.x, hp.y + 1); ctx.textBaseline = 'alphabetic'; ctx.restore(); }
   }
   function drawGhost() {
     const h = home();
@@ -239,6 +242,7 @@ export function createPlan(canvas, ui) {
     }
     if (S.tool === 'bild') { bgDown(p, sx, sy); return; }
     // välj
+    const rot = hitRotHandle(p); if (rot) { commit(); drag = { rot }; return; }
     const rh = hitRoomHandle(p);
     if (rh) { commit(); manualRooms(h); if (rh.mid) { rh.room.pts.splice(rh.i + 1, 0, { ...rh.pt }); rh.i++; } S.selPt = { room: rh.room.id, i: rh.i }; drag = { rpt: rh }; emit('full', 'drag'); ui.ptSel?.(); return; }
     const hd = hitHandle(p); if (hd) { commit(); const w = h.walls.find(w => w.id === S.sel.id); drag = { end: hd, wallE: w, rooms: roomRefs(h, hd) }; return; }
@@ -255,6 +259,8 @@ export function createPlan(canvas, ui) {
     const { sx, sy } = pos(e), p = tw(sx, sy), h = home(); mouse = p; free = e.altKey || S.snap === false;
     if (drag?.pan) { ox = drag.ox + sx - drag.sx; oy = drag.oy + sy - drag.sy; draw(); ui.onPan?.(); return; }
     if (rect) { rect.b = snap(p); draw(); return; }
+    if (drag?.rot) { const it = drag.rot, a = Math.atan2(p.x - it.x, -(p.y - it.y)) * 180 / Math.PI, stp = free ? 1 : 15;
+      it.rot = ((Math.round(a / stp) * stp) % 360 + 360) % 360; emit('item', it.id); ui.rotated?.(it); return; }
     if (drag?.item) {
       const it = drag.item; const st = free ? .001 : .05; let q = { x: Math.round((p.x - drag.dx) / st) * st, y: Math.round((p.y - drag.dy) / st) * st };
       if (ITEMS[it.type].snap && !e.altKey) { const sw = snapToWall(h, it, q); if (sw) { q = sw; it.rot = sw.rot; } }
@@ -272,7 +278,7 @@ export function createPlan(canvas, ui) {
     if (drag?.bg) { h.bg.x = drag.bx + p.x - drag.p.x; h.bg.y = drag.by + p.y - drag.p.y; draw(); return; }
     // spöke vid placering
     if (S.placing) updateGhost(p, e.altKey);
-    canvas.style.cursor = S.placing || S.tool !== 'select' ? 'crosshair' : (hitRoomHandle(p) || hitHandle(p) || hitItem(p) || hitOpening(p) || hitWall(p)) ? 'move' : 'default';
+    canvas.style.cursor = S.placing || S.tool !== 'select' ? 'crosshair' : hitRotHandle(p) ? 'grab' : (hitRoomHandle(p) || hitHandle(p) || hitItem(p) || hitOpening(p) || hitWall(p)) ? 'move' : 'default';
     if (chain || S.tool === 'wall' || S.tool === 'divider' || calib) draw();
   });
   canvas.addEventListener('pointerup', () => {
@@ -289,6 +295,11 @@ export function createPlan(canvas, ui) {
   canvas.addEventListener('dblclick', e => { if (chain) { chain = null; draw(); return; }
     const { sx, sy } = pos(e), rh = hitRoomHandle(tw(sx, sy));
     if (rh && !rh.mid && rh.room.pts.length > 3) { commit(); rh.room.pts.splice(rh.i, 1); emit('full'); } });
+  function hitRotHandle(p) {
+    const it = S.sel?.type === 'item' && home().items.find(i => i.id === S.sel.id); if (!it || S.tool !== 'select') return null;
+    const hy = Math.max(it.d * scale, 10) / 2 + 26, a = it.rot * Math.PI / 180, hx = it.x + Math.sin(a) * hy / scale, hyw = it.y - Math.cos(a) * hy / scale;
+    return Math.hypot(p.x - hx, p.y - hyw) < 12 / scale ? it : null;
+  }
   function hitRoomHandle(p) {
     const r = S.sel?.type === 'room' && home().rooms.find(r => r.id === S.sel.id); if (!r || S.tool !== 'select') return null;
     const R = 10 / scale;
