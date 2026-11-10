@@ -145,3 +145,4 @@ input[type=range]{padding:0;accent-color:var(--acc);border:0;background:none}
   .tool{min-width:52px;height:48px}
   .title input{font-size:16px}
 }
+.opt + .opt{margin-top:4px}

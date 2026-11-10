@@ -65,6 +65,7 @@ export const ITEMS = {
   golvhogtalare:{ cat: 'media', name: 'Golvhögtalare', icon: '🔊', w: .25, d: .3, h: 1.05, color: '#1f2328', dev: 'speaker', snap: 1 },
   soundbar:    { cat: 'media', name: 'Soundbar', icon: '🎶', w: .9, d: .1, h: .07, elev: .47, color: '#1f2328', dev: 'speaker' },
 
+  uteyta:      { cat: 'ute', name: 'Uteplats-yta', icon: '🌤️', w: 4, d: 3, h: 0, color: '#8a6440', area: 1 },
   altan:       { cat: 'ute', name: 'Altan', icon: '🟫', w: 4, d: 3, h: .15, color: '#8a6440' },
   pool:        { cat: 'ute', name: 'Pool', icon: '🏊', w: 4, d: 2, h: .12, color: '#2bb3d6' },
   gang:        { cat: 'ute', name: 'Gång/plattor', icon: '⬜', w: 1.2, d: 4, h: .03, color: '#9a958c' },
@@ -80,7 +81,8 @@ export const ITEMS = {
 export const PALETTE = ['#ffffff', '#f2efe9', '#e6dccb', '#cfc6b8', '#9aa19a', '#5b6b5a', '#2f5d50', '#3f4a5a', '#2f3b45', '#1f2328',
   '#7a4e2d', '#9a7550', '#b8915f', '#d9b48c', '#a33b2b', '#c9a227', '#c8ccd0', '#6b6f75'];
 
-export const FLOORS = { tra: 'Trä', klinker: 'Plattor', betong: 'Betong', matta: 'Heltäckning' };
+export const FLOORS = { tra: 'Trä', fiskben: 'Fiskben', klinker: 'Plattor', kakel: 'Kakel', betong: 'Betong', matta: 'Matta' };
+export const WALLMATS = { malad: 'Målad', tapet: 'Tapet', kakel: 'Kakel', panel: 'Träpanel', tegel: 'Tegel', betong: 'Betong' };
 
 export const HOME_TYPES = {
   hus: { name: 'Hus', icon: '🏡' },

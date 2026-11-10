@@ -1,6 +1,6 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate } from './store.js';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, HOME_TYPES } from './catalog.js';
+import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides } from './store.js';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js';
 import { createPlan } from './plan2d.js';
 import { createView } from './view3d.js';
 import { createHA } from './ha.js';
@@ -75,6 +75,7 @@ function renderTop() {
   $('#topRight').innerHTML = `
     ${S.mode === 'bygg' ? `<div class="seg">${[['2d', '📐 2D'], ['split', '◫ Båda'], ['3d', '🧊 3D']].map(([k, l]) => `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     <div class="seg" title="Hur mycket av väggarna som syns">${[['hela', '▮', 'Hela'], ['halva', '▬', 'Halva'], ['golv', '▁', 'Golv'], ['rum', '⬚', 'Ett rum']].map(([k, i, l]) => `<button data-walls="${k}" class="${S.walls === k ? 'on' : ''}">${i} ${l}</button>`).join('')}</div>
+    ${S.walls === 'hela' ? `<button class="ib ${S.ceil !== false ? 'on' : ''}" data-ceil title="Innertak">🏠 Tak ${S.ceil !== false ? 'på' : 'av'}</button>` : ''}
     <button class="ib" data-day>${S.day ? '☀️ Dag' : '🌙 Kväll'}</button>
     <button class="ib" data-cam title="Centrera">⤢</button>`;
   $('#stage').dataset.view = S.mode === 'styr' ? '3d' : S.view;
@@ -85,6 +86,7 @@ $('#topRight').addEventListener('click', e => {
   if (t.dataset.view) { S.view = t.dataset.view; renderTop(); requestAnimationFrame(() => plan.fit()); }
   if (t.dataset.walls) { S.walls = t.dataset.walls; if (S.walls === 'rum' && S.sel?.type === 'room') S.focus = S.sel.id;
     renderTop(); view.build(); if (S.walls === 'rum') window.toast('Välj ett annat rum: klicka på det i 2D-ritningen'); }
+  if (t.hasAttribute('data-ceil')) { S.ceil = S.ceil === false; renderTop(); view.build(); }
   if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.setLighting(); }
   if (t.hasAttribute('data-cam')) { view.fitCam(); plan.fit(); }
 });
@@ -138,6 +140,9 @@ function fillEnts() { $('#ents').innerHTML = ha.entities().map(e => `<option val
 const cm = v => Math.round(v * 100);
 const field = (label, f, val, type = 'cm') => `<label class="f">${label}<input data-f="${f}" data-u="${type}" value="${type === 'cm' ? cm(val) : esc(val)}" ${type === 'cm' || type === 'num' ? 'inputmode="decimal"' : ''}></label>`;
 const swatches = (f, cur) => `<div class="sws">${PALETTE.map(c => `<button class="swc ${c === cur ? 'on' : ''}" style="background:${c}" data-color="${c}" data-f="${f}"></button>`).join('')}<input type="color" data-f="${f}" data-u="color" value="${cur || '#ffffff'}"></div>`;
+const HANDLES = [['#9aa0a6', 'Stål'], ['#1f2328', 'Svart'], ['#c9a227', 'Mässing'], ['#b87333', 'Koppar'], ['#ffffff', 'Vit']];
+const HANDLE_TYPES = ['underskap', 'diskho', 'spis', 'overskap', 'hogskap', 'kyl', 'koksoe', 'garderob', 'nattduks'];
+const handles = cur => `<label class="f">Handtag</label><div class="sws">${HANDLES.map(([c, n]) => `<button class="swc ${c === (cur || '#9aa0a6') ? 'on' : ''}" title="${n}" style="background:${c}" data-color="${c}" data-f="handleColor"></button>`).join('')}</div>`;
 const opt = (f, cur, list) => `<div class="opt">${list.map(([v, l]) => `<button data-opt="${f}" data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 
 function homePanel() {
@@ -171,6 +176,7 @@ function itemPanel(it) {
     <label class="f">Vrid</label><div class="btns" style="margin-bottom:10px"><button class="btn" data-act="rot-90">⟲ 90°</button><button class="btn" data-act="rot-15">⟲ 15°</button><button class="btn" data-act="rot15">⟳ 15°</button><button class="btn" data-act="rot90">⟳ 90°</button></div>
     <label class="f">${c.c1 || 'Färg'}</label>${swatches('color', it.color)}
     ${c.c2 ? `<label class="f">${c.c2}</label>${swatches('color2', it.color2)}` : ''}
+    ${HANDLE_TYPES.includes(it.type) ? handles(it.handleColor) : ''}
     ${c.dev ? `<h3>SMART ENHET</h3>
       <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : 'media_player.tv'}"></label>
       <div class="btns"><button class="btn acc" data-act="test">${it.state?.on ? 'Släck / stäng av' : 'Tänd / sätt på'}</button></div>
@@ -184,19 +190,24 @@ function openingPanel(o) {
     <div class="g2">${field('Bredd (cm)', 'w', o.w)}${field('Höjd (cm)', 'h', o.h)}${o.kind === 'window' ? field('Bröstning (cm)', 'sill', o.sill) : ''}</div>
     ${o.kind === 'door' ? `<label class="f">Gångjärn</label>${opt('hinge', o.hinge, [['L', '◧ Vänster'], ['R', 'Höger ◨']])}<div class="btns" style="margin:8px 0 10px"><button class="btn" data-act="swing">⇅ Öppnas åt andra hållet</button></div>` : ''}
     ${o.kind !== 'hole' ? `<label class="f">Färg</label>${swatches('color', o.color)}` : ''}
+    ${o.kind === 'door' && !o.glass ? `<label class="f">Material</label>${opt('mat', o.mat || 'malad', [['malad', 'Målad'], ['tra', 'Trä']])}<div style="height:8px"></div>` : ''}
+    ${o.kind === 'door' ? handles(o.handleColor) : ''}
     ${o.kind === 'window' ? `<h3>GARDIN</h3>${opt('blind', o.blind, [['none', 'Ingen'], ['rullgardin', 'Rullgardin'], ['persienn', 'Persienn']])}
       ${o.blind !== 'none' ? `<div style="height:8px"></div><label class="f">Gardinfärg</label>${swatches('blindColor', o.blindColor)}
       <label class="f">Nere: ${Math.round(o.state.blind * 100)}%<input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}"></label>
       <label class="f">Koppling gardin (cover)<input data-f="blindEntity" data-u="text" list="ents" value="${esc(o.blindEntity)}" placeholder="cover.sovrum"></label>` : ''}` : ''}
     ${o.kind !== 'hole' ? `<h3>${o.kind === 'garage' ? 'PORTÖPPNARE' : 'BRYTARE (ÖPPEN/STÄNGD)'}</h3>
       <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(o.entity)}" placeholder="${o.kind === 'garage' ? 'cover.garageport' : 'binary_sensor.ytterdorr'}"></label>
-      <div class="btns"><button class="btn acc" data-act="testdoor">${o.state.open > .5 ? 'Stäng' : 'Öppna'} (test)</button></div>` : ''}
+      <div class="btns"><button class="btn acc" data-act="testdoor">${o.state.open > .5 ? 'Stäng' : 'Öppna'} (test)</button>${o.blind && o.blind !== 'none' ? `<button class="btn" data-dev="blind:${o.id}">${o.state.blind > .5 ? 'Gardin upp' : 'Gardin ner'}</button>` : ''}</div>` : ''}
     <div class="btns" style="margin-top:14px"><button class="btn danger" data-act="del">🗑 Ta bort</button></div>`;
 }
 function wallPanel(w) {
   return `<h2>🧱 Vägg</h2>
     <div class="g2">${field('Längd (cm)', 'len', wallLen(w))}${field('Tjocklek (cm)', 't', w.t)}${field('Höjd (cm)', 'h', w.h)}</div>
-    <label class="f">Färg</label>${swatches('color', w.color)}
+    ${(() => { const sd = wallSides(home(), w); return `
+    <h3>SIDA MOT ${esc((sd.P ? sd.P.name : 'utsidan').toUpperCase())}</h3>${opt('matP', w.matP || 'malad', Object.entries(WALLMATS).slice(0, 3))}${opt('matP', w.matP || 'malad', Object.entries(WALLMATS).slice(3))}${swatches('colorP', w.colorP || w.color)}
+    <h3>SIDA MOT ${esc((sd.N ? sd.N.name : 'utsidan').toUpperCase())}</h3>${opt('matN', w.matN || 'malad', Object.entries(WALLMATS).slice(0, 3))}${opt('matN', w.matN || 'malad', Object.entries(WALLMATS).slice(3))}${swatches('colorN', w.colorN || w.color)}`; })()}
+    <div class="btns" style="margin-bottom:10px"><button class="btn" data-act="sameboth">Samma färg på båda sidor</button></div>
     <p class="note">Dra väggen för att flytta den rakt ut/in – väggarna runt hörnen följer med så att hörnen håller. Dra en vit prick för att flytta bara den änden. Håll Alt för att flytta fritt.</p>
     <div class="btns"><button class="btn danger" data-act="del">🗑 Ta bort vägg</button></div>`;
 }
@@ -204,10 +215,13 @@ function roomPanel(r) {
   return `<h2>⬜ Rum</h2>
     ${field('Namn', 'name', r.name, 'text')}
     <label class="f">Typ</label>${opt('outdoor', r.outdoor ? '1' : '', [['', '🛋️ Inne'], ['1', '🌤️ Ute']])}<div style="height:8px"></div>
-    <label class="f">Golv</label>${opt('style', r.style || 'tra', Object.entries(FLOORS))}
-    <div style="height:8px"></div><label class="f">Golvfärg</label>${swatches('floor', r.floor)}
-    <label class="f">Väggfärg i hela rummet</label>${swatches('roomwalls', null)}
+    <h3>GOLV</h3>${opt('style', r.style || 'tra', Object.entries(FLOORS).slice(0, 3))}${opt('style', r.style || 'tra', Object.entries(FLOORS).slice(3))}
+    <label class="f" style="margin-top:8px">Riktning</label>${opt('floorRot', String(r.floorRot || 0), [['0', '↔ Längs'], ['90', '↕ Tvärs'], ['45', '⤢ Diagonalt']])}
+    <div style="height:8px"></div>${swatches('floor', r.floor)}
+    <h3>ALLA VÄGGAR I RUMMET</h3>${opt('roomwallmat', '', Object.entries(WALLMATS).slice(0, 3))}${opt('roomwallmat', '', Object.entries(WALLMATS).slice(3))}${swatches('roomwalls', null)}
+    ${r.outdoor ? '' : `<h3>TAK</h3>${swatches('ceilColor', r.ceilColor || '#f4f2ee')}`}
     <div class="note">${polyArea(r.pts).toFixed(1).replace('.', ',')} m²</div>
+    <p class="note">Ändra formen i 2D: dra de vita hörnen · dra ett <b>+</b> för nytt hörn · dubbelklicka ett hörn för att ta bort det${r.outdoor ? ' · dra ytan för att flytta den' : ''}.</p>
     <div class="btns"><button class="btn danger" data-act="del">🗑 Ta bort rum</button></div>`;
 }
 function bgPanel() {
@@ -226,14 +240,15 @@ function bgPanel() {
 function controlPanel() {
   const h = home();
   const lights = h.items.filter(i => ITEMS[i.type].dev === 'light'), media = h.items.filter(i => ['tv', 'speaker'].includes(ITEMS[i.type].dev));
-  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => o.kind === 'window' && o.blind !== 'none');
-  const on = lights.filter(i => i.state?.on).length, open = doors.filter(o => o.state.open > .5).length;
+  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => o.kind === 'window' && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window');
+  const on = lights.filter(i => i.state?.on).length, open = doors.filter(o => o.state.open > .5).length + wins.filter(o => o.state.open > .5).length;
   const src = x => x.entity ? (ha.ok && ha.state(x.entity) ? x.entity : x.entity + ' · ej ansluten') : 'Demo – ej kopplad';
   return `
     <div class="summary"><span>💡 ${on} av ${lights.length} tända</span><span>${open ? '🔴' : '🟢'} ${open} öppna</span><span>🪟 ${blinds.filter(o => o.state.blind > .5).length} nere</span></div>
     <div class="scenes"><button class="scene" data-scene="home"><b>🏠</b>Välkommen</button><button class="scene" data-scene="bio"><b>🎬</b>Bio</button><button class="scene" data-scene="morning"><b>☀️</b>Morgon</button><button class="scene" data-scene="off"><b>🌙</b>Allt av</button></div>
     <div class="card"><h3>💡 BELYSNING</h3>${lightGroups(h, lights, src) || '<div class="note">Inga lampor än – lägg till under Bygg.</div>'}</div>
     <div class="card"><h3>🚪 DÖRRAR & PORTAR</h3>${doors.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppen' : 'Stängd'}</span></div>`).join('') || '<div class="note">Inga dörrar.</div>'}</div>
+    ${wins.length ? `<div class="card"><h3>🪟 FÖNSTER</h3>${wins.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppet' : 'Stängt'}</span></div>`).join('')}</div>` : ''}
     ${blinds.length ? `<div class="card"><h3>🪟 GARDINER</h3>${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
       <input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}">`).join('')}</div>` : ''}
     ${media.length ? `<div class="card"><h3>🎵 MEDIA</h3>${media.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${ITEMS[i.type].icon} ${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="sw ${i.state?.on ? 'on' : ''}"></span></div>`).join('')}</div>` : ''}
@@ -271,6 +286,7 @@ right.addEventListener('click', e => {
   if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
   if (act === 'test') return onDevice({ type: 'item', id: obj.id }, true);
   if (act === 'testdoor') return onDevice({ type: 'opening', id: obj.id }, true);
+  if (act === 'sameboth') { commit(); obj.colorN = obj.colorP || obj.color; obj.matN = obj.matP; emit('full'); return; }
   if (act === 'swing') { commit(); obj.swing = -obj.swing; emit('full'); return; }
   if (act === 'bgnew') return $('#fileImg').click();
   if (act === 'calib') { plan.calibrate(); window.toast('Klicka på två punkter i bilden'); return; }
@@ -300,9 +316,8 @@ function setField(f, v) {
     h.items.forEach(it => { if (ITEMS[it.type].ceil) it.elev = v - it.h; }); return; }
   const o = selected(); if (!o) return;
   if (f === 'len') { const L = wallLen(o), ux = (o.b.x - o.a.x) / L, uy = (o.b.y - o.a.y) / L; o.b = { x: Math.round((o.a.x + ux * v) * 1000) / 1000, y: Math.round((o.a.y + uy * v) * 1000) / 1000 }; return; }
-  if (f === 'roomwalls') { h.walls.forEach(w => { if (o.pts.some((p, i) => { const q = o.pts[(i + 1) % o.pts.length];
-    const on = pt => Math.abs((q.x - p.x) * (pt.y - p.y) - (q.y - p.y) * (pt.x - p.x)) < .01 && pt.x >= Math.min(p.x, q.x) - .01 && pt.x <= Math.max(p.x, q.x) + .01 && pt.y >= Math.min(p.y, q.y) - .01 && pt.y <= Math.max(p.y, q.y) + .01;
-    return on(w.a) && on(w.b); })) w.color = v; }); return; }
+  if (f === 'roomwallmat') { for (const w of h.walls) { const sd = wallSides(h, w); if (sd.P === o) w.matP = v; if (sd.N === o) w.matN = v; } return; }
+  if (f === 'roomwalls') { for (const w of h.walls) { const sd = wallSides(h, w); if (sd.P === o) w.colorP = v; if (sd.N === o) w.colorN = v; } return; }
   if (f === 'h' && o.type && ITEMS[o.type].ceil) { o.elev = h.ceiling - v; }
   if (f === 'outdoor') { o.outdoor = !!v; return; }
   o[f] = v;
@@ -333,7 +348,7 @@ function doorSet(o, open) {
   if (linked(o.entity)) { const d = dom(o.entity);
     if (d === 'cover') ha.call('cover', open ? 'open_cover' : 'close_cover', { entity_id: o.entity });
     else if (d === 'lock') ha.call('lock', open ? 'unlock' : 'lock', { entity_id: o.entity });
-    else { window.toast('Dörren visar vad dörrbrytaren säger'); return; } }
+    else { window.toast(o.kind === 'window' ? 'Fönstret visar vad fönsterbrytaren säger' : 'Dörren visar vad dörrbrytaren säger'); return; } }
   o.state.open = open ? 1 : 0; emit('state');
 }
 function blindSet(o, v) {
@@ -347,10 +362,10 @@ function onDevice(p) {
     else { const r = roomAt(h, it); if (r) roomLights(r); }
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'opening') { const o = h.openings.find(i => i.id === p.id); if (!o) return;
-    if (o.kind === 'window') { if (o.blind !== 'none') blindSet(o, o.state.blind > .5 ? 0 : 1); else window.toast('Fönstret har ingen gardin'); }
+    if (o.kind === 'window') doorSet(o, o.state.open < .5);
     else if (o.kind !== 'hole') doorSet(o, o.state.open < .5);
     if (S.mode === 'bygg') renderRight(); return; }
-  if (p.type === 'blind') { const o = h.openings.find(i => i.id === p.id); blindSet(o, o.state.blind > .5 ? 0 : 1); return; }
+  if (p.type === 'blind') { const o = h.openings.find(i => i.id === p.id); blindSet(o, o.state.blind > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'room') { const r = h.rooms.find(i => i.id === p.id); if (r) roomLights(r); }
 }
 function roomLights(r) {
@@ -439,6 +454,7 @@ async function autoPlan() {
       hinge: 'L', swing: 1, blind: 'none', blindColor: '#ece6da', entity: '', blindEntity: '', name: '', state: { open: 0, blind: 0 } });
   }
   const rooms = [...r.rooms].sort((a, b) => b.area - a.area);
+  splitWalls(h);
   rooms.forEach((rm, i) => h.rooms.push({ id: uid(), name: 'Rum ' + (i + 1), pts: rm.pts.map(P), floor: '#b8915f', style: 'tra' }));
   (r.outdoor || []).forEach((o, i) => h.rooms.push({ id: uid(), name: i ? 'Uteplats ' + (i + 1) : 'Uteplats', pts: o.pts.map(P), floor: '#8a6440', style: 'tra', outdoor: true }));
   h.bg.x = -ox * s; h.bg.y = -oy * s; h.bg.mpp = r.kd * s; h.bg.opacity = .35;

@@ -35,7 +35,33 @@ export function load() {
 }
 
 // äldre sparade hem: fönsterdörrar var fönster förut
-export function migrate(homes) { for (const h of homes) for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } }
+export function migrate(homes) { for (const h of homes) splitWalls(h); for (const h of homes) for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } }
+
+// Delar väggar där en annan vägg möter mitt på (T-korsning), så att varje bit gränsar mot ett rum per sida.
+export function splitWalls(h) {
+  for (let changed = true; changed;) { changed = false;
+    for (const w of [...h.walls]) {
+      const L = wallLen(w); if (L < .1) continue;
+      const cuts = [];
+      for (const o of h.walls) { if (o === w) continue; for (const q of [o.a, o.b]) { const pr = proj(q, w.a, w.b);
+        if (Math.abs(pr.d) < .02 && pr.t > .05 && pr.t < L - .05 && !cuts.some(c => Math.abs(c - pr.t) < .02)) cuts.push(pr.t); } }
+      if (!cuts.length) continue;
+      cuts.sort((a, b) => a - b); const ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L, at = t => ({ x: r3(w.a.x + ux * t), y: r3(w.a.y + uy * t) });
+      const marks = [0, ...cuts, L], ops = h.openings.filter(o => o.wall === w.id);
+      h.walls = h.walls.filter(x => x !== w);
+      for (let i = 0; i < marks.length - 1; i++) { const s = marks[i], e = marks[i + 1];
+        const nw = { ...w, id: i ? uid() : w.id, a: i ? at(s) : w.a, b: i === marks.length - 2 ? w.b : at(e) }; h.walls.push(nw);
+        for (const o of ops) if (o.t >= s && o.t < e) { o.wall = nw.id; o.t = r3(o.t - s); } }
+      changed = true; break;
+    }
+  }
+  return h;
+}
+// Vilket rum ligger på varje sida av väggen? (+ = vänster om a→b i ritningen)
+export function wallSides(h, w) {
+  const L = wallLen(w) || 1, nx = -(w.b.y - w.a.y) / L, ny = (w.b.x - w.a.x) / L, m = { x: (w.a.x + w.b.x) / 2, y: (w.a.y + w.b.y) / 2 }, off = w.t / 2 + .3;
+  return { P: roomAt(h, { x: m.x + nx * off, y: m.y + ny * off }), N: roomAt(h, { x: m.x - nx * off, y: m.y - ny * off }) };
+}
 
 // ---------- ångra ----------
 const undoStack = [], redoStack = [];
@@ -158,9 +184,9 @@ function blank(name, type) { return { id: uid(), name, type, ceiling: 2.5, walls
 function op(h, key, x, y, extra) { const f = findWall(h, { x, y }, 0.2); if (f) makeOpening(h, key, f.wall, f.t, extra); }
 
 export function template(kind) {
-  if (kind === 'villa') return villa();
-  if (kind === 'lagenhet') return apartment();
-  if (kind === 'stuga') return cabin();
+  if (kind === 'villa') return splitWalls(villa());
+  if (kind === 'lagenhet') return splitWalls(apartment());
+  if (kind === 'stuga') return splitWalls(cabin());
   return blank('Mitt nya hem', kind === 'tom-lagenhet' ? 'lagenhet' : 'hus');
 }
 
