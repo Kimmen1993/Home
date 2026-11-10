@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen } from './store.js?v=1794344577';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794344577';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen } from './store.js?v=1794344719';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794344719';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -191,9 +191,10 @@ export function createPlan(canvas, ui) {
       const seg = (s0, s1, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let k = 0; k <= 8; k++) { const a = ts(trackAt(pts, s0 + (s1 - s0) * k / 8)); k ? ctx.lineTo(a.x, a.y) : ctx.moveTo(a.x, a.y); } ctx.stroke(); };
       seg(p.s - p.w / 2, p.s + p.w / 2, sel2 ? 'rgba(255,122,47,.45)' : 'rgba(255,255,255,.18)', 10);
       const part = (n === 1 ? .2 + .8 * pos : .12 + .38 * pos) * p.w;
-      if (p.cstyle === 'mitten') { seg(p.s - part, p.s + part, hexA(p.color || '#d8cfc0', .95), 7); continue; }
-      if (p.cstyle !== 'hoger') seg(p.s - p.w / 2, p.s - p.w / 2 + part, hexA(p.color || '#d8cfc0', .95), 7);
-      if (p.cstyle !== 'vanster') seg(p.s + p.w / 2 - part, p.s + p.w / 2, hexA(p.color || '#d8cfc0', .95), 7); }
+      const oL = p.offL || 0, oR = p.offR || 0, col = hexA(p.color || '#d8cfc0', .95);
+      if (p.cstyle === 'mitten') { seg(p.s - oL - part, p.s - oL, col, 7); seg(p.s + oR, p.s + oR + part, col, 7); continue; }
+      if (p.cstyle !== 'hoger') seg(p.s - p.w / 2 - oL, p.s - p.w / 2 - oL + part, col, 7);
+      if (p.cstyle !== 'vanster') seg(p.s + p.w / 2 + oR - part, p.s + p.w / 2 + oR, col, 7); }
     ctx.lineCap = 'butt';
   }
   function drawItem(it, sel, alpha = 1) {
@@ -283,6 +284,8 @@ export function createPlan(canvas, ui) {
     if (rect) { rect.b = snap(p); draw(); return; }
     if (drag?.rot) { const it = drag.rot, a = Math.atan2(p.x - it.x, -(p.y - it.y)) * 180 / Math.PI, stp = free ? 1 : 15;
       it.rot = ((Math.round(a / stp) * stp) % 360 + 360) % 360; emit('item', it.id); ui.rotated?.(it); return; }
+    if (drag?.panel && drag.panel.p.split && drag.panel.p.cstyle !== 'vanster' && drag.panel.p.cstyle !== 'hoger') { const d = drag.panel, sp = trackProj(d.it.pts, p).s; let off = d.off0 + (sp - d.s0) * d.sx; off = free ? off : Math.round(off / .01) * .01;
+      d.p[d.sx < 0 ? 'offL' : 'offR'] = Math.round(off * 1000) / 1000; drag.moved = true; emit('full', 'drag'); return; }
     if (drag?.panel) { const { it, p: pn, ds } = drag.panel, L = trackLen(it.pts); let s = trackProj(it.pts, p).s - ds;
       s = Math.max(pn.w / 2, Math.min(L - pn.w / 2, s)); if (!free) s = Math.round(s / .05) * .05;
       if (pn.window && Math.abs(s - panelS(h, it, pn)) > .03) { pn.window = null; window.toast?.('🧵 Gardinen är lossad från fönstret – placera den fritt'); }
@@ -342,7 +345,8 @@ export function createPlan(canvas, ui) {
   function hitPanel(p) {
     const h = home();
     for (const it of h.items) { if (it.type !== 'skena' || (it.pts || []).length < 2) continue; const pr = trackProj(it.pts, p); if (pr.d > Math.max(.15, 10 / scale)) continue;
-      for (const pn of it.panels || []) { const s = panelS(h, it, pn); if (Math.abs(pr.s - s) < pn.w / 2) return { it, p: pn, ds: pr.s - s }; } }
+      for (const pn of it.panels || []) { const s = panelS(h, it, pn), lo = s - pn.w / 2 - (pn.offL || 0), hi = s + pn.w / 2 + (pn.offR || 0);
+        if (pr.s > lo && pr.s < hi) { const sx = pr.s < s ? -1 : 1; return { it, p: pn, ds: pr.s - s, sx, s0: pr.s, off0: sx < 0 ? (pn.offL || 0) : (pn.offR || 0) }; } } }
     return null;
   }
   function hitRotHandle(p) {

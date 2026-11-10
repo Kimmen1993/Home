@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794344577';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794344577';
-import { createPlan } from './plan2d.js?v=1794344577';
-import { createView } from './view3d.js?v=1794344577';
-import { createHA } from './ha.js?v=1794344577';
-import { detectPlan } from './autoplan.js?v=1794344577';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794344719';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794344719';
+import { createPlan } from './plan2d.js?v=1794344719';
+import { createView } from './view3d.js?v=1794344719';
+import { createHA } from './ha.js?v=1794344719';
+import { detectPlan } from './autoplan.js?v=1794344719';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -233,6 +233,8 @@ function panelEditor(p, wins, h) {
     <label class="f">Hör till fönster<select data-pf="window"><option value="">– inget –</option>${wins.map(({ o }) => `<option value="${o.id}" ${o.id === p.window ? 'selected' : ''}>${esc(nameOf(h, o))} (${Math.round(o.w * 100)} cm)</option>`).join('')}</select></label>
     ${p.window ? `<label class="f">Placering vid fönstret</label>${popt('anchor', p.anchor || 'center', [['left', '◧ Vänster om'], ['center', '▣ Mitt för'], ['right', 'Höger om ◨']])}<div style="height:6px"></div>` : '<p class="note">Fri placering – dra gardinen längs skenan i 2D-ritningen.</p>'}
     <div class="g2"><label class="f">Bredd (cm)<input data-pf="w" data-u="cm" value="${Math.round(p.w * 100)}"></label>${p.window ? '' : `<label class="f">Läge längs skenan (cm)<input data-pf="s" data-u="cm" value="${Math.round(p.s * 100)}"></label>`}</div>
+    ${p.cstyle === 'dubbel' || p.cstyle === 'mitten' || !p.cstyle ? `<label class="f">Paret</label>${popt('split', p.split ? '1' : '', [['', '🔗 Ihop'], ['1', '✂️ Frikopplade']])}
+      ${p.split ? `<div class="g2" style="margin-top:6px"><label class="f">Vänster längd: flytta ut (cm)<input data-pf="offL" data-u="cm" value="${Math.round((p.offL || 0) * 100)}"></label><label class="f">Höger längd: flytta ut (cm)<input data-pf="offR" data-u="cm" value="${Math.round((p.offR || 0) * 100)}"></label></div><p class="note">Dra en längd i 2D för att flytta bara den. Minus = närmare mitten.</p>` : ''}<div style="height:6px"></div>` : ''}
     <label class="f">Längder</label>${popt('cstyle', p.cstyle, [['dubbel', '▌▐ Två'], ['mitten', '◫ Mot mitten'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
     <label class="f" style="margin-top:6px">Tyg</label>${popt('fabric', p.fabric, [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
     <label class="f" style="margin-top:6px">Mönster</label>${popt('pattern', p.pattern, [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
@@ -340,7 +342,7 @@ right.addEventListener('click', e => {
   const grp = e.target.closest('[data-group]'); if (grp) { const k = grp.dataset.group; openRooms.has(k) ? openRooms.delete(k) : openRooms.add(k); renderRight(); return; }
   const ps = e.target.closest('[data-psel]'); if (ps) { S.panelSel = S.panelSel === ps.dataset.psel ? null : ps.dataset.psel; renderRight(); plan.draw(); return; }
   const pc = e.target.closest('[data-pcolor],[data-popt]'); if (pc) { const it = selected(), p = it?.panels?.find(x => x.id === S.panelSel); if (!p) return; commit();
-    if (pc.dataset.pcolor) p.color = pc.dataset.pcolor; else p[pc.dataset.popt] = pc.dataset.v; emit('full'); return; }
+    if (pc.dataset.pcolor) p.color = pc.dataset.pcolor; else if (pc.dataset.popt === 'split') { p.split = !!pc.dataset.v; if (!p.split) { p.offL = 0; p.offR = 0; } } else p[pc.dataset.popt] = pc.dataset.v; emit('full'); return; }
   const q = e.target.closest('[data-q3]'); if (q) { const [key, v] = q.dataset.q3.split('|'), [type, id, pid] = key.split(':'), hh = home(), it = hh.items.find(i => i.id === id);
     if (type === 'panel') { const pn = it?.panels?.find(x => x.id === pid); if (pn) panelSet(it, pn, +v); } else if (it) curtainSet(it, +v); return; }
   const t = e.target.closest('button,[data-dev]'); if (!t) return;
