@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">
+<canvas id="c"></canvas><pre id="o"></pre>
+<script type="module">
+import { detectPlan } from '../js/autoplan.js';
+const img = new Image(); img.src = new URLSearchParams(location.search).get('img') || 'plan1.png'; await img.decode();
+const t0 = performance.now(); const r = detectPlan(img); const ms = performance.now() - t0;
+const c = document.getElementById('c'); c.width = r.W; c.height = r.H; const g = c.getContext('2d');
+g.globalAlpha = .35; g.drawImage(img, 0, 0, r.W, r.H); g.globalAlpha = 1;
+const cols = ['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#008080','#9a6324'];
+r.rooms.forEach((rm, i) => { g.fillStyle = cols[i % 10] + '44'; g.beginPath(); rm.pts.forEach((p, j) => j ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.fill(); });
+g.lineWidth = 3; g.strokeStyle = '#d00'; r.walls.forEach(w => { g.beginPath(); g.moveTo(w.a.x, w.a.y); g.lineTo(w.b.x, w.b.y); g.stroke(); });
+r.walls.forEach(w => { g.fillStyle = '#000'; for (const p of [w.a, w.b]) g.fillRect(p.x - 3, p.y - 3, 6, 6); });
+g.lineWidth = 6; r.gaps.forEach(gp => { g.strokeStyle = gp.window ? '#08f' : gp.exterior ? '#f80' : '#0a0'; g.beginPath(); g.moveTo(gp.a.x, gp.a.y); g.lineTo(gp.b.x, gp.b.y); g.stroke(); });
+document.getElementById('o').textContent = JSON.stringify({ ms: Math.round(ms), walls: r.walls.length, gaps: r.gaps.map(g=>[Math.round(g.a.x),Math.round(g.a.y),+g.runs.toFixed(1),g.exterior?'E':'I']), rooms: r.rooms.map(x => x.area), r: r.r, t: r.walls.map(w => +w.t.toFixed(1)) });
+if (location.hash === '#sk') { const im = g.getImageData(0,0,r.W,r.H); for (let i=0;i<r.W*r.H;i++){ if(r.dbg.wall[i]){im.data[i*4+1]=200;} if(r.dbg.sk[i]){im.data[i*4]=0;im.data[i*4+1]=0;im.data[i*4+2]=255;} } g.putImageData(im,0,0);
+  g.lineWidth=1; r.dbg.chains.forEach(ch=>{g.strokeStyle='#f0f'; g.beginPath(); g.moveTo(ch.a.x,ch.a.y); g.lineTo(ch.b.x,ch.b.y); g.stroke();}); }
+window.done = true;
+</script>
