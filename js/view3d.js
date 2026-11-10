@@ -303,7 +303,7 @@ export function createView(host, api) {
     applyStates(true); setLighting(); highlight();
   }
   let bounds = { cx: 6, cy: 5, size: 12 };
-  function fitCam() { const { cx, cy, size } = bounds; controls.target.set(cx, 0, cy); cam.position.set(cx + size * .75, size * .95, cy + size * 1.05); controls.update(); }
+  function fitCam() { const { cx, cy, size } = bounds; controls.target.set(cx, 0, cy); const s = Math.max(size, 10); cam.position.set(cx + s * .9, s * 1.15, cy + s * 1.3); controls.update(); }
 
   function setLighting() {
     const day = S.day;
