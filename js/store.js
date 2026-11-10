@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794340960';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794341112';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -48,7 +48,8 @@ export function addLevel(raw, kind) {
 let lastSaved = '';
 export function save() {
   const data = JSON.stringify({ homes: S.homes, cur: S.cur, ha: S.ha });
-  try { localStorage.setItem(KEY, data); lastSaved = data; }
+  try { const now = localStorage.getItem(KEY); if (lastSaved && now && now !== lastSaved && now !== data) window.toast?.('⚠️ Hemma är öppet i en annan flik som sparar över – stäng de andra flikarna');
+    localStorage.setItem(KEY, data); lastSaved = data; }
   catch (e) { // för stort – spara utan planritningsbilderna hellre än inte alls
     try { const slim = JSON.parse(data); slim.homes.forEach(h => (h.levels || []).forEach(L => { if (L.bg) L.bg = null; }));
       localStorage.setItem(KEY, JSON.stringify(slim)); window.toast?.('Sparat – men planritningsbilden var för stor för att sparas'); }
@@ -60,9 +61,10 @@ export function syncFromStorage(json) {
   try { const d = JSON.parse(json); if (!d.homes?.length) return false; S.homes = d.homes; migrate(S.homes); if (!S.homes.some(h => h.id === S.cur)) S.cur = S.homes[0].id; lastSaved = json; return true; } catch (e) { return false; }
 }
 export const STORAGE_KEY = KEY;
+export function flushSave() { clearTimeout(saveT); save(); }
 export function load() {
   try {
-    const d = JSON.parse(localStorage.getItem(KEY) || 'null');
+    const txt = localStorage.getItem(KEY); lastSaved = txt || ''; const d = JSON.parse(txt || 'null');
     if (d && d.homes && d.homes.length) {
       S.homes = d.homes; migrate(S.homes); S.cur = d.homes.some(h => h.id === d.cur) ? d.cur : d.homes[0].id; S.ha = d.ha || S.ha; return;
     }
@@ -71,7 +73,7 @@ export function load() {
 }
 
 // äldre sparade hem: fönsterdörrar var fönster förut
-export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); for (const L of raw.levels) { const h = levelView(raw, L); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
+export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); if (raw.autoRooms === false && !raw.manualChosen) { raw.autoRooms = true; raw.levels.forEach(L => L.rooms.forEach(r => { if (!r.outdoor) r.custom = true; })); } for (const L of raw.levels) { const h = levelView(raw, L); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
 
 // Delar väggar där en annan vägg möter mitt på (T-korsning), så att varje bit gränsar mot ett rum per sida.
 export function splitWalls(h) {
@@ -110,6 +112,15 @@ function offsetPoly(pts, d) {
   return out;
 }
 const norm = (x, y) => { const L = Math.hypot(x, y) || 1; return { x: x / L, y: y / L }; };
+// En vägg/gräns har ändrats här: rum som den går genom eller längs ska räknas om på nytt (även handformade)
+export function touchRooms(h, segs) {
+  for (const r of h.rooms) { if (!r.custom) continue;
+    for (const [a, b] of segs) { const L = Math.hypot(b.x - a.x, b.y - a.y), n = Math.max(2, Math.ceil(L / .1)); let hit = false;
+      for (let i = 0; i <= n && !hit; i++) { const p = { x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n };
+        if (inPoly(p, r.pts)) hit = true;
+        else for (let k = 0; k < r.pts.length && !hit; k++) { const q1 = r.pts[k], q2 = r.pts[(k + 1) % r.pts.length], pr = proj(p, q1, q2); if (pr.t >= 0 && pr.t <= pr.L && Math.abs(pr.d) < .35) hit = true; } }
+      if (hit) { r.custom = false; break; } } }
+}
 // Räkna om rummen utifrån väggarna. Gamla rum behåller namn/golv/färg genom att matcha på överlapp.
 export function rebuildRooms(h) {
   if (h.autoRooms === false || !h.walls.length) return;
@@ -158,7 +169,7 @@ export function rebuildRooms(h) {
   const match = new Map();
   for (const s of scored) { if (match.has(s.nr) || used.has(s.o)) continue; match.set(s.nr, s.o); used.add(s.o); }
   let n = old.length;
-  const rooms = newRooms.map(nr => { const o = match.get(nr); if (o) return { ...o, pts: nr.poly };
+  const rooms = newRooms.map(nr => { const o = match.get(nr); if (o) return o.custom ? { ...o } : { ...o, pts: nr.poly };
     const near = scored.find(s => s.nr === nr)?.o; return { ...(near || { floor: '#b8915f', style: 'tra' }), id: uid(), name: 'Rum ' + (++n), pts: nr.poly }; });
   h.rooms = [...rooms, ...h.rooms.filter(r => r.outdoor)];
 }

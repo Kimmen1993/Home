@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794340960';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794340960';
-import { createPlan } from './plan2d.js?v=1794340960';
-import { createView } from './view3d.js?v=1794340960';
-import { createHA } from './ha.js?v=1794340960';
-import { detectPlan } from './autoplan.js?v=1794340960';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341112';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341112';
+import { createPlan } from './plan2d.js?v=1794341112';
+import { createView } from './view3d.js?v=1794341112';
+import { createHA } from './ha.js?v=1794341112';
+import { detectPlan } from './autoplan.js?v=1794341112';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -319,7 +319,7 @@ right.addEventListener('change', e => {
   if (t.dataset.u === 'deg') { v = ((parseFloat(String(v).replace(',', '.')) % 360) + 360) % 360; if (!isFinite(v)) { renderRight(); return; } }
   if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v >= 0) && !(t.dataset.f === 'level.z' && isFinite(v))) { renderRight(); return; } }
   if (t.dataset.f === 'depth' && !t.value.trim()) { delete selected().depth; emit('full'); return; }
-  setField(t.dataset.f, v); if (S.sel?.type === 'wall' && ['len', 't'].includes(t.dataset.f)) rebuildRooms(home()); emit('full', t.dataset.u === 'color' ? 'panel' : undefined);
+  setField(t.dataset.f, v); if (S.sel?.type === 'wall' && ['len', 't'].includes(t.dataset.f)) { const w = selected(); touchRooms(home(), [[w.a, w.b]]); rebuildRooms(home()); } emit('full', t.dataset.u === 'color' ? 'panel' : undefined);
 });
 right.addEventListener('input', e => {
   const t = e.target, h = home();
@@ -336,7 +336,7 @@ function setField(f, v) {
   if (f === 'home.type') { h.type = v; return; }
   if (f === 'level.name') { h.__level.name = v || h.__level.name; renderLevels(); return; }
   if (f === 'level.z') { h.__level.z = v; h.__raw.levels.sort((a, b) => a.z - b.z); renderLevels(); return; }
-  if (f === 'home.autoRooms') { h.autoRooms = v === 'ja'; if (h.autoRooms) rebuildRooms(h); return; }
+  if (f === 'home.autoRooms') { h.autoRooms = v === 'ja'; h.manualChosen = v !== 'ja'; if (h.autoRooms) rebuildRooms(h); return; }
   if (f === 'home.ceiling') { const old = h.ceiling; h.ceiling = v; h.walls.forEach(w => { if (Math.abs(w.h - old) < .01) w.h = v; });
     h.items.forEach(it => { if (ITEMS[it.type].ceil) it.elev = v - it.h; }); return; }
   const o = selected(); if (!o) return;
@@ -352,13 +352,13 @@ function setField(f, v) {
 function deletePoint() {
   const h = home(), r = h.rooms.find(x => x.id === S.selPt?.room); if (!r) return;
   if (r.pts.length <= 3) return window.toast('Ett rum behöver minst 3 hörn');
-  commit(); if (!r.outdoor && h.autoRooms !== false) { h.autoRooms = false; window.toast('✋ Rummen styrs nu manuellt – dina hörn ligger kvar'); } r.pts.splice(S.selPt.i, 1); S.selPt = null; emit('full');
+  commit(); if (!r.outdoor) r.custom = true; r.pts.splice(S.selPt.i, 1); S.selPt = null; emit('full');
 }
 function deleteSel() {
   const h = home(), s = S.sel; if (!s) return; commit();
   if (s.type === 'item') h.items = h.items.filter(i => i.id !== s.id);
   if (s.type === 'opening') h.openings = h.openings.filter(i => i.id !== s.id);
-  if (s.type === 'wall') { h.walls = h.walls.filter(i => i.id !== s.id); h.openings = h.openings.filter(o => o.wall !== s.id); rebuildRooms(h); }
+  if (s.type === 'wall') { const w = h.walls.find(i => i.id === s.id); if (w) touchRooms(h, [[w.a, w.b]]); h.walls = h.walls.filter(i => i.id !== s.id); h.openings = h.openings.filter(o => o.wall !== s.id); rebuildRooms(h); }
   if (s.type === 'room') h.rooms = h.rooms.filter(i => i.id !== s.id);
   S.sel = null; emit('full');
 }
@@ -579,4 +579,6 @@ window.addEventListener('resize', () => plan.resize());
 new ResizeObserver(() => plan.resize()).observe($('#pane2d'));
 if (S.ha.url && S.ha.token) ha.connect(S.ha.url, S.ha.token);
 window.__hemma = { S, home, emit, plan };
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
 window.addEventListener('storage', e => { if (e.key === STORAGE_KEY && syncFromStorage(e.newValue)) { S.sel = null; renderAll(); emit('full'); window.toast('🔄 Uppdaterat från en annan flik'); } });
