@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen } from './store.js?v=1794344719';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794344719';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794345349';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794345349';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -187,14 +187,10 @@ export function createPlan(canvas, ui) {
     const pts = it.pts || []; if (pts.length < 1) return;
     ctx.strokeStyle = sel ? '#ff7a2f' : '#ffc061'; ctx.lineWidth = sel ? 4 : 3; ctx.lineCap = 'round'; ctx.beginPath();
     pts.forEach((p, i) => { const s1 = ts(p); i ? ctx.lineTo(s1.x, s1.y) : ctx.moveTo(s1.x, s1.y); }); ctx.stroke();
-    for (const p0 of it.panels || []) { const p = { ...p0, s: panelS(home(), it, p0) }, sel2 = S.panelSel === p.id, n = p.cstyle === 'vanster' || p.cstyle === 'hoger' ? 1 : 2, pos = p.pos || 0;
-      const seg = (s0, s1, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let k = 0; k <= 8; k++) { const a = ts(trackAt(pts, s0 + (s1 - s0) * k / 8)); k ? ctx.lineTo(a.x, a.y) : ctx.moveTo(a.x, a.y); } ctx.stroke(); };
-      seg(p.s - p.w / 2, p.s + p.w / 2, sel2 ? 'rgba(255,122,47,.45)' : 'rgba(255,255,255,.18)', 10);
-      const part = (n === 1 ? .2 + .8 * pos : .12 + .38 * pos) * p.w;
-      const oL = p.offL || 0, oR = p.offR || 0, col = hexA(p.color || '#d8cfc0', .95);
-      if (p.cstyle === 'mitten') { seg(p.s - oL - part, p.s - oL, col, 7); seg(p.s + oR, p.s + oR + part, col, 7); continue; }
-      if (p.cstyle !== 'hoger') seg(p.s - p.w / 2 - oL, p.s - p.w / 2 - oL + part, col, 7);
-      if (p.cstyle !== 'vanster') seg(p.s + p.w / 2 + oR - part, p.s + p.w / 2 + oR, col, 7); }
+    for (const p of it.panels || []) { const sel2 = S.panelSel === p.id, pos = p.pos || 0, parts = curtainParts(home(), it, p), col = hexA(p.color || '#d8cfc0', .95);
+      const seg = (s0, s1, c2, lw) => { ctx.strokeStyle = c2; ctx.lineWidth = lw; ctx.beginPath(); for (let k = 0; k <= 8; k++) { const a = ts(trackAt(pts, s0 + (s1 - s0) * k / 8)); k ? ctx.lineTo(a.x, a.y) : ctx.moveTo(a.x, a.y); } ctx.stroke(); };
+      for (const q of parts) seg(q.anchor, q.anchor + q.dir * q.closed, sel2 ? 'rgba(255,122,47,.45)' : 'rgba(255,255,255,.18)', 10);
+      for (const q of parts) seg(q.anchor, q.anchor + q.dir * (q.open + (q.closed - q.open) * pos), col, 7); }
     ctx.lineCap = 'butt';
   }
   function drawItem(it, sel, alpha = 1) {
@@ -345,7 +341,7 @@ export function createPlan(canvas, ui) {
   function hitPanel(p) {
     const h = home();
     for (const it of h.items) { if (it.type !== 'skena' || (it.pts || []).length < 2) continue; const pr = trackProj(it.pts, p); if (pr.d > Math.max(.15, 10 / scale)) continue;
-      for (const pn of it.panels || []) { const s = panelS(h, it, pn), lo = s - pn.w / 2 - (pn.offL || 0), hi = s + pn.w / 2 + (pn.offR || 0);
+      for (const pn of it.panels || []) { const s = panelS(h, it, pn), ends = curtainParts(h, it, pn).flatMap(q => [q.anchor, q.anchor + q.dir * q.closed]), lo = Math.min(...ends), hi = Math.max(...ends);
         if (pr.s > lo && pr.s < hi) { const sx = pr.s < s ? -1 : 1; return { it, p: pn, ds: pr.s - s, sx, s0: pr.s, off0: sx < 0 ? (pn.offL || 0) : (pn.offR || 0) }; } } }
     return null;
   }

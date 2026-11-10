@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS } from './store.js?v=1794344719';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794344719';
-import { insideSign } from './plan2d.js?v=1794344719';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794345349';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794345349';
+import { insideSign } from './plan2d.js?v=1794345349';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -91,26 +91,24 @@ export function createView(host, api) {
     return { panels, sides: sides.length };
   }
   // Gardin på skena: tyget följer skenans form (även runt hörn). Varje längd är förankrad i sin ytterkant.
-  function trackFabric(g, pts, L, o, S0, ph) {
+  function trackFabric(g, pts, L, o, cparts, ph) {
     const c = o.color || '#d8cfc0', fabric = o.fabric || 'tjock', pat = o.pattern || 'enfargad', folds = o.folds || 'veck';
     const tex = pat === 'enfargad' ? null : curtainTex(pat, c);
     const fm = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : new THREE.Color(fabric === 'mork' ? shade(c, .8) : c), map: tex, roughness: 1, side: THREE.DoubleSide,
       transparent: fabric === 'tunn', opacity: fabric === 'tunn' ? .5 : 1 });
-    const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, perM = folds === 'wave' ? 4 : 7;   // veck per meter tyg
-    const sides = o.cstyle === 'vanster' ? [-1] : o.cstyle === 'hoger' ? [1] : [-1, 1], meshes = [], parts = [];
-    for (const sx of sides) {
+    const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, perM = folds === 'wave' ? 4 : 7, meshes = [], parts = [];
+    for (const cp of cparts) {
       const geo = new THREE.PlaneGeometry(1, ph, 60, 1), base = Array.from({ length: geo.attributes.position.count }, (_, i) => geo.attributes.position.getX(i) + .5);
       const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; g.add(m); meshes.push(m);
-      if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * o.w * (sides.length === 1 ? 1 : .5) * 3, uv.getY(i) * ph * 3); }
-      const mid = o.cstyle === 'mitten', off = sx < 0 ? (o.offL || 0) : (o.offR || 0); parts.push({ geo, base, sx: mid ? -sx : sx, anchor: Math.max(0, Math.min(L, (mid ? S0 : S0 + sx * o.w / 2) + sx * off)) });
+      if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * cp.closed * 3, uv.getY(i) * ph * 3); }
+      parts.push({ geo, base, ...cp, nf: perM * cp.closed });
     }
-    return { meshes, parts, pts, L, w: o.w, single: sides.length === 1, amp, nf: perM * o.w / sides.length };
+    return { meshes, parts, pts, L, amp };
   }
   function updateTrackFabric(tr) {
-    const full = tr.single ? 1 : .5, min = tr.single ? .2 : .12, width = (min + (full - min) * tr.cur) * tr.w;
-    for (const pt of tr.parts) { const pos = pt.geo.attributes.position;
-      for (let i = 0; i < pos.count; i++) { const u = pt.base[i], s = Math.max(0, Math.min(tr.L, pt.anchor - pt.sx * u * width)), at = trackAt(tr.pts, s);
-        const off = Math.sin(u * tr.nf * Math.PI * 2) * tr.amp * (1.6 - .6 * tr.cur); pos.setX(i, at.x - at.uy * off); pos.setZ(i, at.y + at.ux * off); }
+    for (const pt of tr.parts) { const pos = pt.geo.attributes.position, len = pt.open + (pt.closed - pt.open) * tr.cur;
+      for (let i = 0; i < pos.count; i++) { const u = pt.base[i], s = Math.max(0, Math.min(tr.L, pt.anchor + pt.dir * u * len)), at = trackAt(tr.pts, s);
+        const off = Math.sin(u * pt.nf * Math.PI * 2) * tr.amp * (1.6 - .6 * tr.cur); pos.setX(i, at.x - at.uy * off); pos.setZ(i, at.y + at.ux * off); }
       pos.needsUpdate = true; pt.geo.computeVertexNormals(); pt.geo.computeBoundingSphere(); }
   }
   function curtainTex(pat, color) { const k = 'C' + pat + color; if (texCache.has(k)) return texCache.get(k);
@@ -277,7 +275,7 @@ export function createView(host, api) {
         for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b.x - a.x, b.y - a.y); const m = B(g, L + .03, .03, .06, tc, (a.x + b.x) / 2, hh - .015, (a.y + b.y) / 2); m.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x); }
         ref.tracks = [];
         const L = pts.slice(1).reduce((a, b, i) => a + Math.hypot(b.x - pts[i].x, b.y - pts[i].y), 0);
-        for (const p of it.panels || []) { const S0 = curH ? panelS(curH, it, p) : p.s, tr = trackFabric(g, pts, L, p, S0, hh - .06);
+        for (const p of it.panels || []) { const tr = trackFabric(g, pts, L, p, curH ? curtainParts(curH, it, p).map(q => ({ ...q, anchor: q.anchor })) : [], hh - .06);
           tr.meshes.forEach(m => m.userData.pick = { type: 'panel', id: it.id, pid: p.id }); tr.pid = p.id; tr.cur = tr.target = p.pos || 0; updateTrackFabric(tr); ref.tracks.push(tr); }
         break; }
       case 'element': { const n = Math.max(4, Math.round(w / .05));

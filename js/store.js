@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794344719';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794345349';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -198,6 +198,20 @@ export function panelS(h, it, p) {
   // vänster/höger sett inifrån rummet mot fönstret = mot/med skenans riktning beroende på sida
   const at = trackAt(it.pts, pr.s), vx = c.x - at.x, vy = c.y - at.y, lsign = Math.sign(vy * at.ux - vx * at.uy) || 1, off = o.w / 2 + p.w / 2 - .08;
   return pr.s + (p.anchor === 'left' ? off * lsign : p.anchor === 'right' ? -off * lsign : 0);
+}
+// Gardinens längder: var de sitter fast (anchor), åt vilket håll de dras (dir) och hur långa de är ifrån/fördragna.
+// Fördragna når de alltid fram: ett par möts mitt för fönstret, en ensam längd täcker fönstret (eller möter sin partner).
+export function curtainParts(h, it, p) {
+  const S0 = panelS(h, it, p), w = p.w, oL = p.offL || 0, oR = p.offR || 0, L = trackLen(it.pts), ov = .03;
+  const o = p.window && h.openings.find(x => x.id === p.window), winS = o ? panelS(h, it, { ...p, anchor: 'center' }) : null, cs = p.cstyle || 'dubbel', out = [];
+  if (cs === 'mitten') { out.push({ anchor: S0 - oL, dir: -1, open: .12 * w, closed: w / 2 + ov }, { anchor: S0 + oR, dir: 1, open: .12 * w, closed: w / 2 + ov }); }
+  else if (cs === 'dubbel') { const aL = S0 - w / 2 - oL, aR = S0 + w / 2 + oR, meet = winS ?? S0;
+    out.push({ anchor: aL, dir: 1, open: .12 * w, closed: Math.max(.1, meet - aL + ov) }, { anchor: aR, dir: -1, open: .12 * w, closed: Math.max(.1, aR - meet + ov) }); }
+  else { const left = cs === 'vanster', a = left ? S0 - w / 2 - oL : S0 + w / 2 + oR, dir = left ? 1 : -1;
+    const partner = o && (it.panels || []).some(q => q !== p && q.window === p.window && q.cstyle === (left ? 'hoger' : 'vanster'));
+    const target = o ? (partner ? winS + dir * ov : winS + dir * (o.w / 2 + .05)) : a + dir * w;
+    out.push({ anchor: a, dir, open: .2 * w, closed: Math.max(.1, (target - a) * dir) }); }
+  return out.map(q => ({ ...q, anchor: Math.max(0, Math.min(L, q.anchor)) }));
 }
 export const trackLen = pts => pts.slice(1).reduce((s, b, i) => s + Math.hypot(b.x - pts[i].x, b.y - pts[i].y), 0);
 export function trackProj(pts, p) {
