@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794343850';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794343850';
-import { createPlan } from './plan2d.js?v=1794343850';
-import { createView } from './view3d.js?v=1794343850';
-import { createHA } from './ha.js?v=1794343850';
-import { detectPlan } from './autoplan.js?v=1794343850';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794344050';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794344050';
+import { createPlan } from './plan2d.js?v=1794344050';
+import { createView } from './view3d.js?v=1794344050';
+import { createHA } from './ha.js?v=1794344050';
+import { detectPlan } from './autoplan.js?v=1794344050';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -231,7 +231,8 @@ function panelEditor(p, wins, h) {
   return `<div class="card" style="margin:6px 0 10px">
     <label class="f">Namn<input data-pf="name" value="${esc(p.name || '')}" placeholder="t.ex. Gardin vid soffan"></label>
     <label class="f">Hör till fönster<select data-pf="window"><option value="">– inget –</option>${wins.map(({ o }) => `<option value="${o.id}" ${o.id === p.window ? 'selected' : ''}>${esc(nameOf(h, o))} (${Math.round(o.w * 100)} cm)</option>`).join('')}</select></label>
-    <div class="g2"><label class="f">Bredd (cm)<input data-pf="w" data-u="cm" value="${Math.round(p.w * 100)}"></label><label class="f">Läge längs skenan (cm)<input data-pf="s" data-u="cm" value="${Math.round(p.s * 100)}"></label></div>
+    ${p.window ? `<label class="f">Placering vid fönstret</label>${popt('anchor', p.anchor || 'center', [['left', '◧ Vänster om'], ['center', '▣ Mitt för'], ['right', 'Höger om ◨']])}<div style="height:6px"></div>` : '<p class="note">Fri placering – dra gardinen längs skenan i 2D-ritningen.</p>'}
+    <div class="g2"><label class="f">Bredd (cm)<input data-pf="w" data-u="cm" value="${Math.round(p.w * 100)}"></label>${p.window ? '' : `<label class="f">Läge längs skenan (cm)<input data-pf="s" data-u="cm" value="${Math.round(p.s * 100)}"></label>`}</div>
     <label class="f">Längder</label>${popt('cstyle', p.cstyle, [['dubbel', '▌▐ Två'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
     <label class="f" style="margin-top:6px">Tyg</label>${popt('fabric', p.fabric, [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
     <label class="f" style="margin-top:6px">Mönster</label>${popt('pattern', p.pattern, [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
@@ -376,7 +377,7 @@ right.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.pf) { const it = selected(), p = it?.panels?.find(x => x.id === S.panelSel); if (!p) return; commit(); let v = t.value;
     if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v > 0) && t.dataset.pf === 'w') return renderRight(); if (!isFinite(v)) return renderRight(); }
-    if (t.dataset.pf === 'window') { p.window = v || null; const wn = windowsNear(home(), it).find(x => x.o.id === v); if (wn) { p.s = wn.s; p.w = Math.round((wn.o.w + .5) * 100) / 100; } }
+    if (t.dataset.pf === 'window') { if (!v && p.window) p.s = panelS(home(), it, p); p.window = v || null; const wn = windowsNear(home(), it).find(x => x.o.id === v); if (wn) { p.s = wn.s; p.anchor = p.anchor || 'center'; } }
     else p[t.dataset.pf] = v; emit('full'); return; }
   if (!t.dataset.f) return;
   commit(); let v = t.value;

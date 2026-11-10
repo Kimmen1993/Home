@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343850';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794344050';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -189,6 +189,15 @@ export function trackAt(pts, s) {
     if (s <= acc + L || i === pts.length - 2) { const t = Math.max(0, Math.min(L, s - acc)), ux = (b.x - a.x) / L, uy = (b.y - a.y) / L; return { x: a.x + ux * t, y: a.y + uy * t, ux, uy, seg: i }; }
     acc += L; }
   return { x: pts[0].x, y: pts[0].y, ux: 1, uy: 0, seg: 0 };
+}
+// Var på skenan gardinen hänger: följer sitt fönster (mitt för/vänster/höger) eller sitt eget läge
+export function panelS(h, it, p) {
+  const o = p.window && h.openings.find(x => x.id === p.window), w = o && h.walls.find(x => x.id === o.wall);
+  if (!o || !w) return p.s;
+  const L = wallLen(w), c = { x: w.a.x + (w.b.x - w.a.x) / L * o.t, y: w.a.y + (w.b.y - w.a.y) / L * o.t }, pr = trackProj(it.pts, c);
+  // vänster/höger sett inifrån rummet mot fönstret = mot/med skenans riktning beroende på sida
+  const at = trackAt(it.pts, pr.s), vx = c.x - at.x, vy = c.y - at.y, lsign = Math.sign(vy * at.ux - vx * at.uy) || 1, off = o.w / 2 + p.w / 2 - .08;
+  return pr.s + (p.anchor === 'left' ? off * lsign : p.anchor === 'right' ? -off * lsign : 0);
 }
 export const trackLen = pts => pts.slice(1).reduce((s, b, i) => s + Math.hypot(b.x - pts[i].x, b.y - pts[i].y), 0);
 export function trackProj(pts, p) {

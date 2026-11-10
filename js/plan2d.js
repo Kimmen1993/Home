@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj } from './store.js?v=1794343850';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343850';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen } from './store.js?v=1794344050';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794344050';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -187,7 +187,7 @@ export function createPlan(canvas, ui) {
     const pts = it.pts || []; if (pts.length < 1) return;
     ctx.strokeStyle = sel ? '#ff7a2f' : '#ffc061'; ctx.lineWidth = sel ? 4 : 3; ctx.lineCap = 'round'; ctx.beginPath();
     pts.forEach((p, i) => { const s1 = ts(p); i ? ctx.lineTo(s1.x, s1.y) : ctx.moveTo(s1.x, s1.y); }); ctx.stroke();
-    for (const p of it.panels || []) { const sel2 = S.panelSel === p.id, n = p.cstyle === 'vanster' || p.cstyle === 'hoger' ? 1 : 2, pos = p.pos || 0;
+    for (const p0 of it.panels || []) { const p = { ...p0, s: panelS(home(), it, p0) }, sel2 = S.panelSel === p.id, n = p.cstyle === 'vanster' || p.cstyle === 'hoger' ? 1 : 2, pos = p.pos || 0;
       const seg = (s0, s1, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let k = 0; k <= 8; k++) { const a = ts(trackAt(pts, s0 + (s1 - s0) * k / 8)); k ? ctx.lineTo(a.x, a.y) : ctx.moveTo(a.x, a.y); } ctx.stroke(); };
       seg(p.s - p.w / 2, p.s + p.w / 2, sel2 ? 'rgba(255,122,47,.45)' : 'rgba(255,255,255,.18)', 10);
       const part = (n === 1 ? .2 + .8 * pos : .12 + .38 * pos) * p.w;
@@ -263,6 +263,7 @@ export function createPlan(canvas, ui) {
     if (S.tool === 'bild') { bgDown(p, sx, sy); return; }
     // välj
     const rot = hitRotHandle(p); if (rot) { commit(); drag = { rot }; return; }
+    const hp = hitPanel(p); if (hp) { commit(); S.sel = { type: 'item', id: hp.it.id }; S.panelSel = hp.p.id; emit('sel'); drag = { panel: hp }; return; }
     const rh = hitRoomHandle(p);
     if (rh) { commit(); if (!rh.room.outdoor) rh.room.custom = true; if (rh.mid) { rh.room.pts.splice(rh.i + 1, 0, { ...rh.pt }); rh.i++; } S.selPt = { room: rh.room.id, i: rh.i }; drag = { rpt: rh }; emit('full', 'drag'); ui.ptSel?.(); return; }
     const hd = hitHandle(p); if (hd) { commit(); const w = h.walls.find(w => w.id === S.sel.id); drag = { end: hd, wallE: w, rooms: roomRefs(h, hd) }; return; }
@@ -281,6 +282,10 @@ export function createPlan(canvas, ui) {
     if (rect) { rect.b = snap(p); draw(); return; }
     if (drag?.rot) { const it = drag.rot, a = Math.atan2(p.x - it.x, -(p.y - it.y)) * 180 / Math.PI, stp = free ? 1 : 15;
       it.rot = ((Math.round(a / stp) * stp) % 360 + 360) % 360; emit('item', it.id); ui.rotated?.(it); return; }
+    if (drag?.panel) { const { it, p: pn, ds } = drag.panel, L = trackLen(it.pts); let s = trackProj(it.pts, p).s - ds;
+      s = Math.max(pn.w / 2, Math.min(L - pn.w / 2, s)); if (!free) s = Math.round(s / .05) * .05;
+      if (pn.window && Math.abs(s - panelS(h, it, pn)) > .03) { pn.window = null; window.toast?.('🧵 Gardinen är lossad från fönstret – placera den fritt'); }
+      if (!pn.window) pn.s = Math.round(s * 1000) / 1000; drag.moved = true; emit('full', 'drag'); return; }
     if (drag?.item) {
       const it = drag.item; const st = free ? .001 : .05; let q = { x: Math.round((p.x - drag.dx) / st) * st, y: Math.round((p.y - drag.dy) / st) * st };
       if (ITEMS[it.type].snap && !e.altKey) { const sw = snapToWall(h, it, q); if (sw) { q = sw; it.rot = sw.rot; } }
@@ -299,7 +304,7 @@ export function createPlan(canvas, ui) {
     if (drag?.bg) { h.bg.x = drag.bx + p.x - drag.p.x; h.bg.y = drag.by + p.y - drag.p.y; draw(); return; }
     // spöke vid placering
     if (S.placing) updateGhost(p, e.altKey);
-    canvas.style.cursor = S.placing || S.tool !== 'select' ? 'crosshair' : hitRotHandle(p) ? 'grab' : (hitRoomHandle(p) || hitHandle(p) || hitItem(p) || hitOpening(p) || hitWall(p)) ? 'move' : 'default';
+    canvas.style.cursor = S.placing || S.tool !== 'select' ? 'crosshair' : hitRotHandle(p) || hitPanel(p) ? 'grab' : (hitRoomHandle(p) || hitHandle(p) || hitItem(p) || hitOpening(p) || hitWall(p)) ? 'move' : 'default';
     if (chain || S.tool === 'wall' || S.tool === 'divider' || S.tool === 'track' || calib) draw();
   });
   canvas.addEventListener('pointerup', () => {
@@ -333,6 +338,12 @@ export function createPlan(canvas, ui) {
     if (t && (t.pts || []).length < 2) h.items = h.items.filter(i => i !== t);
     else if (t) { S.sel = { type: 'item', id: t.id }; ui.trackDone?.(t); }
     S.tool = 'select'; emit('full'); ui.toolDone?.(); }
+  function hitPanel(p) {
+    const h = home();
+    for (const it of h.items) { if (it.type !== 'skena' || (it.pts || []).length < 2) continue; const pr = trackProj(it.pts, p); if (pr.d > Math.max(.15, 10 / scale)) continue;
+      for (const pn of it.panels || []) { const s = panelS(h, it, pn); if (Math.abs(pr.s - s) < pn.w / 2) return { it, p: pn, ds: pr.s - s }; } }
+    return null;
+  }
   function hitRotHandle(p) {
     const it = S.sel?.type === 'item' && home().items.find(i => i.id === S.sel.id); if (!it || S.tool !== 'select' || it.type === 'skena') return null;
     const hy = Math.max(it.d * scale, 10) / 2 + 26, a = it.rot * Math.PI / 180, hx = it.x + Math.sin(a) * hy / scale, hyw = it.y - Math.cos(a) * hy / scale;

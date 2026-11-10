@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt } from './store.js?v=1794343850';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343850';
-import { insideSign } from './plan2d.js?v=1794343850';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS } from './store.js?v=1794344050';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794344050';
+import { insideSign } from './plan2d.js?v=1794344050';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -252,7 +252,7 @@ export function createView(host, api) {
       case 'skena': { const hh = curCeil - (it.elev || 0), pts = it.pts.map(p => ({ x: p.x - it.x, y: p.y - it.y })), tc = c || '#f2f2f0';
         for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b.x - a.x, b.y - a.y); const m = B(g, L + .03, .03, .06, tc, (a.x + b.x) / 2, hh - .015, (a.y + b.y) / 2); m.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x); }
         ref.tracks = [];
-        for (const p of it.panels || []) { const at = trackAt(pts, p.s), pg = new THREE.Group(); pg.position.set(at.x, 0, at.y); pg.rotation.y = -Math.atan2(at.uy, at.ux); g.add(pg);
+        for (const p of it.panels || []) { const at = trackAt(pts, curH ? panelS(curH, it, p) : p.s), pg = new THREE.Group(); pg.position.set(at.x, 0, at.y); pg.rotation.y = -Math.atan2(at.uy, at.ux); g.add(pg);
           const cf = curtainFabric(pg, p, p.w, hh - .06); pg.traverse(q => q.userData.pick = { type: 'panel', id: it.id, pid: p.id });
           ref.tracks.push({ pid: p.id, panels: cf.panels, single: cf.sides === 1, cw: p.w, cur: p.pos || 0, target: p.pos || 0 }); }
         break; }
@@ -467,7 +467,7 @@ export function createView(host, api) {
     world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isReflector || o.getRenderTarget) { o.dispose?.(); } });
     world.clear(); refs = { items: {}, openings: {}, pick: [] }; if (selBox) { scene.remove(selBox); selBox.dispose?.(); } selBox = null;
   }
-  let layer = world, curCeil = 2.5;
+  let layer = world, curCeil = 2.5, curH = null;
   // polygon förstorad d meter (hörnen följer med)
   function grow(pts, d) { if (!d || pts.length < 3) return pts; let a2 = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; a2 += p.x * q.y - q.x * p.y; }); const sg = a2 > 0 ? 1 : -1, n = pts.length;
     return pts.map((p1, i) => { const p0 = pts[(i - 1 + n) % n], p2 = pts[(i + 1) % n], nm = (x, y) => { const L = Math.hypot(x, y) || 1; return { x: x / L, y: y / L }; };
@@ -517,7 +517,7 @@ export function createView(host, api) {
       joints = wallJoints(h.walls.filter(w => !w.virtual));
       for (const w of h.walls) { if (w.virtual || (focus && !nearFocus(w))) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
       // saker
-      curCeil = h.ceiling || 2.5;
+      curCeil = h.ceiling || 2.5; curH = h;
       for (const it of h.items) { if (focus && !inPoly(it, focus.pts)) continue; const ref = buildItem(it); refs.items[it.id] = ref; layer.add(ref.group);
         if (cut && it.elev > cut - .05 && !ITEMS[it.type].dev && !['trappa', 'spiraltrappa'].includes(it.type)) ref.group.visible = false; }
       layer.traverse(o => { if (o.userData.pick) o.userData.pick.lv = L.id; });
