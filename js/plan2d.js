@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794347091';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794347091';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794347251';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794347251';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -295,9 +295,9 @@ export function createPlan(canvas, ui) {
     if (drag?.opening) { const o = drag.opening, w = h.walls.find(w => w.id === o.wall); const pr = proj(p, w.a, w.b);
       o.t = Math.round(Math.min(Math.max(pr.t, o.w / 2), pr.L - o.w / 2) / (free ? .001 : .05)) * (free ? .001 : .05); emit('full', 'drag'); return; }
     if (drag?.wall) { moveWall(drag, p, e.altKey, free); emit('full', 'drag'); return; }
-    if (drag?.end) { const w = drag.wallE, key = (w.a.x === drag.end.x && w.a.y === drag.end.y) ? 'a' : 'b';
+    if (drag?.end) { const w = drag.wallE, key = (w.a.x === drag.end.x && w.a.y === drag.end.y) ? 'a' : 'b', prevEnd = { ...w[key] };
       w[key] = { x: NaN, y: NaN }; drag.rooms.forEach(([r, i]) => r.pts[i] = { x: NaN, y: NaN }); const q = snap(p, .05); w[key] = { x: q.x, y: q.y }; drag.end = w[key];
-      drag.rooms.forEach(([r, i]) => r.pts[i] = { x: q.x, y: q.y }); emit('full', 'drag'); return; }
+      drag.rooms.forEach(([r, i]) => r.pts[i] = { x: q.x, y: q.y }); curHome = h; keepOpenings(w, key, prevEnd); emit('full', 'drag'); return; }
     if (drag?.rpt) { const pts = drag.rpt.room.pts; pts[drag.rpt.i] = { x: NaN, y: NaN }; const q = snap(p, .05); pts[drag.rpt.i] = { x: q.x, y: q.y }; emit('full', 'drag'); return; }
     if (drag?.room) { const dx = Math.round((p.x - drag.start.x) / .05) * .05, dy = Math.round((p.y - drag.start.y) / .05) * .05;
       drag.room.pts = drag.pts.map(q => ({ x: Math.round((q.x + dx) * 1000) / 1000, y: Math.round((q.y + dy) * 1000) / 1000 })); emit('full', 'drag'); return; }
@@ -445,7 +445,13 @@ function wallDrag(h, w, p) {
     touch.push({ o, ok, Q: { ...q }, u, dot: u.x * n.x + u.y * n.y, rooms: roomRefs(h, q) }); } }
   return { wall: w, start: p, n, ends, touch };
 }
+// När en väggs startpunkt (a) flyttas längs väggen ska fönster/dörrar stå kvar där de är (deras läge mäts från a)
+let curHome = null;
+function keepOpenings(w, key, prev) { if (key !== 'a' || !curHome) return; const L = wallLen(w); if (L < .01) return;
+  const shift = ((prev.x - w.a.x) * (w.b.x - w.a.x) + (prev.y - w.a.y) * (w.b.y - w.a.y)) / L;
+  if (Math.abs(shift) > 1e-4) curHome.openings.forEach(o => { if (o.wall === w.id) o.t = Math.round((o.t + shift) * 1000) / 1000; }); }
 function moveWall(d, p, any, free) {
+  curHome = home();
   const st = free ? .001 : .05;
   const w = d.wall, dx = p.x - d.start.x, dy = p.y - d.start.y;
   let mx, my; if (any) { mx = Math.round(dx / st) * st; my = Math.round(dy / st) * st; }
@@ -456,11 +462,11 @@ function moveWall(d, p, any, free) {
     e.rooms.forEach(([r, i]) => r.pts[i] = np);
     for (const nb of e.nbs) { const along = mx * d.n.x + my * d.n.y;
       if (any || Math.abs(nb.dot) < .35) { nb.o[nb.ok] = { ...e.P }; continue; }   // rak fortsättning: rörs inte
-      const s = along / nb.dot; nb.o[nb.ok] = { x: r3(e.P.x + nb.u.x * s), y: r3(e.P.y + nb.u.y * s) }; }
+      const s = along / nb.dot, prev = nb.o[nb.ok]; nb.o[nb.ok] = { x: r3(e.P.x + nb.u.x * s), y: r3(e.P.y + nb.u.y * s) }; keepOpenings(nb.o, nb.ok, prev); }
   }
   for (const tc of d.touch || []) { const along = mx * d.n.x + my * d.n.y;
     if (any || Math.abs(tc.dot) < .35) { tc.o[tc.ok] = { ...tc.Q }; continue; }
-    const s = along / tc.dot, np = { x: r3(tc.Q.x + tc.u.x * s), y: r3(tc.Q.y + tc.u.y * s) }; tc.o[tc.ok] = np; tc.rooms.forEach(([r, i]) => r.pts[i] = np); }
+    const s = along / tc.dot, np = { x: r3(tc.Q.x + tc.u.x * s), y: r3(tc.Q.y + tc.u.y * s) }, prev = tc.o[tc.ok]; tc.o[tc.ok] = np; keepOpenings(tc.o, tc.ok, prev); tc.rooms.forEach(([r, i]) => r.pts[i] = np); }
 }
 
 export function insideSign(h, w, o) {

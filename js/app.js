@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794347091';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794347091';
-import { createPlan } from './plan2d.js?v=1794347091';
-import { createView } from './view3d.js?v=1794347091';
-import { createHA } from './ha.js?v=1794347091';
-import { detectPlan } from './autoplan.js?v=1794347091';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794347251';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794347251';
+import { createPlan } from './plan2d.js?v=1794347251';
+import { createView } from './view3d.js?v=1794347251';
+import { createHA } from './ha.js?v=1794347251';
+import { detectPlan } from './autoplan.js?v=1794347251';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -361,8 +361,10 @@ right.addEventListener('click', e => {
   if (act.startsWith('rot')) { commit(); obj.rot = ((obj.rot + +act.slice(3)) % 360 + 360) % 360; emit('full', 'panel'); return; }
   if (act === 'dellevel') { const raw = h.__raw; if (!confirm(`Ta bort ${h.__level.name} med allt på den?`)) return; commit(); raw.levels = raw.levels.filter(l => l !== h.__level); S.level = null; renderAll(); emit('full'); view.buildNow(); view.fitCam(); return; }
   if (act === 'unignore') { commit(); h.ignore = []; h.rooms.forEach(r => delete r.hidden); rebuildRooms(h); emit('full'); return; }
-  if (act === 'cleanwalls') { commit(); const before = h.walls.length; mergeWalls(h); cleanWalls(h); splitWalls(h); h.rooms.forEach(r => { if (!r.outdoor) r.custom = false; }); rebuildRooms(h); emit('full');
-    window.toast(`🧹 ${before} → ${h.walls.length} väggar`); return; }
+  if (act === 'cleanwalls') { commit(); const snap = JSON.stringify(h.__level), before = h.walls.length, nRooms = h.rooms.filter(r => !r.hidden && !r.outdoor).length;
+    mergeWalls(h); cleanWalls(h); splitWalls(h); h.rooms.forEach(r => { if (!r.outdoor) r.custom = false; }); rebuildRooms(h);
+    if (h.rooms.filter(r => !r.hidden && !r.outdoor).length < nRooms) { Object.assign(h.__level, JSON.parse(snap)); emit('full'); window.toast('🧹 Städningen skulle ha tagit bort rum – ingenting ändrades'); return; }
+    emit('full'); window.toast(`🧹 ${before} → ${h.walls.length} väggar`); return; }
   if (act === 'pwin') { commit(); const n = panelsForWindows(h, obj); window.toast(n ? `${n} gardiner tillagda` : 'Alla fönster längs skenan har redan gardiner'); return; }
   if (act === 'padd') { commit(); const p = newPanel({ s: Math.round(trackLen(obj.pts) / 2 * 100) / 100 }); obj.panels.push(p); S.panelSel = p.id; emit('full'); return; }
   if (act === 'pdel') { commit(); obj.panels = obj.panels.filter(p => p.id !== S.panelSel); S.panelSel = null; emit('full'); return; }

@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794347091';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794347251';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -134,7 +134,33 @@ export function cleanWalls(h) {
         const bw = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x)), bh = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y));
         if (comp.length >= 3 && comp.length >= nodes.size && bw < .9 && bh < .9) { h.walls = h.walls.filter(x => !comp.includes(x)); changed = true; break; } } }
     if (!changed) break; }
-  mergeWalls(h); return h;
+  joinNearEnds(h); trimOvershoots(h); dropTinyWalls(h); mergeWalls(h); return h;
+}
+// Väggändar som nästan möts (några cm isär) dras ihop till samma punkt, så att hörnet blir en riktig fog
+export function joinNearEnds(h, tol = .05) {
+  const ends = []; for (const w of h.walls) if (!w.virtual) for (const k of ['a', 'b']) ends.push([w, k]);
+  const used = new Set();
+  for (let i = 0; i < ends.length; i++) { if (used.has(i)) continue; const grp = [i];
+    for (let j = i + 1; j < ends.length; j++) { if (used.has(j)) continue; const p = ends[i][0][ends[i][1]], q = ends[j][0][ends[j][1]]; if (Math.hypot(p.x - q.x, p.y - q.y) < tol) grp.push(j); }
+    if (grp.length < 2) continue; grp.forEach(g => used.add(g));
+    const pts = grp.map(g => ends[g][0][ends[g][1]]), same = pts.every(p => Math.hypot(p.x - pts[0].x, p.y - pts[0].y) < 1e-4); if (same) continue;
+    const m = { x: r3(pts.reduce((s, p) => s + p.x, 0) / pts.length), y: r3(pts.reduce((s, p) => s + p.y, 0) / pts.length) };
+    for (const g of grp) { const [w, k] = ends[g]; for (const r of h.rooms) r.pts = r.pts.map(q => Math.hypot(q.x - w[k].x, q.y - w[k].y) < 1e-4 ? { ...m } : q); w[k] = { ...m }; } }
+}
+// Vägg som sticker ut förbi ett hörn (fri ände bortom där en annan vägg möter) kapas vid hörnet
+export function trimOvershoots(h) {
+  const key = p => Math.round(p.x * 1000) + ',' + Math.round(p.y * 1000), deg = new Map();
+  for (const w of h.walls) for (const k of ['a', 'b']) deg.set(key(w[k]), (deg.get(key(w[k])) || 0) + 1);
+  for (const w of h.walls) { if (w.virtual) continue;
+    for (const k of ['a', 'b']) { if (deg.get(key(w[k])) !== 1) continue; const other = k === 'a' ? 'b' : 'a', L = wallLen(w);
+      let best = null;
+      for (const o of h.walls) { if (o === w || o.virtual) continue; for (const ok of ['a', 'b']) { const q = o[ok], pr = proj(q, w[other], w[k]);
+        if (pr.t <= .1 || pr.t >= L - .05 || Math.abs(pr.d) > w.t / 2 + .1) continue; if (!best || pr.t > best.t) best = { t: pr.t, o, ok, pr }; } }
+      if (!best || L - best.t > 3.5) continue;
+      const P = { x: r3(w[other].x + best.pr.ux * best.t), y: r3(w[other].y + best.pr.uy * best.t) }, stubFrom = k === 'b' ? best.t : L - best.t;
+      if (h.openings.some(op => op.wall === w.id && (k === 'b' ? op.t + op.w / 2 > best.t : op.t - op.w / 2 < L - best.t))) continue;
+      if (k === 'a') h.openings.filter(op => op.wall === w.id).forEach(op => op.t = r3(op.t - (L - best.t)));
+      w[k] = { ...P }; best.o[best.ok] = { ...P }; } }
 }
 // Delar väggar där en annan vägg möter mitt på (T-korsning), så att varje bit gränsar mot ett rum per sida.
 export function splitWalls(h) {
