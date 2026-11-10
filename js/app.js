@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794344368';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794344368';
-import { createPlan } from './plan2d.js?v=1794344368';
-import { createView } from './view3d.js?v=1794344368';
-import { createHA } from './ha.js?v=1794344368';
-import { detectPlan } from './autoplan.js?v=1794344368';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794344577';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794344577';
+import { createPlan } from './plan2d.js?v=1794344577';
+import { createView } from './view3d.js?v=1794344577';
+import { createHA } from './ha.js?v=1794344577';
+import { detectPlan } from './autoplan.js?v=1794344577';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -194,7 +194,7 @@ function itemPanel(it) {
     ${c.c2 ? `<label class="f">${c.c2}</label>${swatches('color2', it.color2)}` : ''}
     ${HANDLE_TYPES.includes(it.type) ? handles(it.handleColor) : ''}
     ${it.type === 'gardin' ? `<h3>GARDIN</h3>
-      <label class="f">Längder</label>${opt('cstyle', it.cstyle || 'dubbel', [['dubbel', '▌▐ Två'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
+      <label class="f">Längder</label>${opt('cstyle', it.cstyle || 'dubbel', [['dubbel', '▌▐ Två'], ['mitten', '◫ Mot mitten'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
       <label class="f" style="margin-top:8px">Tyg</label>${opt('fabric', it.fabric || 'tjock', [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
       <label class="f" style="margin-top:8px">Mönster</label>${opt('pattern', it.pattern || 'enfargad', [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
       <label class="f" style="margin-top:8px">Veck</label>${opt('folds', it.folds || 'veck', [['raka', 'Raka'], ['veck', 'Veckade'], ['wave', 'Wave']])}
@@ -233,7 +233,7 @@ function panelEditor(p, wins, h) {
     <label class="f">Hör till fönster<select data-pf="window"><option value="">– inget –</option>${wins.map(({ o }) => `<option value="${o.id}" ${o.id === p.window ? 'selected' : ''}>${esc(nameOf(h, o))} (${Math.round(o.w * 100)} cm)</option>`).join('')}</select></label>
     ${p.window ? `<label class="f">Placering vid fönstret</label>${popt('anchor', p.anchor || 'center', [['left', '◧ Vänster om'], ['center', '▣ Mitt för'], ['right', 'Höger om ◨']])}<div style="height:6px"></div>` : '<p class="note">Fri placering – dra gardinen längs skenan i 2D-ritningen.</p>'}
     <div class="g2"><label class="f">Bredd (cm)<input data-pf="w" data-u="cm" value="${Math.round(p.w * 100)}"></label>${p.window ? '' : `<label class="f">Läge längs skenan (cm)<input data-pf="s" data-u="cm" value="${Math.round(p.s * 100)}"></label>`}</div>
-    <label class="f">Längder</label>${popt('cstyle', p.cstyle, [['dubbel', '▌▐ Två'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
+    <label class="f">Längder</label>${popt('cstyle', p.cstyle, [['dubbel', '▌▐ Två'], ['mitten', '◫ Mot mitten'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
     <label class="f" style="margin-top:6px">Tyg</label>${popt('fabric', p.fabric, [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
     <label class="f" style="margin-top:6px">Mönster</label>${popt('pattern', p.pattern, [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
     <label class="f" style="margin-top:6px">Veck</label>${popt('folds', p.folds, [['raka', 'Raka'], ['veck', 'Veckade'], ['wave', 'Wave']])}
@@ -315,7 +315,7 @@ function controlPanel() {
     <div class="card"><h3>💡 BELYSNING</h3>${lightGroups(h, lights, src) || '<div class="note">Inga lampor än – lägg till under Bygg.</div>'}</div>
     <div class="card"><h3>🚪 DÖRRAR & PORTAR</h3>${doors.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppen' : 'Stängd'}</span></div>`).join('') || '<div class="note">Inga dörrar.</div>'}</div>
     ${wins.length ? `<div class="card"><h3>🪟 FÖNSTER</h3>${wins.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppet' : 'Stängt'}</span></div>`).join('')}</div>` : ''}
-    ${blinds.length || curtains.length || tpanels.length ? `<div class="card"><h3>🪟 GARDINER</h3>${tpanels.map(({ it, p, k }) => { const o = h.openings.find(x => x.id === p.window); return `<div class="row" data-dev="panel:${it.id}:${p.id}"><div class="l"><span>🧵 ${esc(p.name || (o ? nameOf(h, o) : 'Gardin ' + (k + 1)))}</span><em>${esc(p.entity || 'Demo – ej kopplad')}</em></div><span class="pill ${(p.pos || 0) > .5 ? 'bad' : 'ok'}">${(p.pos || 0) > .5 ? 'Fördragen' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round((p.pos || 0) * 100)}" data-tpos="${it.id}:${p.id}">`; }).join('')}${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${curtainPos(i) > .5 ? 'bad' : 'ok'}">${curtainPos(i) > .5 ? 'Fördragna' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round(curtainPos(i) * 100)}" data-cpos="${i.id}">`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
+    ${blinds.length || curtains.length || tpanels.length ? `<div class="card"><h3>🪟 GARDINER</h3>${tpanels.map(({ it, p, k }) => { const o = h.openings.find(x => x.id === p.window); return `<div class="row" data-dev="panel:${it.id}:${p.id}"><div class="l"><span>🧵 ${esc(p.name || (o ? nameOf(h, o) : 'Gardin ' + (k + 1)))}</span><em>${esc(p.entity || 'Demo – ej kopplad')}</em></div><span class="pill ${(p.pos || 0) > .5 ? 'bad' : 'ok'}">${(p.pos || 0) > .5 ? 'Fördragen' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round((p.pos || 0) * 100)}" data-tpos="${it.id}:${p.id}">${q3('panel:' + it.id + ':' + p.id, p.pos || 0)}`; }).join('')}${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${curtainPos(i) > .5 ? 'bad' : 'ok'}">${curtainPos(i) > .5 ? 'Fördragna' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round(curtainPos(i) * 100)}" data-cpos="${i.id}">${q3('item:' + i.id, curtainPos(i))}`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
       <input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}">`).join('')}</div>` : ''}
     ${media.length ? `<div class="card"><h3>🎵 MEDIA</h3>${media.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${ITEMS[i.type].icon} ${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="sw ${i.state?.on ? 'on' : ''}"></span></div>`).join('')}</div>` : ''}
     <p class="note">Koppla till riktiga prylar: välj en sak under ✏️ Bygg och skriv in dess namn i Home Assistant.</p>`;
@@ -341,6 +341,8 @@ right.addEventListener('click', e => {
   const ps = e.target.closest('[data-psel]'); if (ps) { S.panelSel = S.panelSel === ps.dataset.psel ? null : ps.dataset.psel; renderRight(); plan.draw(); return; }
   const pc = e.target.closest('[data-pcolor],[data-popt]'); if (pc) { const it = selected(), p = it?.panels?.find(x => x.id === S.panelSel); if (!p) return; commit();
     if (pc.dataset.pcolor) p.color = pc.dataset.pcolor; else p[pc.dataset.popt] = pc.dataset.v; emit('full'); return; }
+  const q = e.target.closest('[data-q3]'); if (q) { const [key, v] = q.dataset.q3.split('|'), [type, id, pid] = key.split(':'), hh = home(), it = hh.items.find(i => i.id === id);
+    if (type === 'panel') { const pn = it?.panels?.find(x => x.id === pid); if (pn) panelSet(it, pn, +v); } else if (it) curtainSet(it, +v); return; }
   const t = e.target.closest('button,[data-dev]'); if (!t) return;
   if (t.dataset.cat) { catTab = t.dataset.cat; renderRight(); return; }
   if (t.dataset.place === 'item:skena') { setTool('track'); return; }
@@ -440,6 +442,8 @@ function lightSet(it, onOff, bri) {
     else ha.call(d, 'turn_on', d === 'light' && bri != null ? { entity_id: it.entity, brightness_pct: Math.round(bri * 100) } : { entity_id: it.entity }); }
   it.state.on = onOff; if (bri != null) it.state.bri = bri; emit('state');
 }
+const cycle3 = v => v < .25 ? .5 : v < .75 ? 1 : 0;
+const q3 = (key, cur) => `<div class="opt" style="margin:4px 0 8px">${[[0, 'Ifrån'], [.5, 'Halvt'], [1, 'För']].map(([v, l]) => `<button data-q3="${key}|${v}" class="${Math.abs(v - cur) < .02 ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const curtainPos = it => it.state?.pos ?? (it.state?.on ? 1 : 0);
 function curtainSet(it, v) {
   if (linked(it.entity)) ha.call('cover', 'set_cover_position', { entity_id: it.entity, position: Math.round((1 - v) * 100) });
@@ -463,7 +467,7 @@ function blindSet(o, v) {
 function onDevice(p) {
   const raw = home().__raw, L = raw.levels.find(l => l.id === p.lv) || home().__level, h = levelView(raw, L);
   if (p.type === 'item') { const it = h.items.find(i => i.id === p.id); if (!it) return; const dev = ITEMS[it.type].dev;
-    if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev === 'curtain') curtainSet(it, curtainPos(it) > .5 ? 0 : 1); else if (dev) mediaSet(it, !it.state.on);
+    if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev === 'curtain') curtainSet(it, cycle3(curtainPos(it))); else if (dev) mediaSet(it, !it.state.on);
     else { const r = roomAt(h, it); if (r) roomLights(r, h); }
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'opening') { const o = h.openings.find(i => i.id === p.id); if (!o) return;
@@ -472,7 +476,7 @@ function onDevice(p) {
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'blind') { const o = h.openings.find(i => i.id === p.id); blindSet(o, o.state.blind > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'room') { const r = h.rooms.find(i => i.id === p.id); if (r) roomLights(r, h); }
-  if (p.type === 'panel') { const it = h.items.find(i => i.id === p.id), pn = it?.panels?.find(x => x.id === p.pid); if (pn) { panelSet(it, pn, (pn.pos || 0) > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); } }
+  if (p.type === 'panel') { const it = h.items.find(i => i.id === p.id), pn = it?.panels?.find(x => x.id === p.pid); if (pn) { panelSet(it, pn, cycle3(pn.pos || 0)); if (S.mode === 'bygg') renderRight(); } }
 }
 function roomLights(r, h = home()) {
   const ls = h.items.filter(i => ITEMS[i.type].dev === 'light' && roomAt(h, i) === r);

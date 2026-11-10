@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen } from './store.js?v=1794344368';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794344368';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen } from './store.js?v=1794344577';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794344577';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -191,6 +191,7 @@ export function createPlan(canvas, ui) {
       const seg = (s0, s1, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let k = 0; k <= 8; k++) { const a = ts(trackAt(pts, s0 + (s1 - s0) * k / 8)); k ? ctx.lineTo(a.x, a.y) : ctx.moveTo(a.x, a.y); } ctx.stroke(); };
       seg(p.s - p.w / 2, p.s + p.w / 2, sel2 ? 'rgba(255,122,47,.45)' : 'rgba(255,255,255,.18)', 10);
       const part = (n === 1 ? .2 + .8 * pos : .12 + .38 * pos) * p.w;
+      if (p.cstyle === 'mitten') { seg(p.s - part, p.s + part, hexA(p.color || '#d8cfc0', .95), 7); continue; }
       if (p.cstyle !== 'hoger') seg(p.s - p.w / 2, p.s - p.w / 2 + part, hexA(p.color || '#d8cfc0', .95), 7);
       if (p.cstyle !== 'vanster') seg(p.s + p.w / 2 - part, p.s + p.w / 2, hexA(p.color || '#d8cfc0', .95), 7); }
     ctx.lineCap = 'butt';

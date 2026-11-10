@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS } from './store.js?v=1794344368';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794344368';
-import { insideSign } from './plan2d.js?v=1794344368';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS } from './store.js?v=1794344577';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794344577';
+import { insideSign } from './plan2d.js?v=1794344577';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -81,9 +81,10 @@ export function createView(host, api) {
       transparent: fabric === 'tunn', opacity: fabric === 'tunn' ? .5 : 1 });
     const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, nf = folds === 'wave' ? 6 : 10;
     const sides = o.cstyle === 'vanster' ? [-1] : o.cstyle === 'hoger' ? [1] : [-1, 1], panels = [];
-    for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); parent.add(pg);
+    const mid = o.cstyle === 'mitten';
+    for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(mid ? 0 : sx * w / 2, 0, 0); parent.add(pg);
       const geo = new THREE.PlaneGeometry(1, ph, 40, 1), pos = geo.attributes.position;
-      for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + .5; pos.setX(i, -sx * x); pos.setZ(i, Math.sin(x * nf * Math.PI * 2) * amp); }
+      for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + .5; pos.setX(i, mid ? sx * x : -sx * x); pos.setZ(i, Math.sin(x * nf * Math.PI * 2) * amp); }
       geo.computeVertexNormals(); const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; pg.add(m);
       if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w * (sides.length === 1 ? 1 : .5) * 3, uv.getY(i) * ph * 3); }
       panels.push({ g: pg, sx }); }
@@ -101,7 +102,7 @@ export function createView(host, api) {
       const geo = new THREE.PlaneGeometry(1, ph, 60, 1), base = Array.from({ length: geo.attributes.position.count }, (_, i) => geo.attributes.position.getX(i) + .5);
       const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; g.add(m); meshes.push(m);
       if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * o.w * (sides.length === 1 ? 1 : .5) * 3, uv.getY(i) * ph * 3); }
-      parts.push({ geo, base, sx, anchor: Math.max(0, Math.min(L, S0 + sx * o.w / 2)) });
+      const mid = o.cstyle === 'mitten'; parts.push({ geo, base, sx: mid ? -sx : sx, anchor: Math.max(0, Math.min(L, mid ? S0 : S0 + sx * o.w / 2)) });
     }
     return { meshes, parts, pts, L, w: o.w, single: sides.length === 1, amp, nf: perM * o.w / sides.length };
   }
