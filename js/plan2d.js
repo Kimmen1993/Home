@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj } from './store.js?v=1794343755';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343755';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj } from './store.js?v=1794343850';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343850';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -63,7 +63,7 @@ export function createPlan(canvas, ui) {
     const w = h.walls.find(w => w.id === sel.id); if (!w) return null;
     for (const q of [w.a, w.b]) if (Math.hypot(q.x - p.x, q.y - p.y) < 10 / scale) return q;
   }
-  function hitRoom(p) { const h = home(); return [...h.rooms].reverse().find(r => inPoly(p, r.pts)); }
+  function hitRoom(p) { const h = home(); return [...h.rooms].reverse().find(r => !r.hidden && inPoly(p, r.pts)); }
 
   // ---------- rita ----------
   function draw() {
@@ -88,7 +88,7 @@ export function createPlan(canvas, ui) {
     for (let y = Math.floor(a.y / step) * step; y <= b.y; y += step) { const sy = Math.round(y * scale + oy) + .5;
       ctx.strokeStyle = Math.abs(y - Math.round(y)) < 1e-6 ? 'rgba(156,200,255,.14)' : 'rgba(156,200,255,.05)'; ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke(); }
     // rum
-    for (const r of h.rooms) {
+    for (const r of h.rooms) { if (r.hidden) continue;
       const sel = S.sel?.type === 'room' && S.sel.id === r.id;
       ctx.beginPath(); r.pts.forEach((q, i) => { const s = ts(q); i ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); }); ctx.closePath();
       ctx.fillStyle = hexA(r.floor, sel ? .5 : .28); ctx.fill();
@@ -104,7 +104,7 @@ export function createPlan(canvas, ui) {
     for (const w of h.walls) drawWall(h, w);
     // rumsnamn
     ctx.textAlign = 'center';
-    for (const r of h.rooms) { const c = ts(labelPoint(h, r));
+    for (const r of h.rooms) { if (r.hidden) continue; const c = ts(labelPoint(h, r));
       ctx.font = '600 13px system-ui'; ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(r.name, c.x + 1, c.y - 3);
       ctx.fillStyle = '#e6f0ff'; ctx.fillText(r.name, c.x, c.y - 4);
       ctx.font = '11px system-ui'; ctx.fillStyle = '#9cc8ff'; ctx.fillText(polyArea(r.pts).toFixed(1).replace('.', ',') + ' m²', c.x, c.y + 11); }
@@ -440,7 +440,7 @@ function moveWall(d, p, any, free) {
 
 export function insideSign(h, w, o) {
   const L = wallLen(w), ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L, nx = -uy, ny = ux;
-  const c = { x: w.a.x + ux * o.t, y: w.a.y + uy * o.t }, off = w.t / 2 + .3, inside = h.rooms.filter(r => !r.outdoor);
+  const c = { x: w.a.x + ux * o.t, y: w.a.y + uy * o.t }, off = w.t / 2 + .3, inside = h.rooms.filter(r => !r.outdoor && !r.hidden);
   const a = inside.some(r => inPoly({ x: c.x + nx * off, y: c.y + ny * off }, r.pts));
   const b = inside.some(r => inPoly({ x: c.x - nx * off, y: c.y - ny * off }, r.pts));
   if (a !== b) return a ? 1 : -1;

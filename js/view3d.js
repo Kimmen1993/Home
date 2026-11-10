@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt } from './store.js?v=1794343755';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343755';
-import { insideSign } from './plan2d.js?v=1794343755';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt } from './store.js?v=1794343850';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343850';
+import { insideSign } from './plan2d.js?v=1794343850';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -493,13 +493,13 @@ export function createView(host, api) {
       const h = levelView(raw, L), active = L === act;
       layer = new THREE.Group(); layer.position.y = L.z || 0; world.add(layer);
       // bara ett rum?
-      const focus = active && S.walls === 'rum' ? (h.rooms.find(r => r.id === S.focus) || [...h.rooms].filter(r => !r.outdoor).sort((a, b) => area(b) - area(a))[0]) : null;
+      const focus = active && S.walls === 'rum' ? (h.rooms.find(r => r.id === S.focus) || [...h.rooms].filter(r => !r.outdoor && !r.hidden).sort((a, b) => area(b) - area(a))[0]) : null;
       if (focus) { S.focus = focus.id; activeFocus = focus; }
       const nearFocus = w => { for (let i = 0; i <= 20; i++) { const p = { x: w.a.x + (w.b.x - w.a.x) * i / 20, y: w.a.y + (w.b.y - w.a.y) * i / 20 };
         for (let k = 0; k < focus.pts.length; k++) { const a = focus.pts[k], b = focus.pts[(k + 1) % focus.pts.length], pr = proj(p, a, b);
           if (pr.t > -.05 && pr.t < pr.L + .05 && Math.abs(pr.d) < w.t / 2 + .12) { const ang = Math.abs(((Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x) - Math.atan2(b.y - a.y, b.x - a.x)) % Math.PI + Math.PI) % Math.PI); if (ang < .1 || ang > Math.PI - .1) return true; } } } return false; };
       // golv
-      h.rooms.forEach((r, ri) => { if (focus && r !== focus) return;
+      h.rooms.forEach((r, ri) => { if (r.hidden || (focus && r !== focus)) return;
         const sh = new THREE.Shape(grow(r.pts, r.outdoor ? 0 : .06).map(p => new THREE.Vector2(p.x, -p.y)));
         const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), floorMat(r.style || 'tra', r.floor, +(r.floorRot || 0))); m.rotation.x = -Math.PI / 2; m.position.y = .002 + ri * .0004; m.receiveShadow = true;
         m.userData.pick = { type: 'room', id: r.id }; layer.add(m);
@@ -507,7 +507,7 @@ export function createView(host, api) {
       });
       // innertak – på den aktiva våningen bara om man valt det, under-våningar alltid stängda
       const ceilOn = active ? S.walls === 'hela' && S.ceil === true : true;
-      if (ceilOn) h.rooms.forEach((r, ri) => { if (r.outdoor || (focus && r !== focus)) return; const gp = grow(r.pts, .06);
+      if (ceilOn) h.rooms.forEach((r, ri) => { if (r.hidden || r.outdoor || (focus && r !== focus)) return; const gp = grow(r.pts, .06);
         const sh = new THREE.Shape(gp.map(p => new THREE.Vector2(p.x, p.y)));
         const c = new THREE.Mesh(new THREE.ShapeGeometry(sh), M(r.ceilColor || '#f4f2ee', { roughness: .95 })); c.rotation.x = Math.PI / 2; c.position.y = (h.ceiling || 2.5) - ri * .0004; c.receiveShadow = true;
         c.userData.pick = { type: 'room', id: r.id }; layer.add(c);

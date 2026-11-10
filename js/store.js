@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343755';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343850';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -256,7 +256,7 @@ export function rebuildRooms(h) {
   for (const s of scored) { if (match.has(s.nr) || used.has(s.o)) continue; match.set(s.nr, s.o); used.add(s.o); }
   let n = old.length;
   const rooms = newRooms.map(nr => { const o = match.get(nr); if (o) return o.custom ? { ...o } : { ...o, pts: nr.poly };
-    const near = scored.find(s => s.nr === nr)?.o; return { ...(near || { floor: '#b8915f', style: 'tra' }), id: uid(), name: 'Rum ' + (++n), pts: nr.poly }; });
+    const near = scored.find(s => s.nr === nr)?.o; return { ...(near || { floor: '#b8915f', style: 'tra' }), id: uid(), name: near?.hidden ? near.name : 'Rum ' + (++n), pts: nr.poly }; });
   h.rooms = [...rooms, ...h.rooms.filter(r => r.outdoor)];
 }
 
@@ -290,7 +290,7 @@ export function inPoly(p, pts) {
   }
   return c;
 }
-export const roomAt = (h, p) => h.rooms.find(r => inPoly(p, r.pts));
+export const roomAt = (h, p) => h.rooms.find(r => !r.hidden && inPoly(p, r.pts));
 
 // Ny vägg – delar som redan täcks av en befintlig vägg hoppas över (så rum kan dela väggar).
 export function addWall(h, a, b, o = {}) {
