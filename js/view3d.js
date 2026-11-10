@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt } from './store.js';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj } from './store.js';
 import { ITEMS, OPENINGS } from './catalog.js';
 import { insideSign } from './plan2d.js';
 
@@ -246,7 +246,7 @@ export function createView(host, api) {
           for (let i = 0; i < n; i++) { const sl = B(cloth, o.w, .004, .045, o.blindColor, 0, -(i + .5) * .05, 0); sl.rotation.x = .5; }
           ref.slats = cloth.children; }
         else { cloth = B(bg, o.w, 1, .006, M(o.blindColor, { roughness: 1, side: THREE.DoubleSide }), 0, -.5, 0); }
-        bg.add(cloth); ref.cloth = cloth; ref.blindH = o.h; ref.blindG = bg; pickIt(bg);
+        bg.add(cloth); ref.cloth = cloth; if (top > H + .01) bg.visible = false; ref.blindH = o.h; ref.blindG = bg; pickIt(bg);
       }
     } else if (o.kind === 'door') {
       const f = .06, fz = t + .02;
@@ -283,27 +283,35 @@ export function createView(host, api) {
       gm.rotation.x = -Math.PI / 2; gm.position.set(cx, -.02, cy); gm.receiveShadow = true; const uv = gm.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * gs, uv.getY(i) * gs);
       gm.userData.pick = { type: 'ground' }; world.add(gm); }
     else { const gm = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 1.5, .3, y1 - y0 + 1.5), M('#3a3d40')); gm.position.set(cx, -.16, cy); gm.receiveShadow = true; gm.userData.pick = { type: 'ground' }; world.add(gm); }
+    // bara ett rum?
+    const focus = S.walls === 'rum' ? (h.rooms.find(r => r.id === S.focus) || [...h.rooms].filter(r => !r.outdoor).sort((a, b) => area(b) - area(a))[0]) : null;
+    if (focus) S.focus = focus.id;
+    const nearFocus = w => { const L = wallLen(w); for (let i = 0; i <= 20; i++) { const p = { x: w.a.x + (w.b.x - w.a.x) * i / 20, y: w.a.y + (w.b.y - w.a.y) * i / 20 };
+      for (let k = 0; k < focus.pts.length; k++) { const a = focus.pts[k], b = focus.pts[(k + 1) % focus.pts.length], pr = proj(p, a, b);
+        if (pr.t > -.05 && pr.t < pr.L + .05 && Math.abs(pr.d) < w.t / 2 + .12) { const ang = Math.abs(((Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x) - Math.atan2(b.y - a.y, b.x - a.x)) % Math.PI + Math.PI) % Math.PI); if (ang < .1 || ang > Math.PI - .1) return true; } } } return false; };
     // golv
-    for (const r of h.rooms) {
+    for (const r of h.rooms) { if (focus && r !== focus) continue;
       const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)));
       const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), floorMat(r.style || 'tra', r.floor)); m.rotation.x = -Math.PI / 2; m.position.y = .002; m.receiveShadow = true;
       m.userData.pick = { type: 'room', id: r.id }; world.add(m);
       const base = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: .1, bevelEnabled: false }), M('#8a8580')); base.rotation.x = -Math.PI / 2; base.position.y = -.1; base.receiveShadow = true; world.add(base);
     }
     // väggar
-    const cut = S.cut ? 1.15 : 0;
-    for (const w of h.walls) buildWall(h, w, cut ? Math.min(cut, w.h) : w.h);
+    const cut = { hela: 0, halva: 1.15, golv: .1, rum: 0 }[S.walls] ?? 1.15;
+    for (const w of h.walls) { if (focus && !nearFocus(w)) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
     // saker
-    for (const it of h.items) { const ref = buildItem(it); refs.items[it.id] = ref; world.add(ref.group);
+    for (const it of h.items) { if (focus && !inPoly(it, focus.pts)) continue; const ref = buildItem(it); refs.items[it.id] = ref; world.add(ref.group);
       if (cut && it.elev > cut - .05 && !ITEMS[it.type].dev) ref.group.visible = false; }
     // sol
     sun.position.set(cx - size * .6, size * 1.2, cy + size * .8); sun.target.position.set(cx, 0, cy);
     const sc = sun.shadow.camera; sc.left = sc.bottom = -size * .9; sc.right = sc.top = size * .9; sc.near = 1; sc.far = size * 4; sc.updateProjectionMatrix();
-    const sig = h.id + ':' + (h.walls.length > 0); if (!built || sig !== lastSig) fitCam(); built = true; lastSig = sig;
+    if (focus) { const xs = focus.pts.map(p => p.x), ys = focus.pts.map(p => p.y); focusB = { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2, size: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 3) }; } else focusB = null;
+    const sig = h.id + ':' + (h.walls.length > 0) + ':' + (focus ? focus.id : ''); if (!built || sig !== lastSig) fitCam(); built = true; lastSig = sig;
     applyStates(true); setLighting(); highlight();
   }
-  let bounds = { cx: 6, cy: 5, size: 12 };
-  function fitCam() { const { cx, cy, size } = bounds; controls.target.set(cx, 0, cy); const s = Math.max(size, 10); cam.position.set(cx + s * .9, s * 1.15, cy + s * 1.3); controls.update(); }
+  let bounds = { cx: 6, cy: 5, size: 12 }, focusB = null;
+  const area = r => { let s = 0; r.pts.forEach((a, i) => { const b = r.pts[(i + 1) % r.pts.length]; s += a.x * b.y - b.x * a.y; }); return Math.abs(s / 2); };
+  function fitCam() { const { cx, cy, size } = focusB || bounds; controls.target.set(cx, 0, cy); const s = focusB ? size * 1.1 : Math.max(size, 10); cam.position.set(cx + s * .9, s * 1.15, cy + s * 1.3); controls.update(); }
 
   function setLighting() {
     const day = S.day;

@@ -7,7 +7,7 @@ const r3 = v => Math.round(v * 1000) / 1000;
 
 export const S = {
   homes: [], cur: null, ha: { url: '', token: '' },
-  mode: 'styr', tool: 'select', view: '3d', sel: null, placing: null, day: false, cut: true,
+  mode: 'styr', tool: 'select', view: '3d', sel: null, placing: null, day: false, walls: 'halva', focus: null,
 };
 
 const listeners = [];

@@ -23,7 +23,8 @@ let stateT = 0;
 on((kind, id) => {
   if (kind === 'item') { plan.draw(); view.syncItem(id); return; }
   if (kind === 'state') { plan.draw(); view.states(); cancelAnimationFrame(stateT); stateT = requestAnimationFrame(() => { if (S.mode === 'styr') renderRight(); }); return; }
-  if (kind === 'sel') { plan.draw(); view.highlight(); renderRight(); return; }
+  if (kind === 'sel') { plan.draw(); view.highlight(); renderRight();
+    if (S.walls === 'rum' && S.sel?.type === 'room' && S.sel.id !== S.focus) { S.focus = S.sel.id; view.build(); } return; }
   plan.draw(); view.build();
   if (id !== 'panel' && id !== 'drag') renderRight();
   if (id !== 'drag') { renderSide(); $('#homeName').value = home().name; }
@@ -60,7 +61,7 @@ $('#side').addEventListener('click', e => {
 function switchHome(id) { S.cur = id; S.sel = null; S.placing = null; clearHistory(); emit('full'); view.buildNow(); view.fitCam(); plan.fit(); }
 function setMode(m) {
   S.mode = m; S.sel = null; S.placing = null; S.tool = 'select'; plan.cancel();
-  if (m === 'styr') { S.cut = true; S.day = false; } else { S.day = true; if (!S._seenBygg) S.view = innerWidth < 980 ? '2d' : 'split'; }
+  if (m === 'styr') { if (S.walls === 'hela') S.walls = 'halva'; S.day = false; } else { S.day = true; if (!S._seenBygg) S.view = innerWidth < 980 ? '2d' : 'split'; }
   S._seenBygg = S._seenBygg || m === 'bygg';
   renderAll(); view.build(); setTimeout(() => plan.fit(), 60);
 }
@@ -73,7 +74,7 @@ function renderTop() {
   $('#homeName').value = h.name;
   $('#topRight').innerHTML = `
     ${S.mode === 'bygg' ? `<div class="seg">${[['2d', '📐 2D'], ['split', '◫ Båda'], ['3d', '🧊 3D']].map(([k, l]) => `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
-    <button class="ib ${S.cut ? 'on' : ''}" data-cut title="Låga väggar så man ser in">${S.cut ? '🏠 Låga väggar' : '🏠 Hela väggar'}</button>
+    <div class="seg" title="Hur mycket av väggarna som syns">${[['hela', '▮', 'Hela'], ['halva', '▬', 'Halva'], ['golv', '▁', 'Golv'], ['rum', '⬚', 'Ett rum']].map(([k, i, l]) => `<button data-walls="${k}" class="${S.walls === k ? 'on' : ''}">${i} ${l}</button>`).join('')}</div>
     <button class="ib" data-day>${S.day ? '☀️ Dag' : '🌙 Kväll'}</button>
     <button class="ib" data-cam title="Centrera">⤢</button>`;
   $('#stage').dataset.view = S.mode === 'styr' ? '3d' : S.view;
@@ -82,7 +83,8 @@ function renderTop() {
 $('#topRight').addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
   if (t.dataset.view) { S.view = t.dataset.view; renderTop(); requestAnimationFrame(() => plan.fit()); }
-  if (t.hasAttribute('data-cut')) { S.cut = !S.cut; renderTop(); view.build(); }
+  if (t.dataset.walls) { S.walls = t.dataset.walls; if (S.walls === 'rum' && S.sel?.type === 'room') S.focus = S.sel.id;
+    renderTop(); view.build(); if (S.walls === 'rum') window.toast('Välj ett annat rum: klicka på det i 2D-ritningen'); }
   if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.setLighting(); }
   if (t.hasAttribute('data-cam')) { view.fitCam(); plan.fit(); }
 });
