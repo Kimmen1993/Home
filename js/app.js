@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794346538';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794346538';
-import { createPlan } from './plan2d.js?v=1794346538';
-import { createView } from './view3d.js?v=1794346538';
-import { createHA } from './ha.js?v=1794346538';
-import { detectPlan } from './autoplan.js?v=1794346538';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794346802';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794346802';
+import { createPlan } from './plan2d.js?v=1794346802';
+import { createView } from './view3d.js?v=1794346802';
+import { createHA } from './ha.js?v=1794346802';
+import { detectPlan } from './autoplan.js?v=1794346802';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -608,7 +608,7 @@ function exportHome() {
 }
 $('#fileJson').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try { const h = JSON.parse(await f.text()); if (!h.walls || !h.items) throw 0; h.id = uid(); migrate([h]); S.homes.push(h); switchHome(h.id); window.toast('Öppnade ' + h.name); }
+  try { const h = JSON.parse(await f.text()); if (!h.levels && !(h.walls && h.items)) throw 0; h.id = uid(); migrate([h]); S.homes.push(h); switchHome(h.id); window.toast('Öppnade ' + h.name); }
   catch (err) { window.toast('Filen gick inte att läsa'); }
 });
 $('#fileImg').addEventListener('change', async e => {
