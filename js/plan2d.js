@@ -8,7 +8,7 @@ export function createPlan(canvas, ui) {
   let scale = 40, ox = 0, oy = 0, dpr = 1;
   const ts = p => ({ x: p.x * scale + ox, y: p.y * scale + oy });
   const tw = (sx, sy) => ({ x: (sx - ox) / scale, y: (sy - oy) / scale });
-  let drag = null, mouse = null, chain = null, rect = null, ghost = null, calib = null;
+  let free = false; let drag = null, mouse = null, chain = null, rect = null, ghost = null, calib = null;
   const bgImg = new Image(); let bgSrc = null;
 
   function resize() {
@@ -29,9 +29,13 @@ export function createPlan(canvas, ui) {
     const h = home(), R = 12 / scale;
     for (const w of h.walls) for (const q of [w.a, w.b]) if (Math.hypot(q.x - p.x, q.y - p.y) < R) return { ...q, snapped: true };
     for (const r of h.rooms) for (const q of r.pts) if (Math.hypot(q.x - p.x, q.y - p.y) < R) return { ...q, snapped: true };
+    if (S.tool === 'wall' || S.tool === 'divider') for (const w of h.walls) { const pr = proj(p, w.a, w.b);   // fäst mitt på en vägg
+      if (pr.t > 0 && pr.t < pr.L && Math.abs(pr.d) < Math.max(R, w.t / 2)) return { x: Math.round((w.a.x + pr.ux * pr.t) * 1000) / 1000, y: Math.round((w.a.y + pr.uy * pr.t) * 1000) / 1000, snapped: true }; }
+    if (free) return { x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 };
     return { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step };
   }
   function ortho(from, p) {
+    if (free || p.snapped) return p;
     const dx = p.x - from.x, dy = p.y - from.y;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dy) < Math.abs(dx) * 0.14) return { x: p.x, y: from.y };
     if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dx) < Math.abs(dy) * 0.14) return { x: from.x, y: p.y };
@@ -219,7 +223,7 @@ export function createPlan(canvas, ui) {
   const pos = e => { const r = canvas.getBoundingClientRect(); return { sx: e.clientX - r.left, sy: e.clientY - r.top }; };
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('pointerdown', e => {
-    canvas.setPointerCapture(e.pointerId);
+    canvas.setPointerCapture(e.pointerId); free = e.altKey || S.snap === false;
     const { sx, sy } = pos(e), p = tw(sx, sy), h = home();
     if (e.button === 1 || e.button === 2) { drag = { pan: true, sx, sy, ox, oy }; return; }
     if (S.placing) { place(p, e.shiftKey); return; }
@@ -248,7 +252,7 @@ export function createPlan(canvas, ui) {
     drag = { pan: true, sx, sy, ox, oy };
   });
   canvas.addEventListener('pointermove', e => {
-    const { sx, sy } = pos(e), p = tw(sx, sy), h = home(); mouse = p;
+    const { sx, sy } = pos(e), p = tw(sx, sy), h = home(); mouse = p; free = e.altKey || S.snap === false;
     if (drag?.pan) { ox = drag.ox + sx - drag.sx; oy = drag.oy + sy - drag.sy; draw(); ui.onPan?.(); return; }
     if (rect) { rect.b = snap(p); draw(); return; }
     if (drag?.item) {

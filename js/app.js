@@ -99,10 +99,11 @@ function renderToolbar() {
   if (S.mode !== 'bygg') { $('#toolbar').innerHTML = ''; return; }
   const cur = S.placing ? 'add' : S.tool;
   $('#toolbar').innerHTML = TOOLS.map(([k, i, l]) => `<button class="tool ${cur === k ? 'on' : ''}" data-tool="${k}">${i}<small>${l}</small></button>`).join('') +
-    `<span class="sep"></span><button class="tool" data-undo>↶<small>Ångra</small></button><button class="tool" data-redo>↷<small>Gör om</small></button>`;
+    `<span class="sep"></span><button class="tool ${S.snap === false ? '' : 'on'}" data-snap title="Fäst mot rutnät och raka vinklar (håll Alt för att rita fritt)">🧲<small>Rutnät ${S.snap === false ? 'av' : 'på'}</small></button><button class="tool" data-undo>↶<small>Ångra</small></button><button class="tool" data-redo>↷<small>Gör om</small></button>`;
 }
 $('#toolbar').addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
+  if (t.hasAttribute('data-snap')) { S.snap = S.snap === false; renderToolbar(); window.toast(S.snap ? '🧲 Fäster mot rutnät' : '✏️ Fri ritning – rita i vilken vinkel du vill'); return; }
   if (t.hasAttribute('data-undo')) return undo();
   if (t.hasAttribute('data-redo')) return redo();
   setTool(t.dataset.tool);
@@ -118,7 +119,7 @@ function hint() {
     select: '✋ Klicka för att välja · dra för att flytta · R = vrid · Delete = ta bort',
     room: '⬜ Dra en rektangel i ritningen = nytt rum med väggar',
     wall: '🧱 Klicka punkt för punkt i ritningen · dubbelklicka eller Esc = klar',
-    divider: '✂️ Dra en osynlig gräns över golvet för att dela ett rum (t.ex. kök | tv-rum) · Esc = klar',
+    divider: '✂️ Klicka från vägg till vägg för att dela ett rum · Alt eller 🧲 av = fritt · Esc = klar',
     add: '🛋️ Välj något i listan till höger',
     bild: '🖼️ Dra bilden på plats · kalibrera med ett mått du vet',
   };
