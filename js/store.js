@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794341617';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794341991';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -73,8 +73,69 @@ export function load() {
 }
 
 // äldre sparade hem: fönsterdörrar var fönster förut
-export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); if (raw.autoRooms === false && !raw.manualChosen) { raw.autoRooms = true; raw.levels.forEach(L => L.rooms.forEach(r => { if (!r.outdoor) r.custom = true; })); } for (const L of raw.levels) { const h = levelView(raw, L); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
+export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); if (raw.autoRooms === false && !raw.manualChosen) { raw.autoRooms = true; raw.levels.forEach(L => L.rooms.forEach(r => { if (!r.outdoor) r.custom = true; })); } for (const L of raw.levels) { const h = levelView(raw, L); mergeWalls(h); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
 
+// Slår ihop väggbitar som fortsätter rakt i varandra (och där ingen tredje vägg möter) till en hel vägg.
+// Fönster/dörrar flyttas med. Ger hela väggar hörn till hörn så att hörnen blir rena.
+export function mergeWalls(h) {
+  const key = p => Math.round(p.x * 200) + ',' + Math.round(p.y * 200);
+  for (let changed = true; changed;) { changed = false;
+    const nodes = new Map();
+    for (const w of h.walls) for (const e of ['a', 'b']) { const k = key(w[e]); if (!nodes.has(k)) nodes.set(k, []); nodes.get(k).push([w, e]); }
+    for (const list of nodes.values()) {
+      if (list.length !== 2) continue;
+      const [[w1, e1], [w2, e2]] = list; if (w1 === w2 || !!w1.virtual !== !!w2.virtual) continue;
+      const o1 = w1[e1 === 'a' ? 'b' : 'a'], o2 = w2[e2 === 'a' ? 'b' : 'a'], P = w1[e1];
+      const d1 = Math.atan2(P.y - o1.y, P.x - o1.x), d2 = Math.atan2(o2.y - P.y, o2.x - P.x);
+      let da = Math.abs(d1 - d2); if (da > Math.PI) da = 2 * Math.PI - da; if (da > 4 * Math.PI / 180) continue;
+      const L1 = wallLen(w1), L2 = wallLen(w2), L = Math.hypot(o2.x - o1.x, o2.y - o1.y);
+      const nw = { ...(L1 >= L2 ? w1 : w2), id: w1.id, a: { ...o1 }, b: { ...o2 }, t: Math.round((w1.t * L1 + w2.t * L2) / (L1 + L2) * 100) / 100 };
+      const flip = (L1 >= L2 ? e1 === 'a' : e2 === 'b');   // vald vägg vände åt andra hållet → byt sidor
+      if (flip) { [nw.colorP, nw.colorN] = [nw.colorN, nw.colorP]; [nw.matP, nw.matN] = [nw.matN, nw.matP]; }
+      for (const o of h.openings) {
+        if (o.wall === w1.id) { o.t = e1 === 'b' ? o.t : L1 - o.t; }
+        else if (o.wall === w2.id) { o.wall = w1.id; o.t = L1 + (e2 === 'a' ? o.t : L2 - o.t); } else continue;
+        o.t = Math.max(o.w / 2, Math.min(L - o.w / 2, r3(o.t))); }
+      h.walls = h.walls.filter(x => x !== w1 && x !== w2); h.walls.push(nw); changed = true; break;
+    }
+  }
+  return h;
+}
+// Städar bort småbitar från planritningar: lösa stumpar, korta utstickare och snedbitar i hörn.
+export function cleanWalls(h) {
+  const key = p => Math.round(p.x * 100) + ',' + Math.round(p.y * 100), hasOp = w => h.openings.some(o => o.wall === w.id);
+  const ends = () => { const m = new Map(); for (const w of h.walls) for (const e of ['a', 'b']) { const k = key(w[e]); if (!m.has(k)) m.set(k, []); m.get(k).push([w, e]); } return m; };
+  for (let pass = 0; pass < 30; pass++) { let changed = false; const m = ends();
+    for (const w of [...h.walls]) { if (w.virtual || hasOp(w)) continue; const L = wallLen(w);
+      const na = (m.get(key(w.a)) || []).filter(([o]) => o !== w), nb = (m.get(key(w.b)) || []).filter(([o]) => o !== w);
+      if ((L < .6 && !na.length && !nb.length) || (L < .35 && (!na.length || !nb.length))) { h.walls = h.walls.filter(x => x !== w); changed = true; break; }
+      if (L < .6 && na.length === 1 && nb.length === 1) {   // snedbit i hörn: förläng grannarna tills de möts
+        const [o1, e1] = na[0], [o2, e2] = nb[0]; if (o1 === o2) continue;
+        const p1 = o1[e1 === 'a' ? 'b' : 'a'], q1 = o1[e1], p2 = o2[e2 === 'a' ? 'b' : 'a'], q2 = o2[e2];
+        const d1 = { x: q1.x - p1.x, y: q1.y - p1.y }, d2 = { x: q2.x - p2.x, y: q2.y - p2.y }, cr = d1.x * d2.y - d1.y * d2.x;
+        if (Math.abs(cr) < 1e-6 * Math.hypot(d1.x, d1.y) * Math.hypot(d2.x, d2.y) * 1e3) continue;
+        const t = ((p2.x - p1.x) * d2.y - (p2.y - p1.y) * d2.x) / cr, X = { x: r3(p1.x + d1.x * t), y: r3(p1.y + d1.y * t) };
+        if (Math.hypot(X.x - (w.a.x + w.b.x) / 2, X.y - (w.a.y + w.b.y) / 2) > .7) continue;
+        const ang = Math.abs(Math.atan2(cr, d1.x * d2.x + d1.y * d2.y)); if (ang < .35 || ang > Math.PI - .35) continue;
+        o1[e1] = { ...X }; o2[e2] = { ...X }; for (const r of h.rooms) r.pts = r.pts; h.walls = h.walls.filter(x => x !== w); changed = true; break; } }
+    if (!changed) {   // pyttebitar: dra ihop båda ändarna till en punkt
+      for (const w of [...h.walls]) { if (w.virtual || hasOp(w) || wallLen(w) >= .25) continue;
+        const M = { x: r3((w.a.x + w.b.x) / 2), y: r3((w.a.y + w.b.y) / 2) }, ka = key(w.a), kb = key(w.b);
+        h.walls = h.walls.filter(x => x !== w);
+        for (const o of h.walls) for (const e of ['a', 'b']) if (key(o[e]) === ka || key(o[e]) === kb) o[e] = { ...M };
+        changed = true; break; } }
+    if (!changed) {   // små slutna rutor (symboler på ritningen, t.ex. diskmaskin)
+      const short = h.walls.filter(w => !w.virtual && !hasOp(w) && wallLen(w) < .8), adj = new Map();
+      for (const w of short) for (const e of ['a', 'b']) { const k = key(w[e]); if (!adj.has(k)) adj.set(k, []); adj.get(k).push(w); }
+      const seen = new Set();
+      for (const w0 of short) { if (seen.has(w0)) continue; const comp = [], st = [w0]; seen.add(w0);
+        while (st.length) { const w = st.pop(); comp.push(w); for (const e of ['a', 'b']) for (const o of adj.get(key(w[e])) || []) if (!seen.has(o)) { seen.add(o); st.push(o); } }
+        const pts = comp.flatMap(w => [w.a, w.b]), nodes = new Set(pts.map(key));
+        const bw = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x)), bh = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y));
+        if (comp.length >= 3 && comp.length >= nodes.size && bw < .9 && bh < .9) { h.walls = h.walls.filter(x => !comp.includes(x)); changed = true; break; } } }
+    if (!changed) break; }
+  mergeWalls(h); return h;
+}
 // Delar väggar där en annan vägg möter mitt på (T-korsning), så att varje bit gränsar mot ett rum per sida.
 export function splitWalls(h) {
   for (let changed = true; changed;) { changed = false;

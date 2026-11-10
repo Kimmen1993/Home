@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794341617';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794341617';
-import { insideSign } from './plan2d.js?v=1794341617';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794341991';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794341991';
+import { insideSign } from './plan2d.js?v=1794341991';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -20,6 +20,7 @@ export function createView(host, api) {
   controls.screenSpacePanning = false;
 
   const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x3a3226, 1); scene.add(hemi);
+  const amb = new THREE.AmbientLight(0xffffff, .5); scene.add(amb);   // jämnt grundljus så tak och väggar i samma färg ser lika ut
   const sun = new THREE.DirectionalLight(0xffe2c0, 2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
   scene.add(sun); scene.add(sun.target);
   const world = new THREE.Group(); scene.add(world);
@@ -447,11 +448,11 @@ export function createView(host, api) {
       });
       // innertak – på den aktiva våningen bara om man valt det, under-våningar alltid stängda
       const ceilOn = active ? S.walls === 'hela' && S.ceil === true : true;
-      if (ceilOn) for (const r of h.rooms) { if (r.outdoor || (focus && r !== focus)) continue;
-        const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, p.y)));
-        const c = new THREE.Mesh(new THREE.ShapeGeometry(sh), M(r.ceilColor || '#f4f2ee', { roughness: .95, emissive: new THREE.Color(r.ceilColor || '#f4f2ee'), emissiveIntensity: S.day ? .55 : .18 })); c.rotation.x = Math.PI / 2; c.position.y = h.ceiling || 2.5; c.receiveShadow = true;
+      if (ceilOn) h.rooms.forEach((r, ri) => { if (r.outdoor || (focus && r !== focus)) return; const gp = grow(r.pts, .06);
+        const sh = new THREE.Shape(gp.map(p => new THREE.Vector2(p.x, p.y)));
+        const c = new THREE.Mesh(new THREE.ShapeGeometry(sh), M(r.ceilColor || '#f4f2ee', { roughness: .95 })); c.rotation.x = Math.PI / 2; c.position.y = (h.ceiling || 2.5) - ri * .0004; c.receiveShadow = true;
         c.userData.pick = { type: 'room', id: r.id }; layer.add(c);
-        const top = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)))), M('#9a958f', { roughness: .9 })); top.rotation.x = -Math.PI / 2; top.position.y = (h.ceiling || 2.5) + .02; top.castShadow = true; layer.add(top); }
+        const top = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(gp.map(p => new THREE.Vector2(p.x, -p.y)))), M('#9a958f', { roughness: .9 })); top.rotation.x = -Math.PI / 2; top.position.y = (h.ceiling || 2.5) + .02 + ri * .0004; top.castShadow = true; layer.add(top); });
       // väggar
       const cut = active ? cutV : 0;
       joints = wallJoints(h.walls.filter(w => !w.virtual));
@@ -476,7 +477,7 @@ export function createView(host, api) {
 
   function setLighting() {
     const day = S.day;
-    hemi.intensity = day ? 1.6 : .45; hemi.color.set(day ? 0xdde8ff : 0x6d82b8); hemi.groundColor.set(day ? 0x8a7c66 : 0x2a2620);
+    hemi.intensity = day ? 1.1 : .3; amb.intensity = day ? .9 : .14; amb.color.set(day ? 0xffffff : 0x8a93b0); hemi.color.set(day ? 0xeef2ff : 0x6d82b8); hemi.groundColor.set(day ? 0x8c8a86 : 0x26262a);
     sun.intensity = day ? 2.6 : .35; sun.color.set(day ? 0xffe6c8 : 0x9fb4ff);
     const bg = day ? 0x1b2219 : 0x0c0f0c; scene.background = new THREE.Color(bg); scene.fog = new THREE.Fog(bg, bounds.size * 2.2, bounds.size * 5);
   }

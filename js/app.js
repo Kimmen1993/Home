@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341617';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341617';
-import { createPlan } from './plan2d.js?v=1794341617';
-import { createView } from './view3d.js?v=1794341617';
-import { createHA } from './ha.js?v=1794341617';
-import { detectPlan } from './autoplan.js?v=1794341617';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341991';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341991';
+import { createPlan } from './plan2d.js?v=1794341991';
+import { createView } from './view3d.js?v=1794341991';
+import { createHA } from './ha.js?v=1794341991';
+import { detectPlan } from './autoplan.js?v=1794341991';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -169,6 +169,7 @@ function homePanel() {
     <label class="f">Typ</label>${opt('home.type', h.type, Object.entries(HOME_TYPES).map(([k, v]) => [k, v.icon + ' ' + v.name]))}
     <div style="height:10px"></div>
     <label class="f">Takhöjd (cm)<input data-f="home.ceiling" data-u="cm" value="${cm(h.ceiling)}"></label>
+    <div class="btns" style="margin-bottom:10px"><button class="btn" data-act="cleanwalls" title="Slår ihop raka väggbitar och tar bort småbitar från planritningen">🧹 Städa väggar</button></div>
     <label class="f">Rummen följer väggarna</label>${opt('home.autoRooms', h.autoRooms === false ? 'nej' : 'ja', [['ja', '🔄 Automatiskt'], ['nej', '✋ Manuellt']])}<div style="height:8px"></div>
     <div class="note">${h.rooms.filter(r => !r.outdoor).length} rum · ${h.rooms.filter(r => !r.outdoor).reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
 }
@@ -301,6 +302,8 @@ right.addEventListener('click', e => {
   const obj = selected();
   if (act.startsWith('rot')) { commit(); obj.rot = ((obj.rot + +act.slice(3)) % 360 + 360) % 360; emit('full', 'panel'); return; }
   if (act === 'dellevel') { const raw = h.__raw; if (!confirm(`Ta bort ${h.__level.name} med allt på den?`)) return; commit(); raw.levels = raw.levels.filter(l => l !== h.__level); S.level = null; renderAll(); emit('full'); view.buildNow(); view.fitCam(); return; }
+  if (act === 'cleanwalls') { commit(); const before = h.walls.length; mergeWalls(h); cleanWalls(h); splitWalls(h); h.rooms.forEach(r => { if (!r.outdoor) r.custom = false; }); rebuildRooms(h); emit('full');
+    window.toast(`🧹 ${before} → ${h.walls.length} väggar`); return; }
   if (act === 'delpt') return deletePoint();
   if (act === 'del') return deleteSel();
   if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
@@ -487,7 +490,7 @@ async function autoPlan() {
       hinge: 'L', swing: 1, blind: 'none', blindColor: '#ece6da', entity: '', blindEntity: '', name: '', state: { open: 0, blind: 0 } });
   }
   const rooms = [...r.rooms].sort((a, b) => b.area - a.area);
-  splitWalls(h);
+  mergeWalls(h); cleanWalls(h); splitWalls(h);
   rooms.forEach((rm, i) => h.rooms.push({ id: uid(), name: 'Rum ' + (i + 1), pts: rm.pts.map(P), floor: '#b8915f', style: 'tra' }));
   (r.outdoor || []).forEach((o, i) => h.rooms.push({ id: uid(), name: i ? 'Uteplats ' + (i + 1) : 'Uteplats', pts: o.pts.map(P), floor: '#8a6440', style: 'tra', outdoor: true }));
   h.bg.x = -ox * s; h.bg.y = -oy * s; h.bg.mpp = r.kd * s; h.bg.opacity = .35;
