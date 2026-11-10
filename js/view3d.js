@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342329';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342329';
-import { insideSign } from './plan2d.js?v=1794342329';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342355';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342355';
+import { insideSign } from './plan2d.js?v=1794342355';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -360,7 +360,7 @@ export function createView(host, api) {
           if (o.grid === 'sprojs') { B(inner, .02, sh - sf * 2, .026, fm, 0, sh / 2, 0); for (const k of [1 / 3, 2 / 3]) B(inner, sw - sf * 2, .02, .026, fm, 0, sf + (sh - sf * 2) * k, 0); }
           if (ot === 'sido') { B(inner, .015, .12, .03, metalM(), dir * (sw / 2 - .06), sh / 2, sgn * .03);
             pv.position.set(left ? x0 : x0 + sw, base, 0); inner.position.x = dir * sw / 2; ref.sashes.push({ g: pv, axis: 'y', sign: left ? -sgn : sgn, max: 1.1 }); }
-          else if (ot === 'sving') { B(inner, .12, .015, .03, metalM(), 0, sh - .07, sgn * .03);
+          else if (ot === 'sving') { B(inner, .12, .015, .03, metalM(), 0, .07, sgn * .03);
             pv.position.set(x0 + sw / 2, base + sh / 2, 0); inner.position.y = -sh / 2; ref.sashes.push({ g: pv, axis: 'x', sign: sgn, max: .9 }); }
           else if (ot === 'tipp') { B(inner, .12, .015, .03, metalM(), 0, sh - .07, sgn * .03);
             pv.position.set(x0 + sw / 2, base, 0); ref.sashes.push({ g: pv, axis: 'x', sign: sgn, max: .3 }); }
