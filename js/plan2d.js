@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794345631';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794345631';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794346538';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794346538';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -436,7 +436,14 @@ function wallDrag(h, w, p) {
       const other = o[ok === 'a' ? 'b' : 'a'], ol = Math.hypot(other.x - P.x, other.y - P.y) || 1, u = { x: (other.x - P.x) / ol, y: (other.y - P.y) / ol };
       nbs.push({ o, ok, u, dot: u.x * n.x + u.y * n.y }); } }
     ends.push({ k, P, nbs, rooms: roomRefs(h, P) }); }
-  return { wall: w, start: p, n, ends };
+  // väggar som slutar mot väggens sida (T-korsning som inte är exakt i en punkt) ska också följa med
+  const touch = [];
+  for (const o of h.walls) { if (o === w) continue; for (const ok of ['a', 'b']) { const q = o[ok], pr = proj(q, w.a, w.b);
+    if (pr.t <= .05 || pr.t >= L - .05 || Math.abs(pr.d) > w.t / 2 + .08) continue;
+    if (ends.some(e => e.nbs.some(nb => nb.o === o && nb.ok === ok))) continue;
+    const other = o[ok === 'a' ? 'b' : 'a'], ol = Math.hypot(other.x - q.x, other.y - q.y) || 1, u = { x: (other.x - q.x) / ol, y: (other.y - q.y) / ol };
+    touch.push({ o, ok, Q: { ...q }, u, dot: u.x * n.x + u.y * n.y, rooms: roomRefs(h, q) }); } }
+  return { wall: w, start: p, n, ends, touch };
 }
 function moveWall(d, p, any, free) {
   const st = free ? .001 : .05;
@@ -451,6 +458,9 @@ function moveWall(d, p, any, free) {
       if (any || Math.abs(nb.dot) < .35) { nb.o[nb.ok] = { ...e.P }; continue; }   // rak fortsättning: rörs inte
       const s = along / nb.dot; nb.o[nb.ok] = { x: r3(e.P.x + nb.u.x * s), y: r3(e.P.y + nb.u.y * s) }; }
   }
+  for (const tc of d.touch || []) { const along = mx * d.n.x + my * d.n.y;
+    if (any || Math.abs(tc.dot) < .35) { tc.o[tc.ok] = { ...tc.Q }; continue; }
+    const s = along / tc.dot, np = { x: r3(tc.Q.x + tc.u.x * s), y: r3(tc.Q.y + tc.u.y * s) }; tc.o[tc.ok] = np; tc.rooms.forEach(([r, i]) => r.pts[i] = np); }
 }
 
 export function insideSign(h, w, o) {
