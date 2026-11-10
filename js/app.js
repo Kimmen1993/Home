@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794339859';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794339859';
-import { createPlan } from './plan2d.js?v=1794339859';
-import { createView } from './view3d.js?v=1794339859';
-import { createHA } from './ha.js?v=1794339859';
-import { detectPlan } from './autoplan.js?v=1794339859';
+import { rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794340173';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794340173';
+import { createPlan } from './plan2d.js?v=1794340173';
+import { createView } from './view3d.js?v=1794340173';
+import { createHA } from './ha.js?v=1794340173';
+import { detectPlan } from './autoplan.js?v=1794340173';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -202,7 +202,8 @@ function openingPanel(o) {
     ${o.kind !== 'hole' ? `<label class="f">Färg</label>${swatches('color', o.color)}` : ''}
     ${o.kind === 'door' && !o.glass ? `<label class="f">Material</label>${opt('mat', o.mat || 'malad', [['malad', 'Målad'], ['tra', 'Trä']])}<div style="height:8px"></div>` : ''}
     ${o.kind === 'door' ? handles(o.handleColor) : ''}
-    ${o.kind === 'window' ? `<h3>FÖNSTER</h3><label class="f">Indelning</label>${opt('panes', String(o.panes || (o.w > 1 ? 2 : 1)), [['1', '▯ Ett'], ['2', '▯▯ Två'], ['3', '▯▯▯ Tre']])}
+    ${o.kind === 'window' ? `<h3>FÖNSTER</h3><label class="f">Öppnas som</label>${opt('openType', o.openType || 'sido', [['sido', '🚪 Sido'], ['sving', '🔄 Sväng'], ['tipp', '↘ Tipp'], ['fast', '▫ Fast']])}
+      <label class="f" style="margin-top:8px">Indelning</label>${opt('panes', String(o.panes || (o.w > 1 ? 2 : 1)), [['1', '▯ Ett'], ['2', '▯▯ Två'], ['3', '▯▯▯ Tre']])}
       <label class="f" style="margin-top:8px">Spröjs</label>${opt('grid', o.grid || 'none', [['none', 'Inga'], ['kors', '✚ Kors'], ['sprojs', '▦ Spröjs']])}
       <label class="f" style="margin-top:8px">Överljus</label>${opt('transom', o.transom ? '1' : '', [['', 'Nej'], ['1', 'Ja']])}` : ''}
     ${o.kind === 'window' ? `<h3>GARDIN</h3>${opt('blind', o.blind, [['none', 'Ingen'], ['rullgardin', 'Rullgardin'], ['persienn', 'Persienn']])}
@@ -389,7 +390,7 @@ function onDevice(p) {
     else { const r = roomAt(h, it); if (r) roomLights(r, h); }
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'opening') { const o = h.openings.find(i => i.id === p.id); if (!o) return;
-    if (o.kind === 'window') doorSet(o, o.state.open < .5);
+    if (o.kind === 'window') { if (o.openType === 'fast') return window.toast('Fast fönster – går inte att öppna'); doorSet(o, o.state.open < .5); }
     else if (o.kind !== 'hole') doorSet(o, o.state.open < .5);
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'blind') { const o = h.openings.find(i => i.id === p.id); blindSet(o, o.state.blind > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); return; }

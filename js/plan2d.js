@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794339859';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794339859';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794340173';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340173';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');

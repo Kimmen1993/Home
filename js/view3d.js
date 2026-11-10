@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794339859';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794339859';
-import { insideSign } from './plan2d.js?v=1794339859';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794340173';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340173';
+import { insideSign } from './plan2d.js?v=1794340173';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -349,16 +349,22 @@ export function createView(host, api) {
           const tg = new THREE.Mesh(new THREE.BoxGeometry(o.w - f * 2, th - f, .01), gm); tg.position.set(o.t, o.sill + f + sh + f + (th - f) / 2, 0); tg.castShadow = false; g.add(pickIt(tg));
           if (o.grid && o.grid !== 'none') for (let i = 1; i < n * (o.grid === 'sprojs' ? 2 : 1); i++) pickIt(B(g, .02, th - f, .025, fm, s + f + i * (o.w - f * 2) / (n * (o.grid === 'sprojs' ? 2 : 1)), o.sill + f + sh + f + (th - f) / 2, 0)); }
         ref.sashes = [];
-        for (let i = 0; i < n; i++) { const left = i < n / 2 || n === 1, sg = new THREE.Group(), dir = left ? 1 : -1;
-          sg.position.set(left ? s + f + i * sw : s + f + (i + 1) * sw, o.sill + f, 0); g.add(sg);
-          const cx = dir * sw / 2;
-          B(sg, sf, sh, .04, fm, dir * sf / 2, sh / 2, 0); B(sg, sf, sh, .04, fm, dir * (sw - sf / 2), sh / 2, 0);
-          B(sg, sw, sf, .04, fm, cx, sf / 2, 0); B(sg, sw, sf, .04, fm, cx, sh - sf / 2, 0);
-          const glass = new THREE.Mesh(new THREE.BoxGeometry(sw - sf * 2, sh - sf * 2, .01), gm); glass.position.set(cx, sh / 2, 0); glass.castShadow = false; sg.add(glass);
-          if (o.grid === 'kors') { B(sg, .022, sh - sf * 2, .028, fm, cx, sh / 2, 0); B(sg, sw - sf * 2, .022, .028, fm, cx, sh * .58, 0); }
-          if (o.grid === 'sprojs') { B(sg, .02, sh - sf * 2, .026, fm, cx, sh / 2, 0); for (const k of [1 / 3, 2 / 3]) B(sg, sw - sf * 2, .02, .026, fm, cx, sf + (sh - sf * 2) * k, 0); }
-          B(sg, .015, .12, .03, metalM(), dir * (sw - .06), sh / 2, sgn * .03);
-          pickIt(sg); ref.sashes.push({ g: sg, sign: left ? -sgn : sgn }); } }
+        const ot = o.openType || 'sido';
+        for (let i = 0; i < n; i++) { const left = i < n / 2 || n === 1, dir = left ? 1 : -1, x0 = s + f + i * sw, base = o.sill + f;
+          const inner = new THREE.Group(), pv = new THREE.Group(); pv.add(inner); g.add(pv);
+          B(inner, sf, sh, .04, fm, -sw / 2 + sf / 2, sh / 2, 0); B(inner, sf, sh, .04, fm, sw / 2 - sf / 2, sh / 2, 0);
+          B(inner, sw, sf, .04, fm, 0, sf / 2, 0); B(inner, sw, sf, .04, fm, 0, sh - sf / 2, 0);
+          const glass = new THREE.Mesh(new THREE.BoxGeometry(sw - sf * 2, sh - sf * 2, .01), gm); glass.position.set(0, sh / 2, 0); glass.castShadow = false; inner.add(glass);
+          if (o.grid === 'kors') { B(inner, .022, sh - sf * 2, .028, fm, 0, sh / 2, 0); B(inner, sw - sf * 2, .022, .028, fm, 0, sh * .58, 0); }
+          if (o.grid === 'sprojs') { B(inner, .02, sh - sf * 2, .026, fm, 0, sh / 2, 0); for (const k of [1 / 3, 2 / 3]) B(inner, sw - sf * 2, .02, .026, fm, 0, sf + (sh - sf * 2) * k, 0); }
+          if (ot === 'sido') { B(inner, .015, .12, .03, metalM(), dir * (sw / 2 - .06), sh / 2, sgn * .03);
+            pv.position.set(left ? x0 : x0 + sw, base, 0); inner.position.x = dir * sw / 2; ref.sashes.push({ g: pv, axis: 'y', sign: left ? -sgn : sgn, max: 1.1 }); }
+          else if (ot === 'sving') { B(inner, .12, .015, .03, metalM(), 0, sh - .07, sgn * .03);
+            pv.position.set(x0 + sw / 2, base + sh / 2, 0); inner.position.y = -sh / 2; ref.sashes.push({ g: pv, axis: 'x', sign: sgn, max: .9 }); }
+          else if (ot === 'tipp') { B(inner, .12, .015, .03, metalM(), 0, sh - .07, sgn * .03);
+            pv.position.set(x0 + sw / 2, base, 0); ref.sashes.push({ g: pv, axis: 'x', sign: sgn, max: .3 }); }
+          else { pv.position.set(x0 + sw / 2, base, 0); }
+          pickIt(pv); } }
       if (o.sill > .3 && o.sill < H) pickIt(B(g, o.w + .06, .03, t + .06, '#e8e8e8', o.t, o.sill - .015, 0));
       if (o.blind !== 'none') {
         const side = insideSign(h, w, o) * (t / 2 + .03);
@@ -491,7 +497,7 @@ export function createView(host, api) {
     for (const id in refs.openings) { const r = refs.openings[id];
       r.open += ((r.tOpen ?? 0) - (r.open ?? 0)) * k; r.blind += ((r.tBlind ?? 0) - (r.blind ?? 0)) * k;
       if (r.pivot) r.pivot.rotation.y = r.sign * r.open * Math.PI * .5;
-      if (r.sashes) r.sashes.forEach(s => s.g.rotation.y = s.sign * r.open * 1.1);
+      if (r.sashes) r.sashes.forEach(s => s.g.rotation[s.axis] = s.sign * r.open * s.max);
       if (r.panel) { r.panel.scale.y = 1 - r.open * .92; }
       if (r.cloth) { const L = Math.max(.001, r.blind * r.blindH);
         if (r.slats) r.slats.forEach((s, i) => { const y = (i + .5) * .05; s.visible = y <= L + .001; s.rotation.x = r.blind > .02 ? .25 : 1.2; });
