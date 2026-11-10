@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794345349';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794345631';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -219,6 +219,19 @@ export function trackProj(pts, p) {
   for (let i = 0; i < pts.length - 1; i++) { const pr = proj(p, pts[i], pts[i + 1]), t = Math.max(0, Math.min(pr.L, pr.t));
     const d = Math.hypot(p.x - (pts[i].x + pr.ux * t), p.y - (pts[i].y + pr.uy * t)); if (d < best.d) best = { s: acc + t, d }; acc += pr.L; }
   return best;
+}
+// Invändigt mått från väggen till närmaste parallella vägg på en sida (side = +1/-1 längs väggens normal)
+export function wallGap(h, w, side) {
+  const L = wallLen(w), nx = -(w.b.y - w.a.y) / L * side, ny = (w.b.x - w.a.x) / L * side; let best = null;
+  for (const o of h.walls) { if (o === w || o.virtual) continue; const Lo = wallLen(o); if (Lo < .2) continue;
+    const cr = Math.abs(((w.b.x - w.a.x) * (o.b.y - o.a.y) - (w.b.y - w.a.y) * (o.b.x - o.a.x)) / (L * Lo)); if (cr > .17) continue;   // ungefär parallell
+    let hits = 0, dsum = 0;
+    for (const f of [.25, .5, .75]) { const p = { x: w.a.x + (w.b.x - w.a.x) * f, y: w.a.y + (w.b.y - w.a.y) * f }, pr = proj(p, o.a, o.b);
+      if (pr.t < 0 || pr.t > pr.L) continue; const d = (o.a.x + pr.ux * pr.t - p.x) * nx + (o.a.y + pr.uy * pr.t - p.y) * ny; if (d > .05) { hits++; dsum += d; } }
+    if (!hits) continue; const d = dsum / hits; if (!best || d < best.d) best = { o, d }; }
+  if (!best) return null;
+  const mid = { x: (w.a.x + w.b.x) / 2 + nx * (w.t / 2 + .2), y: (w.a.y + w.b.y) / 2 + ny * (w.t / 2 + .2) };
+  return { wall: best.o, inner: best.d - w.t / 2 - best.o.t / 2, room: roomAt(h, mid) };
 }
 // En punkt som garanterat ligger inne i polygonen
 export function insidePoint(pts) {

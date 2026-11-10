@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794345349';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794345349';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794345631';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794345631';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -406,6 +406,9 @@ export function createPlan(canvas, ui) {
     draw, resize, fit, ts, tw,
     cancel() { if (track) finishTrack(); chain = null; rect = null; ghost = null; calib = null; draw(); },
     calibrate() { calib = {}; draw(); },
+    // Flytta en vägg rakt ut/in en sträcka (grannar i hörnen följer med), räkna om rummen
+    moveWallBy(w, dist) { const h = home(), d = wallDrag(h, w, { x: 0, y: 0 }); moveWall(d, { x: d.n.x * dist, y: d.n.y * dist }, false, true);
+      touchRooms(h, [[w.a, w.b], [d.ends[0].P, d.ends[1].P]]); splitWalls(h); rebuildRooms(h); },
     zoom(f) { const W = canvas.clientWidth / 2, H = canvas.clientHeight / 2, p = tw(W, H); scale = Math.min(300, Math.max(8, scale * f)); ox = W - p.x * scale; oy = H - p.y * scale; draw(); },
   };
 }

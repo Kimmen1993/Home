@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794345349';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794345349';
-import { createPlan } from './plan2d.js?v=1794345349';
-import { createView } from './view3d.js?v=1794345349';
-import { createHA } from './ha.js?v=1794345349';
-import { detectPlan } from './autoplan.js?v=1794345349';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794345631';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794345631';
+import { createPlan } from './plan2d.js?v=1794345631';
+import { createView } from './view3d.js?v=1794345631';
+import { createHA } from './ha.js?v=1794345631';
+import { detectPlan } from './autoplan.js?v=1794345631';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -271,6 +271,9 @@ function openingPanel(o) {
 function wallPanel(w) {
   if (w.virtual) return `<h2>✂️ Rumsgräns</h2><p class="note">En osynlig gräns som delar golvet i två rum. Syns inte i 3D.</p>${field('Längd (cm)', 'len', wallLen(w))}<div class="btns"><button class="btn danger" data-act="del">🗑 Ta bort gräns</button></div>`;
   return `<h2>🧱 Vägg</h2>
+    ${(() => { const gs = [1, -1].map(sd => ({ sd, g: wallGap(home(), w, sd) })).filter(x => x.g); return gs.length ? `<h3>↔ MÅTT TILL MOTSATT VÄGG</h3>
+      ${gs.map(({ sd, g }) => `<label class="f">Mot ${esc(g.room ? g.room.name : 'nästa vägg')} (invändigt, cm)<input data-gap="${sd}" inputmode="decimal" value="${Math.round(g.inner * 100)}"></label>`).join('')}
+      <p class="note" style="margin-top:-4px">Skriv det du mäter med måttband – väggen flyttas, fönster/dörrar följer med.</p>` : ''; })()}
     <div class="g2">${field('Längd (cm)', 'len', wallLen(w))}${field('Tjocklek (cm)', 't', w.t)}${field('Höjd (cm)', 'h', w.h)}</div>
     ${(() => { const sd = wallSides(home(), w); return `
     <h3>SIDA MOT ${esc((sd.P ? sd.P.name : 'utsidan').toUpperCase())}</h3>${opt('matP', w.matP || 'malad', Object.entries(WALLMATS).slice(0, 3))}${opt('matP', w.matP || 'malad', Object.entries(WALLMATS).slice(3))}${swatches('colorP', w.colorP || w.color)}
@@ -379,6 +382,9 @@ right.addEventListener('click', e => {
 });
 right.addEventListener('change', e => {
   const t = e.target;
+  if (t.dataset.gap) { const w = selected(), sd = +t.dataset.gap, g = wallGap(home(), w, sd), want = parseFloat(t.value.replace(',', '.')) / 100;
+    if (!g || !(want > .1)) return renderRight(); commit(); const L = wallLen(w), nx = -(w.b.y - w.a.y) / L, ny = (w.b.x - w.a.x) / L;
+    plan.moveWallBy(w, -sd * (want - g.inner)); emit('full'); window.toast(`↔ ${Math.round(want * 100)} cm`); return; }
   if (t.dataset.pf) { const it = selected(), p = it?.panels?.find(x => x.id === S.panelSel); if (!p) return; commit(); let v = t.value;
     if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v > 0) && t.dataset.pf === 'w') return renderRight(); if (!isFinite(v)) return renderRight(); }
     if (t.dataset.pf === 'window') { if (!v && p.window) p.s = panelS(home(), it, p); p.window = v || null; const wn = windowsNear(home(), it).find(x => x.o.id === v); if (wn) { p.s = wn.s; p.anchor = p.anchor || 'center'; } }
