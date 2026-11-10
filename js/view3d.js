@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794340929';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794340929';
-import { insideSign } from './plan2d.js?v=1794340929';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794340960';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340960';
+import { insideSign } from './plan2d.js?v=1794340960';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -405,7 +405,7 @@ export function createView(host, api) {
   // ---------- bygg hela scenen ----------
   function disposeWorld() {
     world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isReflector || o.getRenderTarget) { o.dispose?.(); } });
-    world.clear(); refs = { items: {}, openings: {}, pick: [] }; selBox = null;
+    world.clear(); refs = { items: {}, openings: {}, pick: [] }; if (selBox) { scene.remove(selBox); selBox.dispose?.(); } selBox = null;
   }
   let layer = world;
   // polygon förstorad d meter (hörnen följer med)
