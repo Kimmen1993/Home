@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341431';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341431';
-import { createPlan } from './plan2d.js?v=1794341431';
-import { createView } from './view3d.js?v=1794341431';
-import { createHA } from './ha.js?v=1794341431';
-import { detectPlan } from './autoplan.js?v=1794341431';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341617';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341617';
+import { createPlan } from './plan2d.js?v=1794341617';
+import { createView } from './view3d.js?v=1794341617';
+import { createHA } from './ha.js?v=1794341617';
+import { detectPlan } from './autoplan.js?v=1794341617';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -60,7 +60,7 @@ $('#side').addEventListener('click', e => {
 });
 function switchHome(id) { S.cur = id; S.level = null; S.sel = null; S.placing = null; clearHistory(); emit('full'); view.buildNow(); view.fitCam(); plan.fit(); }
 function setMode(m) {
-  S.mode = m; S.sel = null; S.placing = null; S.tool = 'select'; plan.cancel();
+  S.inside = false; S.mode = m; S.sel = null; S.placing = null; S.tool = 'select'; plan.cancel();
   if (m === 'styr') { if (S.walls === 'hela') S.walls = 'halva'; S.day = false; } else { S.day = true; if (!S._seenBygg) S.view = innerWidth < 980 ? '2d' : 'split'; }
   S._seenBygg = S._seenBygg || m === 'bygg';
   renderAll(); view.build(); setTimeout(() => plan.fit(), 60);
@@ -76,7 +76,7 @@ function renderTop() {
     ${S.mode === 'bygg' ? `<div class="seg">${[['2d', '📐 2D'], ['split', '◫ Båda'], ['3d', '🧊 3D']].map(([k, l]) => `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     <div class="seg" title="Hur mycket av väggarna som syns">${[['hela', '▮', 'Hela'], ['halva', '▬', 'Halva'], ['golv', '▁', 'Golv'], ['rum', '⬚', 'Ett rum']].map(([k, i, l]) => `<button data-walls="${k}" class="${S.walls === k ? 'on' : ''}">${i} ${l}</button>`).join('')}</div>
     ${S.walls === 'hela' ? `<button class="ib ${S.ceil === true ? 'on' : ''}" data-ceil title="Innertak">🏠 Tak ${S.ceil === true ? 'på' : 'av'}</button>` : ''}
-    <button class="ib" data-eye title="Stå i rummet i ögonhöjd">🧍 Gå in</button>
+    <button class="ib ${S.inside ? 'on' : ''}" data-eye title="Stå i rummet i ögonhöjd">${S.inside ? '🚪 Gå ut' : '🧍 Gå in'}</button>
     <button class="ib" data-day>${S.day ? '☀️ Dag' : '🌙 Kväll'}</button>
     <button class="ib" data-cam title="Centrera">⤢</button>`;
   $('#stage').dataset.view = S.mode === 'styr' ? '3d' : S.view;
@@ -88,11 +88,12 @@ $('#topRight').addEventListener('click', e => {
   if (t.dataset.walls) { S.walls = t.dataset.walls; if (S.walls === 'rum' && S.sel?.type === 'room') S.focus = S.sel.id;
     renderTop(); view.build(); if (S.walls === 'rum') window.toast('Välj ett annat rum: klicka på det i 2D-ritningen'); }
   if (t.hasAttribute('data-ceil')) { S.ceil = S.ceil !== true; renderTop(); view.build(); }
+  if (t.hasAttribute('data-eye') && S.inside) { goOut(); return; }
   if (t.hasAttribute('data-eye')) { const h = home(), r = (S.sel?.type === 'room' && h.rooms.find(x => x.id === S.sel.id)) || h.rooms.find(x => x.id === S.focus) || [...h.rooms].filter(x => !x.outdoor).sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
-    if (!r) return window.toast('Rita ett rum först'); S.walls = 'hela'; S.ceil = true; if (S.mode === 'bygg' && S.view === '2d') S.view = 'split'; renderTop(); view.buildNow(); view.eye(r);
-    window.toast(`🧍 Du står i ${r.name} · dra = titta runt · högerklick-dra = gå · ⤢ = tillbaka`); }
+    if (!r) return window.toast('Rita ett rum först'); S.prev = { walls: S.walls, ceil: S.ceil }; S.walls = 'hela'; S.ceil = true; if (S.mode === 'bygg' && S.view === '2d') S.view = 'split'; S.inside = true; renderTop(); view.buildNow(); view.eye(r);
+    window.toast(`🧍 Du står i ${r.name} · dra = titta runt · högerklick-dra = gå · 🚪 Gå ut eller Esc = tillbaka`); }
   if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.build(); }
-  if (t.hasAttribute('data-cam')) { view.fitCam(); plan.fit(); }
+  if (t.hasAttribute('data-cam')) { goOut(); plan.fit(); }
 });
 const TOOLS = [['select', '✋', 'Välj'], ['room', '⬜', 'Rum'], ['wall', '🧱', 'Vägg'], ['divider', '✂️', 'Rumsgräns'], ['add', '🛋️', 'Lägg till'], ['bild', '🖼️', 'Bild']];
 function renderToolbar() {
@@ -536,6 +537,7 @@ $('#fileImg').addEventListener('change', async e => {
 // ---------- tangentbord ----------
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
+  if (e.key === 'Escape' && S.inside) { goOut(); return; }
   const mod = e.metaKey || e.ctrlKey;
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
@@ -551,6 +553,7 @@ window.addEventListener('keydown', e => {
 
 // ---------- start ----------
 function renderAll() { renderSide(); renderTop(); renderToolbar(); renderRight(); hint(); renderLevels(); }
+function goOut() { const was = S.inside; S.inside = false; if (was && S.prev) { S.walls = S.prev.walls; S.ceil = S.prev.ceil; S.prev = null; view.buildNow(); } view.fitCam(); renderTop(); }
 // ---------- våningar ----------
 function renderLevels() {
   const raw = home().__raw, cur = home().__level;
