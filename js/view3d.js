@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342730';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342730';
-import { insideSign } from './plan2d.js?v=1794342730';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342948';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342948';
+import { insideSign } from './plan2d.js?v=1794342948';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -73,6 +73,11 @@ export function createView(host, api) {
     const m = new THREE.MeshStandardMaterial({ map: t, roughness: style === 'klinker' || style === 'kakel' ? .35 : style === 'matta' ? 1 : .7 }); mats.set(k, m); return m; }
   // väggmaterial: målad = slät färg, annars textur
   function wallMat(mat, color) { return !mat || mat === 'malad' ? M(color, { roughness: .92 }) : floorMat(mat, color); }
+  function curtainTex(pat, color) { const k = 'C' + pat + color; if (texCache.has(k)) return texCache.get(k);
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = shade(color, pat === 'rand' ? .75 : .82); if (pat === 'rand') { g.fillRect(0, 0, 16, 64); g.fillRect(40, 0, 6, 64); }
+    else { g.globalAlpha = .55; g.fillRect(0, 0, 32, 64); g.fillRect(0, 0, 64, 32); g.globalAlpha = 1; }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; texCache.set(k, t); return t; }
   let screenTex = null;
   function tvScreen() { if (screenTex) return screenTex; const c = document.createElement('canvas'); c.width = 256; c.height = 144; const g = c.getContext('2d');
     const gr = g.createLinearGradient(0, 0, 256, 144); gr.addColorStop(0, '#1d4e89'); gr.addColorStop(.5, '#e86a33'); gr.addColorStop(1, '#2a1a4a'); g.fillStyle = gr; g.fillRect(0, 0, 256, 144);
@@ -219,12 +224,24 @@ export function createView(host, api) {
       case 'vagglampa': { B(g, .1, .18, .02, c, 0, .12, -d / 2 + .01); B(g, .03, .03, .1, c, 0, .16, -d / 2 + .06);
         const bulb = B(g, .11, .16, .11, new THREE.MeshStandardMaterial({ color: 0x777777, transparent: true, opacity: .9 }), 0, .1, d / 2 - .06); bulb.castShadow = false;
         B(g, .13, .02, .13, c, 0, .19, d / 2 - .06); ref.bulb = bulb; ref.lightY = .1; ref.power = 5; break; }
-      case 'gardin': { const rod = C(g, .012, .012, w + .1, c2 || '#3a3a3a', 0, h - .02, 0, 10); rod.rotation.z = Math.PI / 2;
-        const fab = M(c, { roughness: 1, side: THREE.DoubleSide }), panels = [];
-        for (const sx of [-1, 1]) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); pg.scale.x = w * .5; g.add(pg);
-          const n = 7; for (let i = 0; i < n; i++) B(pg, 1 / n * 1.05, h - .06, .02, fab, -sx * (i + .5) / n, (h - .06) / 2, (i % 2 ? .025 : -.025));
+      case 'gardin': {
+        const rodT = it.rod || 'stang', top = h - .02;
+        if (rodT === 'stang') { const rod = C(g, .012, .012, w + .14, c2 || '#3a3a3a', 0, top, 0, 10); rod.rotation.z = Math.PI / 2;
+          for (const sx of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(.025, 10, 8), M(c2 || '#3a3a3a', { metalness: .5, roughness: .4 })); k.position.set(sx * (w / 2 + .07), top, 0); g.add(k); } }
+        else if (rodT === 'skena') B(g, w + .04, .025, .05, c2 || '#f2f2f0', 0, top + .005, 0);
+        const fabric = it.fabric || 'tjock', pat = it.pattern || 'enfargad', folds = it.folds || 'veck';
+        const tex = pat === 'enfargad' ? null : curtainTex(pat, c);
+        const fm = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : new THREE.Color(fabric === 'mork' ? shade(c, .8) : c), map: tex, roughness: 1, side: THREE.DoubleSide,
+          transparent: fabric === 'tunn', opacity: fabric === 'tunn' ? .5 : 1 });
+        const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, nf = folds === 'wave' ? 6 : 10, ph = h - .06;
+        const sides = it.cstyle === 'vanster' ? [-1] : it.cstyle === 'hoger' ? [1] : [-1, 1], panels = [];
+        for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); g.add(pg);
+          const geo = new THREE.PlaneGeometry(1, ph, 40, 1), pos = geo.attributes.position;
+          for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + .5; pos.setX(i, -sx * x); pos.setZ(i, Math.sin(x * nf * Math.PI * 2) * amp); }
+          geo.computeVertexNormals(); const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; pg.add(m);
+          if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w * (sides.length === 1 ? 1 : .5) * 3, uv.getY(i) * ph * 3); }
           panels.push({ g: pg, sx }); }
-        ref.curtains = panels; ref.cw = w; break; }
+        ref.curtains = panels; ref.cw = w; ref.single = sides.length === 1; break; }
       case 'element': { const n = Math.max(4, Math.round(w / .05));
         for (let i = 0; i < n; i++) B(g, .03, h, d * .7, c, -w / 2 + (i + .5) * w / n, h / 2, 0);
         B(g, w, .03, d * .8, c, 0, h - .015, 0); C(g, .012, .012, .15, metalM(), -w / 2 + .05, -.075, 0); C(g, .012, .012, .15, metalM(), w / 2 - .05, -.075, 0); break; }
@@ -510,7 +527,7 @@ export function createView(host, api) {
   function applyStates(instant) {
     const raw = home().__raw, h = { items: raw.levels.flatMap(L => L.items), openings: raw.levels.flatMap(L => L.openings) };
     for (const it of h.items) { const r = refs.items[it.id]; if (!r) continue; const st = it.state || {};
-      r.target = st.on ? (st.bri ?? .8) : 0; if (instant) r.cur = r.target; }
+      r.target = ITEMS[it.type].dev === 'curtain' ? (st.pos ?? (st.on ? 1 : 0)) : st.on ? (st.bri ?? .8) : 0; if (instant) r.cur = r.target; }
     for (const o of h.openings) { const r = refs.openings[o.id]; if (!r) continue; r.tOpen = o.state?.open || 0; r.tBlind = o.state?.blind || 0;
       if (instant) { r.open = r.tOpen; r.blind = r.tBlind; } }
   }
@@ -522,7 +539,7 @@ export function createView(host, api) {
       if (r.bulb) { r.bulb.material.emissive.setRGB(1, .72, .42); r.bulb.material.emissiveIntensity = v * 3; r.bulb.material.color.setScalar(v > .05 ? 1 : .45); }
       if (r.shade) { r.shade.material.emissive.setRGB(1, .7, .4); r.shade.material.emissiveIntensity = v * .9; }
       if (r.screen) { const m = r.screen.material; if (v > .05 && !m.emissiveMap) { m.emissiveMap = tvScreen(); m.emissive.set(0xffffff); m.needsUpdate = true; } m.emissiveIntensity = v * 1.2; }
-      if (r.curtains) r.curtains.forEach(cp => { const open = 1 - v; cp.g.scale.x = (.5 * (1 - open) + .1 * open) * r.cw; });
+      if (r.curtains) r.curtains.forEach(cp => { const full = r.single ? 1 : .5, min = r.single ? .2 : .12; cp.g.scale.x = (min + (full - min) * v) * r.cw; });
       if (r.cones) { const p = v > .5 ? 1 + Math.abs(Math.sin(now * 9)) * .12 : 1; r.cones.forEach(c => c.scale.set(p, 1, p)); }
     }
     for (const id in refs.openings) { const r = refs.openings[id];

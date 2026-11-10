@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342730';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342730';
-import { createPlan } from './plan2d.js?v=1794342730';
-import { createView } from './view3d.js?v=1794342730';
-import { createHA } from './ha.js?v=1794342730';
-import { detectPlan } from './autoplan.js?v=1794342730';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342948';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342948';
+import { createPlan } from './plan2d.js?v=1794342948';
+import { createView } from './view3d.js?v=1794342948';
+import { createHA } from './ha.js?v=1794342948';
+import { detectPlan } from './autoplan.js?v=1794342948';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -192,6 +192,13 @@ function itemPanel(it) {
     <label class="f">${c.c1 || 'Färg'}</label>${swatches('color', it.color)}
     ${c.c2 ? `<label class="f">${c.c2}</label>${swatches('color2', it.color2)}` : ''}
     ${HANDLE_TYPES.includes(it.type) ? handles(it.handleColor) : ''}
+    ${it.type === 'gardin' ? `<h3>GARDIN</h3>
+      <label class="f">Längder</label>${opt('cstyle', it.cstyle || 'dubbel', [['dubbel', '▌▐ Två'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
+      <label class="f" style="margin-top:8px">Tyg</label>${opt('fabric', it.fabric || 'tjock', [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
+      <label class="f" style="margin-top:8px">Mönster</label>${opt('pattern', it.pattern || 'enfargad', [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
+      <label class="f" style="margin-top:8px">Veck</label>${opt('folds', it.folds || 'veck', [['raka', 'Raka'], ['veck', 'Veckade'], ['wave', 'Wave']])}
+      <label class="f" style="margin-top:8px">Upphängning</label>${opt('rod', it.rod || 'stang', [['stang', 'Stång'], ['skena', 'Skena'], ['dold', 'Dold']])}
+      <label class="f" style="margin-top:8px">Fördragna: ${Math.round(curtainPos(it) * 100)}%<input type="range" min="0" max="100" value="${Math.round(curtainPos(it) * 100)}" data-cpos="${it.id}"></label>` : ''}
     ${c.dev ? `<h3>SMART ENHET</h3>
       <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : c.dev === 'curtain' ? 'cover.gardiner (valfritt)' : 'media_player.tv'}"></label>
       <div class="btns"><button class="btn acc" data-act="test">${c.dev === 'curtain' ? (it.state?.on ? 'Dra ifrån' : 'Dra för') : it.state?.on ? 'Släck / stäng av' : 'Tänd / sätt på'}</button></div>
@@ -269,7 +276,7 @@ function controlPanel() {
     <div class="card"><h3>💡 BELYSNING</h3>${lightGroups(h, lights, src) || '<div class="note">Inga lampor än – lägg till under Bygg.</div>'}</div>
     <div class="card"><h3>🚪 DÖRRAR & PORTAR</h3>${doors.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppen' : 'Stängd'}</span></div>`).join('') || '<div class="note">Inga dörrar.</div>'}</div>
     ${wins.length ? `<div class="card"><h3>🪟 FÖNSTER</h3>${wins.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppet' : 'Stängt'}</span></div>`).join('')}</div>` : ''}
-    ${blinds.length || curtains.length ? `<div class="card"><h3>🪟 GARDINER</h3>${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${i.state?.on ? 'bad' : 'ok'}">${i.state?.on ? 'Fördragna' : 'Ifrån'}</span></div>`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
+    ${blinds.length || curtains.length ? `<div class="card"><h3>🪟 GARDINER</h3>${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${curtainPos(i) > .5 ? 'bad' : 'ok'}">${curtainPos(i) > .5 ? 'Fördragna' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round(curtainPos(i) * 100)}" data-cpos="${i.id}">`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
       <input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}">`).join('')}</div>` : ''}
     ${media.length ? `<div class="card"><h3>🎵 MEDIA</h3>${media.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${ITEMS[i.type].icon} ${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="sw ${i.state?.on ? 'on' : ''}"></span></div>`).join('')}</div>` : ''}
     <p class="note">Koppla till riktiga prylar: välj en sak under ✏️ Bygg och skriv in dess namn i Home Assistant.</p>`;
@@ -331,6 +338,7 @@ right.addEventListener('input', e => {
   const t = e.target, h = home();
   if (t.dataset.u === 'color') { setField(t.dataset.f, t.value); emit('full', 'panel'); }
   if (t.hasAttribute('data-rot')) { const it = selected(); if (!t._c) { commit(); t._c = true; } it.rot = +t.value; emit('item', it.id); const box = right.querySelector('[data-f=rot]'); if (box) box.value = t.value; }
+  if (t.dataset.cpos) { const it = home().items.find(i => i.id === t.dataset.cpos) || selected(); curtainSet(it, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Fördragna: ${t.value}%`; }
   if (t.dataset.bri) { const it = h.items.find(i => i.id === t.dataset.bri); lightSet(it, true, t.value / 100); }
   if (t.dataset.blind) { const o = h.openings.find(i => i.id === t.dataset.blind); blindSet(o, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Nere: ${t.value}%`; }
   if (t.hasAttribute('data-bgop')) { h.bg.opacity = t.value / 100; plan.draw(); save(); }
@@ -378,6 +386,11 @@ function lightSet(it, onOff, bri) {
     else ha.call(d, 'turn_on', d === 'light' && bri != null ? { entity_id: it.entity, brightness_pct: Math.round(bri * 100) } : { entity_id: it.entity }); }
   it.state.on = onOff; if (bri != null) it.state.bri = bri; emit('state');
 }
+const curtainPos = it => it.state?.pos ?? (it.state?.on ? 1 : 0);
+function curtainSet(it, v) {
+  if (linked(it.entity)) ha.call('cover', 'set_cover_position', { entity_id: it.entity, position: Math.round((1 - v) * 100) });
+  it.state.pos = v; it.state.on = v > .5; emit('state');
+}
 function mediaSet(it, onOff) {
   if (linked(it.entity)) { const sp = ITEMS[it.type].dev === 'speaker'; ha.call('media_player', sp ? (onOff ? 'media_play' : 'media_pause') : (onOff ? 'turn_on' : 'turn_off'), { entity_id: it.entity }); }
   it.state.on = onOff; emit('state');
@@ -396,7 +409,7 @@ function blindSet(o, v) {
 function onDevice(p) {
   const raw = home().__raw, L = raw.levels.find(l => l.id === p.lv) || home().__level, h = levelView(raw, L);
   if (p.type === 'item') { const it = h.items.find(i => i.id === p.id); if (!it) return; const dev = ITEMS[it.type].dev;
-    if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev === 'curtain') { if (linked(it.entity)) ha.call('cover', it.state.on ? 'open_cover' : 'close_cover', { entity_id: it.entity }); it.state.on = !it.state.on; emit('state'); } else if (dev) mediaSet(it, !it.state.on);
+    if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev === 'curtain') curtainSet(it, curtainPos(it) > .5 ? 0 : 1); else if (dev) mediaSet(it, !it.state.on);
     else { const r = roomAt(h, it); if (r) roomLights(r, h); }
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'opening') { const o = h.openings.find(i => i.id === p.id); if (!o) return;
@@ -429,7 +442,7 @@ function haState(entity, st) {
   for (const it of h.items) if (it.entity === entity && it.state) { hit = true; const dev = ITEMS[it.type].dev;
     if (dev === 'light') { it.state.on = st.state === 'on'; if (st.attributes?.brightness != null) it.state.bri = st.attributes.brightness / 255; }
     else if (dev === 'tv') it.state.on = !['off', 'standby', 'unavailable', 'unknown'].includes(st.state);
-    else if (dev === 'curtain') it.state.on = st.state === 'closed';
+    else if (dev === 'curtain') { const p = st.attributes?.current_position; it.state.pos = p != null ? 1 - p / 100 : (st.state === 'closed' ? 1 : 0); it.state.on = it.state.pos > .5; }
     else it.state.on = st.state === 'playing'; }
   for (const o of h.openings) {
     if (o.entity === entity) { hit = true; const d = dom(entity); o.state.open = d === 'cover' ? pos() / 100 : d === 'lock' ? (st.state === 'unlocked' ? 1 : 0) : (st.state === 'on' ? 1 : 0); }
