@@ -229,18 +229,64 @@ export function createView(host, api) {
   function scaleTopUV(geo, w, d) { const uv = geo.attributes.uv; for (let i = 8; i < 12; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * d); uv.needsUpdate = true; }
 
   // ---------- väggar, dörrar, fönster ----------
+  // Hörn: räkna ut var väggarnas sidor möts (gering), så att hörn och T-korsningar blir släta.
+  function wallJoints(walls) {
+    const nodes = new Map(), key = p => Math.round(p.x * 1000) + ',' + Math.round(p.y * 1000), out = new Map();
+    for (const w of walls) { const L = wallLen(w); if (L < .01) continue; const ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L;
+      for (const end of ['a', 'b']) { const d = end === 'a' ? { x: ux, y: uy } : { x: -ux, y: -uy }, k = key(w[end]);
+        if (!nodes.has(k)) nodes.set(k, []); nodes.get(k).push({ w, end, d, ang: Math.atan2(d.y, d.x) }); } }
+    const meet = (side, t, d, o, oSide) => { // vår kant (side ±1) mot grannens kant
+      const nO = oSide > 0 ? { x: -o.d.y, y: o.d.x } : { x: o.d.y, y: -o.d.x }, nS = side > 0 ? { x: -d.y, y: d.x } : { x: d.y, y: -d.x };
+      const rx = nO.x * o.w.t / 2 - nS.x * t, ry = nO.y * o.w.t / 2 - nS.y * t, cr = d.x * o.d.y - d.y * o.d.x;
+      if (Math.abs(cr) < 1e-3) return 0;
+      const sv = (rx * o.d.y - ry * o.d.x) / cr, lim = Math.max(t, o.w.t / 2) * 4; return Math.max(-lim, Math.min(lim, sv)); };
+    for (const list of nodes.values()) { list.sort((p, q) => p.ang - q.ang); const n = list.length;
+      for (let i = 0; i < n; i++) { const e = list[i], t = e.w.t / 2; let sL = 0, sR = 0;
+        if (n > 1) { sL = meet(1, t, e.d, list[(i + 1) % n], -1); sR = meet(-1, t, e.d, list[(i - 1 + n) % n], 1); }
+        const j = out.get(e.w.id) || {}, L = wallLen(e.w);
+        if (e.end === 'a') { j.P0 = sL; j.N0 = sR; } else { j.N1 = L - sL; j.P1 = L - sR; }
+        out.set(e.w.id, j); } }
+    return out;
+  }
+  // Prisma (vägg-bit) från en polygon i väggens lokala (x längs väggen, z tvärs), med material per sida.
+  function prism(g, poly, y0, y1, t2, mats) {
+    let area = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; area += a.x * b.z - b.x * a.z; }
+    if (area < 0) poly = poly.slice().reverse();
+    const pos = [], uv = [], groups = []; let mi;
+    const push = (m, verts, uvs) => { const start = pos.length / 3; verts.forEach(v => pos.push(...v)); uvs.forEach(u => uv.push(...u)); groups.push([start, verts.length, m]); };
+    const tri = THREE.ShapeUtils.triangulateShape(poly.map(p => new THREE.Vector2(p.x, p.z)), []);
+    const top = [], tuv = [], bot = [], buv = [];
+    for (const [a, b, c] of tri) { for (const k of [a, c, b]) { top.push([poly[k].x, y1, poly[k].z]); tuv.push([poly[k].x, poly[k].z]); }
+      for (const k of [a, b, c]) { bot.push([poly[k].x, y0, poly[k].z]); buv.push([poly[k].x, poly[k].z]); } }
+    push(3, top, tuv); push(0, bot, buv);
+    for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], len = Math.hypot(b.x - a.x, b.z - a.z); if (len < 1e-5) continue;
+      mi = Math.abs(a.z - t2) < 1e-4 && Math.abs(b.z - t2) < 1e-4 ? 1 : Math.abs(a.z + t2) < 1e-4 && Math.abs(b.z + t2) < 1e-4 ? 2 : 0;
+      const ua = mi ? a.x : 0, ub = mi ? b.x : len;
+      push(mi, [[a.x, y0, a.z], [b.x, y1, b.z], [b.x, y0, b.z], [a.x, y0, a.z], [a.x, y1, a.z], [b.x, y1, b.z]], [[ua, y0], [ub, y1], [ub, y0], [ua, y0], [ua, y1], [ub, y1]]); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    groups.forEach(([s0, c, m]) => geo.addGroup(s0, c, m)); geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mats); mesh.castShadow = mesh.receiveShadow = true; g.add(mesh); return mesh;
+  }
+
+  // ---------- väggar, dörrar, fönster ----------
+  let joints = new Map();
   function buildWall(h, w, H) {
     const L = wallLen(w); if (L < .01) return;
     const g = new THREE.Group(); g.position.set(w.a.x, 0, w.a.y); g.rotation.y = Math.atan2(-(w.b.y - w.a.y), w.b.x - w.a.x);
-    const t = w.t, base = w.color || '#eeebe5', mE = M(base, { roughness: .92 }), wm = [mE, mE, mE, mE, wallMat(w.matP, w.colorP || base), wallMat(w.matN, w.colorN || base)], cap = M('#3a3a3a');
+    const t = w.t, t2 = t / 2, base = w.color || '#eeebe5', mE = M(base, { roughness: .92 }), cap = M('#3a3a3a');
+    const mats = [mE, wallMat(w.matP, w.colorP || base), wallMat(w.matN, w.colorN || base), mE];
+    const capMats = [mE, mats[1], mats[2], cap];
+    const j = joints.get(w.id) || {}, P0 = j.P0 ?? 0, N0 = j.N0 ?? 0, P1 = j.P1 ?? L, N1 = j.N1 ?? L;
     const ops = h.openings.filter(o => o.wall === w.id).sort((a, b) => a.t - b.t);
-    const piece = (x0, x1, y0, y1) => { if (x1 - x0 < .005 || y1 - y0 < .005) return; const m = B(g, x1 - x0, y1 - y0, t, wm, (x0 + x1) / 2, (y0 + y1) / 2, 0); m.userData.pick = { type: 'wall', id: w.id };
-      { const uv = m.geometry.attributes.uv; for (let i = 16; i < 24; i++) uv.setXY(i, uv.getX(i) * (x1 - x0) + x0, uv.getY(i) * (y1 - y0) + y0); uv.needsUpdate = true; }
-      if (Math.abs(y1 - H) < .001) { const cm = B(g, x1 - x0, .012, t + .002, cap, (x0 + x1) / 2, H + .006, 0); cm.castShadow = false; cm.userData.pick = m.userData.pick; } };
-    let cur = -t / 2;
-    for (const o of ops) { const s = o.t - o.w / 2, e = o.t + o.w / 2; piece(cur, s, 0, H); cur = Math.max(cur, e);
-      piece(s, e, 0, Math.min(o.sill, H)); if (o.sill + o.h < H) piece(s, e, o.sill + o.h, H); }
-    piece(cur, L + t / 2, 0, H);
+    const piece = (x0, x1, y0, y1, isStart, isEnd) => { if (x1 - x0 < .005 && !isStart && !isEnd || y1 - y0 < .005) return;
+      const poly = [];
+      if (isStart) poly.push({ x: N0, z: -t2 }, { x: 0, z: 0 }, { x: P0, z: t2 }); else poly.push({ x: x0, z: -t2 }, { x: x0, z: t2 });
+      if (isEnd) poly.push({ x: P1, z: t2 }, { x: L, z: 0 }, { x: N1, z: -t2 }); else poly.push({ x: x1, z: t2 }, { x: x1, z: -t2 });
+      const m = prism(g, poly, y0, y1, t2, Math.abs(y1 - H) < .001 ? capMats : mats); m.userData.pick = { type: 'wall', id: w.id }; };
+    let cur = 0, first = true;
+    for (const o of ops) { const s = o.t - o.w / 2, e = o.t + o.w / 2; if (s > cur + .001 || first) piece(cur, s, 0, H, first, false); first = false; cur = Math.max(cur, e);
+      piece(s, e, 0, Math.min(o.sill, H), false, false); if (o.sill + o.h < H) piece(s, e, o.sill + o.h, H, false, false); }
+    piece(cur, L, 0, H, first, true);
     world.add(g);
     for (const o of ops) buildOpening(h, w, o, g, H);
   }
@@ -341,6 +387,7 @@ export function createView(host, api) {
       c.userData.pick = { type: 'room', id: r.id }; world.add(c); }
     // väggar
     const cut = { hela: 0, halva: 1.15, golv: .1, rum: 0 }[S.walls] ?? 1.15;
+    joints = wallJoints(h.walls);
     for (const w of h.walls) { if (focus && !nearFocus(w)) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
     // saker
     for (const it of h.items) { if (focus && !inPoly(it, focus.pts)) continue; const ref = buildItem(it); refs.items[it.id] = ref; world.add(ref.group);
