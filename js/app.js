@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342355';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342355';
-import { createPlan } from './plan2d.js?v=1794342355';
-import { createView } from './view3d.js?v=1794342355';
-import { createHA } from './ha.js?v=1794342355';
-import { detectPlan } from './autoplan.js?v=1794342355';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342512';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342512';
+import { createPlan } from './plan2d.js?v=1794342512';
+import { createView } from './view3d.js?v=1794342512';
+import { createHA } from './ha.js?v=1794342512';
+import { detectPlan } from './autoplan.js?v=1794342512';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -210,7 +210,7 @@ function openingPanel(o) {
       <label class="f" style="margin-top:8px">Indelning</label>${opt('panes', String(o.panes || (o.w > 1 ? 2 : 1)), [['1', '▯ Ett'], ['2', '▯▯ Två'], ['3', '▯▯▯ Tre']])}
       <label class="f" style="margin-top:8px">Spröjs</label>${opt('grid', o.grid || 'none', [['none', 'Inga'], ['kors', '✚ Kors'], ['sprojs', '▦ Spröjs']])}
       <label class="f" style="margin-top:8px">Överljus</label>${opt('transom', o.transom ? '1' : '', [['', 'Nej'], ['1', 'Ja']])}` : ''}
-    ${o.kind === 'window' ? `<h3>GARDIN</h3>${opt('blind', o.blind, [['none', 'Ingen'], ['rullgardin', 'Rullgardin'], ['persienn', 'Persienn']])}
+    ${o.kind === 'window' || o.glass ? `<h3>GARDIN</h3>${opt('blind', o.blind, [['none', 'Ingen'], ['rullgardin', 'Rullgardin'], ['persienn', 'Persienn']])}
       ${o.blind !== 'none' ? `<div style="height:8px"></div><label class="f">Gardinfärg</label>${swatches('blindColor', o.blindColor)}
       <label class="f">Nere: ${Math.round(o.state.blind * 100)}%<input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}"></label>
       <label class="f">Koppling gardin (cover)<input data-f="blindEntity" data-u="text" list="ents" value="${esc(o.blindEntity)}" placeholder="cover.sovrum"></label>` : ''}` : ''}
@@ -259,7 +259,7 @@ function bgPanel() {
 function controlPanel() {
   const h = home();
   const lights = h.items.filter(i => ITEMS[i.type].dev === 'light'), media = h.items.filter(i => ['tv', 'speaker'].includes(ITEMS[i.type].dev));
-  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => o.kind === 'window' && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window');
+  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => (o.kind === 'window' || o.glass) && o.blind && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window');
   const on = lights.filter(i => i.state?.on).length, open = doors.filter(o => o.state.open > .5).length + wins.filter(o => o.state.open > .5).length;
   const src = x => x.entity ? (ha.ok && ha.state(x.entity) ? x.entity : x.entity + ' · ej ansluten') : 'Demo – ej kopplad';
   return `

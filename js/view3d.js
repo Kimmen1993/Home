@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342355';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342355';
-import { insideSign } from './plan2d.js?v=1794342355';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342512';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342512';
+import { insideSign } from './plan2d.js?v=1794342512';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -269,6 +269,18 @@ export function createView(host, api) {
   }
   function scaleTopUV(geo, w, d) { const uv = geo.attributes.uv; for (let i = 8; i < 12; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * d); uv.needsUpdate = true; }
 
+  // Rullgardin/persienn: hänger från (x, top) och täcker bredd bw, höjd bh
+  function makeBlind(parent, o, ref, bw, bh, x, top, z) {
+    const bg = new THREE.Group(); bg.position.set(x, top, z); parent.add(bg);
+    const roll = C(bg, .03, .03, bw + .04, o.blindColor, 0, -.03, 0, 12); roll.rotation.z = Math.PI / 2;
+    let cloth;
+    if (o.blind === 'persienn') { cloth = new THREE.Group(); const n = Math.round(bh / .05);
+      for (let i = 0; i < n; i++) { const sl = B(cloth, bw, .004, .045, o.blindColor, 0, -(i + .5) * .05, 0); sl.rotation.x = .5; }
+      ref.slats = cloth.children; }
+    else cloth = B(bg, bw, 1, .006, M(o.blindColor, { roughness: 1, side: THREE.DoubleSide }), 0, -.5, 0);
+    bg.add(cloth); ref.cloth = cloth; ref.blindH = bh; ref.blindG = bg; bg.traverse(q => q.userData.pick = { type: 'blind', id: o.id });
+    return bg;
+  }
   // ---------- väggar, dörrar, fönster ----------
   // Hörn: räkna ut var väggarnas sidor möts (gering), så att hörn och T-korsningar blir släta.
   function wallJoints(walls) {
@@ -368,15 +380,7 @@ export function createView(host, api) {
           pickIt(pv); } }
       if (o.sill > .3 && o.sill < H) pickIt(B(g, o.w + .06, .03, t + .06, '#e8e8e8', o.t, o.sill - .015, 0));
       if (o.blind !== 'none') {
-        const side = insideSign(h, w, o) * (t / 2 + .03);
-        const bg = new THREE.Group(); bg.position.set(o.t, top, side); g.add(bg);
-        const roll = C(bg, .03, .03, o.w + .04, o.blindColor, 0, -.03, 0, 12); roll.rotation.z = Math.PI / 2;
-        let cloth;
-        if (o.blind === 'persienn') { cloth = new THREE.Group(); const n = Math.round(o.h / .05);
-          for (let i = 0; i < n; i++) { const sl = B(cloth, o.w, .004, .045, o.blindColor, 0, -(i + .5) * .05, 0); sl.rotation.x = .5; }
-          ref.slats = cloth.children; }
-        else { cloth = B(bg, o.w, 1, .006, M(o.blindColor, { roughness: 1, side: THREE.DoubleSide }), 0, -.5, 0); }
-        bg.add(cloth); ref.cloth = cloth; if (top > H + .01) bg.visible = false; ref.blindH = o.h; ref.blindG = bg; bg.traverse(x => x.userData.pick = { type: 'blind', id: o.id });
+        const bg = makeBlind(g, o, ref, o.w, o.h, o.t, top, insideSign(h, w, o) * (t / 2 + .03)); if (top > H + .01) bg.visible = false;
       }
     } else if (o.kind === 'door') {
       const f = .06, fz = fd;
@@ -389,11 +393,12 @@ export function createView(host, api) {
         leaf = B(pivot, st, lh, .05, fm2, dir * st / 2, .01 + lh / 2, 0); B(pivot, st, lh, .05, fm2, dir * (lw - st / 2), .01 + lh / 2, 0);
         B(pivot, lw, bot, .05, fm2, x0, .01 + bot / 2, 0); B(pivot, lw, top, .05, fm2, x0, .01 + lh - top / 2, 0);
         const gl = new THREE.Mesh(new THREE.BoxGeometry(lw - st * 2, lh - top - bot, .01), M('#9fc3d6', { transparent: true, opacity: .25, roughness: .05, metalness: .2 }));
-        gl.position.set(x0, .01 + bot + (lh - top - bot) / 2, 0); gl.castShadow = false; pivot.add(gl); }
+        gl.position.set(x0, .01 + bot + (lh - top - bot) / 2, 0); gl.castShadow = false; pivot.add(gl);
+        if (o.blind && o.blind !== 'none') makeBlind(pivot, o, ref, lw - st * 2, lh - top - bot, x0, .01 + lh - top, insideSign(h, w, o) * .045); }
       else { leaf = B(pivot, lw, lh, .04, o.mat === 'tra' ? floorMat('panel', o.color) : M(o.color, { roughness: .45 }), dir * lw / 2, .01 + lh / 2, 0);
         if (o.mat === 'tra') { const uv = leaf.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * lw, uv.getY(i) * lh); uv.needsUpdate = true; } }
       B(pivot, .12, .02, .05, metalM(), dir * (lw - .08), 1.0, .04); B(pivot, .12, .02, .05, metalM(), dir * (lw - .08), 1.0, -.04);
-      pickIt(pivot); ref.pivot = pivot; ref.sign = -dir * o.swing; ref.leaf = leaf;
+      pickIt(pivot); if (ref.blindG) ref.blindG.traverse(q => q.userData.pick = { type: 'blind', id: o.id }); ref.pivot = pivot; ref.sign = -dir * o.swing; ref.leaf = leaf;
     } else if (o.kind === 'garage') {
       const f = .08; pickIt(B(g, f, Math.min(o.h, H), t + .02, fm, s + f / 2, Math.min(o.h, H) / 2, 0)); pickIt(B(g, f, Math.min(o.h, H), t + .02, fm, e - f / 2, Math.min(o.h, H) / 2, 0));
       const pg = new THREE.Group(); pg.position.set(o.t, o.h, 0); g.add(pg);
