@@ -80,7 +80,7 @@ export const ITEMS = {
 export const PALETTE = ['#ffffff', '#f2efe9', '#e6dccb', '#cfc6b8', '#9aa19a', '#5b6b5a', '#2f5d50', '#3f4a5a', '#2f3b45', '#1f2328',
   '#7a4e2d', '#9a7550', '#b8915f', '#d9b48c', '#a33b2b', '#c9a227', '#c8ccd0', '#6b6f75'];
 
-export const FLOORS = { tra: 'Trägolv', klinker: 'Klinker', betong: 'Betong', matta: 'Heltäckning' };
+export const FLOORS = { tra: 'Trä', klinker: 'Plattor', betong: 'Betong', matta: 'Heltäckning' };
 
 export const HOME_TYPES = {
   hus: { name: 'Hus', icon: '🏡' },

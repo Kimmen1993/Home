@@ -88,6 +88,17 @@ export function detectPlan(img) {
   for (let i = 0; i < N; i++) if (!block[i] && !label[i]) { id++; const area = bfs(block, label, W, H, [i], id);
     if (area >= minA) { const poly = contour(label, W, H, i, id); const s = dp(poly, Math.max(1.5, r * 1.2)); if (s.length >= 4) rooms.push({ pts: s.slice(0, -1), area }); } }
 
+  // uteplats/altan/balkong: slutna ytor av tunna streck utanför bostaden
+  const thinL = new Uint8Array(N); for (let i = 0; i < N; i++) thinL[i] = lum[i] < 235 ? 1 : 0;
+  const block2 = new Uint8Array(N), gr = Math.max(2, Math.round(Math.max(W, H) / 170));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (block[i]) { block2[i] = 1; continue; }
+    let hit = 0; for (let dy = -gr; dy <= gr && !hit; dy++) for (let dx = -gr; dx <= gr; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && thinL[yy * W + xx]) { hit = 1; break; } }
+    block2[i] = hit; }
+  const lab2 = new Int32Array(N); bfs(block2, lab2, W, H, edgeSeeds(W, H), -1);
+  const outdoor = [], minO = Math.pow(Math.max(W, H) * .06, 2); let id2 = 0;
+  for (let i = 0; i < N; i++) if (!block2[i] && !lab2[i] && label[i] === -1) { id2++; const area = bfs(block2, lab2, W, H, [i], id2);
+    if (area >= minO) { const poly = contour(lab2, W, H, i, id2); const s = dp(poly, Math.max(2, r * 1.5)); if (s.length >= 4) outdoor.push({ pts: s.slice(0, -1), area }); } }
+
   // fönster eller dörr? Fönster har flera tunna linjer i glappet. Ytterväggs-glapp gränsar mot "ute".
   for (const gp of gaps) {
     const L = Math.hypot(gp.b.x - gp.a.x, gp.b.y - gp.a.y), ux = (gp.b.x - gp.a.x) / L, uy = (gp.b.y - gp.a.y) / L, nx = -uy, ny = ux;
@@ -100,7 +111,7 @@ export function detectPlan(img) {
     const s1 = at(mx + nx * off, my + ny * off), s2 = at(mx - nx * off, my - ny * off);
     gp.exterior = s1 === -1 || s2 === -1; gp.runs = runs / n; gp.window = gp.exterior && runs / n >= 1.5;
   }
-  return { dbg: location.hash === '#sk' ? { sk, wall, chains } : null, W, H, kd, walls: segs.map(s => ({ a: { x: s.a.x, y: s.a.y }, b: { x: s.b.x, y: s.b.y }, t: s.t })), gaps, rooms, r };
+  return { dbg: location.hash === '#sk' ? { sk, wall, chains } : null, W, H, kd, walls: segs.map(s => ({ a: { x: s.a.x, y: s.a.y }, b: { x: s.b.x, y: s.b.y }, t: s.t })), gaps, rooms, outdoor, r, dbg2: location.hash === '#ute' ? lab2 : null };
 }
 
 // ---------- hjälpare ----------

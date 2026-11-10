@@ -147,11 +147,12 @@ function homePanel() {
       <div><b>✋</b>Klicka på något för att ändra mått och färg</div>
       <div><b>🖼️</b>Har du en planritning? Lägg in den som bild och rita ovanpå</div>
     </div>
+    ${h.bg ? `<h3>RITNINGSBILDEN</h3><div class="btns"><button class="btn ${h.bg.hidden ? '' : 'acc'}" data-act="bgtoggle">${h.bg.hidden ? '👁 Visa bilden' : '✔ Nöjd – göm bilden'}</button><button class="btn danger" data-act="bgdel">🗑 Ta bort</button></div>` : ''}
     <h3>HEMMET</h3>
     <label class="f">Typ</label>${opt('home.type', h.type, Object.entries(HOME_TYPES).map(([k, v]) => [k, v.icon + ' ' + v.name]))}
     <div style="height:10px"></div>
     <label class="f">Takhöjd (cm)<input data-f="home.ceiling" data-u="cm" value="${cm(h.ceiling)}"></label>
-    <div class="note">${h.rooms.length} rum · ${h.rooms.reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
+    <div class="note">${h.rooms.filter(r => !r.outdoor).length} rum · ${h.rooms.filter(r => !r.outdoor).reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
 }
 function catalogPanel() {
   const list = catTab === 'oppningar' ? Object.entries(OPENINGS).map(([k, v]) => ['opening', k, v]) : Object.entries(ITEMS).filter(([, v]) => v.cat === catTab).map(([k, v]) => ['item', k, v]);
@@ -200,6 +201,7 @@ function wallPanel(w) {
 function roomPanel(r) {
   return `<h2>⬜ Rum</h2>
     ${field('Namn', 'name', r.name, 'text')}
+    <label class="f">Typ</label>${opt('outdoor', r.outdoor ? '1' : '', [['', '🛋️ Inne'], ['1', '🌤️ Ute']])}<div style="height:8px"></div>
     <label class="f">Golv</label>${opt('style', r.style || 'tra', Object.entries(FLOORS))}
     <div style="height:8px"></div><label class="f">Golvfärg</label>${swatches('floor', r.floor)}
     <label class="f">Väggfärg i hela rummet</label>${swatches('roomwalls', null)}
@@ -212,7 +214,8 @@ function bgPanel() {
     <div class="steps"><div><b>1</b>Lägg in en planritning</div><div><b>2</b>✨ Väggar, dörrar, fönster och rum skapas automatiskt</div><div><b>3</b>Skriv bostadens storlek (m²) så blir måtten rätt</div><div><b>4</b>Rätta det som blev fel – klicka och ändra</div></div>
     <div class="btns"><button class="btn ${b ? '' : 'acc'}" data-act="bgnew">${b ? 'Byt bild' : 'Välj bild'}</button>${b ? '<button class="btn" data-act="calib">📏 Kalibrera</button>' : ''}</div>
     ${b ? '<div class="btns"><button class="btn acc" data-act="auto">✨ Gör om till ritning automatiskt</button></div>' : ''}
-    ${b ? `<label class="f" style="margin-top:12px">Synlighet<input type="range" min="10" max="100" value="${Math.round((b.opacity ?? .5) * 100)}" data-bgop></label>
+    ${b ? `<div class="btns"><button class="btn" data-act="bgtoggle">${b.hidden ? '👁 Visa bilden' : '✔ Göm bilden'}</button></div>
+      <label class="f" style="margin-top:12px">Synlighet<input type="range" min="10" max="100" value="${Math.round((b.opacity ?? .5) * 100)}" data-bgop></label>
       <div class="btns"><button class="btn danger" data-act="bgdel">Ta bort bild</button></div>` : ''}
     <p class="note" style="margin-top:12px">Fungerar bäst med tydliga ritningar: svarta väggar på vit bakgrund, som från mäklare.</p>`;
 }
@@ -270,7 +273,8 @@ right.addEventListener('click', e => {
   if (act === 'bgnew') return $('#fileImg').click();
   if (act === 'calib') { plan.calibrate(); window.toast('Klicka på två punkter i bilden'); return; }
   if (act === 'auto') return autoPlan();
-  if (act === 'bgdel') { commit(); h.bg = null; emit('full'); return; }
+  if (act === 'bgtoggle') { h.bg.hidden = !h.bg.hidden; emit('full'); return; }
+  if (act === 'bgdel') { if (!confirm('Ta bort ritningsbilden? Väggarna och rummen ligger kvar.')) return; commit(); h.bg = null; emit('full'); return; }
 });
 right.addEventListener('change', e => {
   const t = e.target; if (!t.dataset.f) return;
@@ -298,6 +302,7 @@ function setField(f, v) {
     const on = pt => Math.abs((q.x - p.x) * (pt.y - p.y) - (q.y - p.y) * (pt.x - p.x)) < .01 && pt.x >= Math.min(p.x, q.x) - .01 && pt.x <= Math.max(p.x, q.x) + .01 && pt.y >= Math.min(p.y, q.y) - .01 && pt.y <= Math.max(p.y, q.y) + .01;
     return on(w.a) && on(w.b); })) w.color = v; }); return; }
   if (f === 'h' && o.type && ITEMS[o.type].ceil) { o.elev = h.ceiling - v; }
+  if (f === 'outdoor') { o.outdoor = !!v; return; }
   o[f] = v;
 }
 function deleteSel() {
@@ -433,17 +438,18 @@ async function autoPlan() {
   }
   const rooms = [...r.rooms].sort((a, b) => b.area - a.area);
   rooms.forEach((rm, i) => h.rooms.push({ id: uid(), name: 'Rum ' + (i + 1), pts: rm.pts.map(P), floor: '#b8915f', style: 'tra' }));
+  (r.outdoor || []).forEach((o, i) => h.rooms.push({ id: uid(), name: i ? 'Uteplats ' + (i + 1) : 'Uteplats', pts: o.pts.map(P), floor: '#8a6440', style: 'tra', outdoor: true }));
   h.bg.x = -ox * s; h.bg.y = -oy * s; h.bg.mpp = r.kd * s; h.bg.opacity = .35;
   S.tool = 'select'; S.sel = null; emit('full'); renderToolbar(); hint(); view.buildNow(); view.fitCam(); setTimeout(() => plan.fit(), 50);
-  areaDialog(r.walls.length, r.gaps.length, rooms.length);
+  areaDialog(r.walls.length, r.gaps.length, rooms.length, (r.outdoor || []).length);
 }
-function areaDialog(nw, ng, nr) {
-  const h = home(), cur = h.rooms.reduce((a, r) => a + polyArea(r.pts), 0);
-  const m = modal(`<h2>✨ Klart! Hittade ${nw} väggar, ${ng} dörrar/fönster och ${nr} rum</h2>
+function areaDialog(nw, ng, nr, no = 0) {
+  const h = home(), cur = h.rooms.filter(r => !r.outdoor).reduce((a, r) => a + polyArea(r.pts), 0);
+  const m = modal(`<h2>✨ Klart! Hittade ${nw} väggar, ${ng} dörrar/fönster, ${nr} rum${no ? ` och ${no === 1 ? 'en uteplats' : no + ' uteplatser'}` : ''}</h2>
     <p class="note">Nu behöver jag veta storleken så att måtten blir rätt.</p>
     <label class="f">Hur många m² är bostaden? (står i annonsen)<input id="areaIn" inputmode="decimal" value="${Math.round(cur)}"></label>
     <div class="btns"><button class="btn" data-close>Hoppa över</button><button class="btn acc" id="areaGo">Klar</button></div>
-    <p class="note" style="margin-top:12px">Sedan: klicka på ett rum för att döpa det och välja golv. Klicka på en dörr eller ett fönster för att ändra den.</p>`);
+    <p class="note" style="margin-top:12px">Sedan: klicka på ett rum för att döpa det och välja golv. Klicka på en dörr eller ett fönster för att ändra den. När du är nöjd: tryck <b>✔ Nöjd – göm bilden</b> till höger.</p>`);
   m.querySelector('#areaIn').select();
   m.querySelector('#areaGo').onclick = () => {
     const want = parseFloat(m.querySelector('#areaIn').value.replace(',', '.')); m.hidden = true;
@@ -472,7 +478,7 @@ $('#fileImg').addEventListener('change', async e => {
   const img = new Image(); img.src = URL.createObjectURL(f); await img.decode();
   const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
   c.width = img.width * k; c.height = img.height * k; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-  commit(); const h = home(); h.bg = { src: c.toDataURL('image/jpeg', .8), x: 0, y: 0, mpp: 15 / c.width, opacity: .5 };
+  commit(); const h = home(); h.bg = { src: c.toDataURL('image/jpeg', .8), x: 0, y: 0, mpp: 15 / c.width, opacity: .5, hidden: false };
   S.tool = 'bild'; emit('full'); renderToolbar(); hint();
   if (!h.walls.length) autoPlan(); else { plan.calibrate(); window.toast('Klicka på två punkter du vet avståndet mellan'); }
 });

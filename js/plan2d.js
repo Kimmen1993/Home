@@ -67,7 +67,7 @@ export function createPlan(canvas, ui) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#0f2238'; ctx.fillRect(0, 0, W, H);
     // bakgrundsbild
-    if (h.bg) {
+    if (h.bg && !h.bg.hidden) {
       if (bgSrc !== h.bg.src) { bgSrc = h.bg.src; bgImg.src = h.bg.src; bgImg.onload = draw; }
       if (bgImg.complete && bgImg.naturalWidth) {
         const p = ts(h.bg); ctx.globalAlpha = h.bg.opacity ?? .5;
@@ -96,7 +96,7 @@ export function createPlan(canvas, ui) {
     for (const w of h.walls) drawWall(h, w);
     // rumsnamn
     ctx.textAlign = 'center';
-    for (const r of h.rooms) { const c = ts(centroid(r.pts));
+    for (const r of h.rooms) { const c = ts(labelPoint(h, r));
       ctx.font = '600 13px system-ui'; ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(r.name, c.x + 1, c.y - 3);
       ctx.fillStyle = '#e6f0ff'; ctx.fillText(r.name, c.x, c.y - 4);
       ctx.font = '11px system-ui'; ctx.fillStyle = '#9cc8ff'; ctx.fillText(polyArea(r.pts).toFixed(1).replace('.', ',') + ' m²', c.x, c.y + 11); }
@@ -307,6 +307,19 @@ export function createPlan(canvas, ui) {
     calibrate() { calib = {}; draw(); },
     zoom(f) { const W = canvas.clientWidth / 2, H = canvas.clientHeight / 2, p = tw(W, H); scale = Math.min(300, Math.max(8, scale * f)); ox = W - p.x * scale; oy = H - p.y * scale; draw(); },
   };
+}
+
+// en punkt mitt inne i rummet (fungerar även för L-formade ytor)
+function labelPoint(h, r) {
+  const c = centroid(r.pts); if (inPoly(c, r.pts) && !h.rooms.some(o => o !== r && inPoly(c, o.pts))) return c;
+  const xs = r.pts.map(p => p.x), ys = r.pts.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  let best = c, bd = -1;
+  for (let i = 1; i < 20; i++) for (let j = 1; j < 20; j++) { const p = { x: x0 + (x1 - x0) * i / 20, y: y0 + (y1 - y0) * j / 20 };
+    if (!inPoly(p, r.pts) || h.rooms.some(o => o !== r && inPoly(p, o.pts))) continue;
+    let d = Infinity; for (let k = 0; k < r.pts.length; k++) { const a = r.pts[k], b = r.pts[(k + 1) % r.pts.length], pr = proj(p, a, b);
+      const t = Math.max(0, Math.min(pr.L, pr.t)); d = Math.min(d, Math.hypot(p.x - (a.x + pr.ux * t), p.y - (a.y + pr.uy * t))); }
+    if (d > bd) { bd = d; best = p; } }
+  return best;
 }
 
 export function insideSign(h, w, o) {
