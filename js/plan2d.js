@@ -221,11 +221,11 @@ export function createPlan(canvas, ui) {
     }
     if (S.tool === 'bild') { bgDown(p, sx, sy); return; }
     // välj
-    const hd = hitHandle(p); if (hd) { commit(); drag = { end: { ...hd } }; return; }
+    const hd = hitHandle(p); if (hd) { commit(); const w = h.walls.find(w => w.id === S.sel.id); drag = { end: hd, wallE: w, rooms: roomRefs(h, hd) }; return; }
     const it = hitItem(p);
     if (it) { commit(); select({ type: 'item', id: it.id }); drag = { item: it, dx: p.x - it.x, dy: p.y - it.y, moved: false }; return; }
     const o = hitOpening(p); if (o) { commit(); select({ type: 'opening', id: o.id }); drag = { opening: o }; return; }
-    const w = hitWall(p); if (w) { commit(); select({ type: 'wall', id: w.id }); drag = { wall: w, start: p, a: { ...w.a }, b: { ...w.b } }; return; }
+    const w = hitWall(p); if (w) { commit(); select({ type: 'wall', id: w.id }); drag = wallDrag(h, w, p); return; }
     const r = hitRoom(p); select(r ? { type: 'room', id: r.id } : null);
     drag = { pan: true, sx, sy, ox, oy };
   });
@@ -240,9 +240,10 @@ export function createPlan(canvas, ui) {
     }
     if (drag?.opening) { const o = drag.opening, w = h.walls.find(w => w.id === o.wall); const pr = proj(p, w.a, w.b);
       o.t = Math.round(Math.min(Math.max(pr.t, o.w / 2), pr.L - o.w / 2) / .05) * .05; emit('full', 'drag'); return; }
-    if (drag?.wall) { const dx = Math.round((p.x - drag.start.x) / .05) * .05, dy = Math.round((p.y - drag.start.y) / .05) * .05;
-      const w = drag.wall; movePoint(h, w.a, { x: drag.a.x + dx, y: drag.a.y + dy }); movePoint(h, w.b, { x: drag.b.x + dx, y: drag.b.y + dy }); emit('full', 'drag'); return; }
-    if (drag?.end) { const q = snap(p, .05); const to = { x: q.x, y: q.y }; movePoint(h, drag.end, to); drag.end = to; emit('full', 'drag'); return; }
+    if (drag?.wall) { moveWall(drag, p, e.altKey); emit('full', 'drag'); return; }
+    if (drag?.end) { const q = snap(p, .05), from = { ...drag.end }, w = drag.wallE;
+      const key = (w.a.x === drag.end.x && w.a.y === drag.end.y) ? 'a' : 'b'; w[key] = { x: q.x, y: q.y }; drag.end = w[key];
+      drag.rooms.forEach(([r, i]) => r.pts[i] = { x: q.x, y: q.y }); emit('full', 'drag'); return; }
     if (drag?.bg) { h.bg.x = drag.bx + p.x - drag.p.x; h.bg.y = drag.by + p.y - drag.p.y; draw(); return; }
     // spöke vid placering
     if (S.placing) updateGhost(p, e.altKey);
@@ -302,7 +303,7 @@ export function createPlan(canvas, ui) {
   }
 
   return {
-    draw, resize, fit,
+    draw, resize, fit, ts,
     cancel() { chain = null; rect = null; ghost = null; calib = null; draw(); },
     calibrate() { calib = {}; draw(); },
     zoom(f) { const W = canvas.clientWidth / 2, H = canvas.clientHeight / 2, p = tw(W, H); scale = Math.min(300, Math.max(8, scale * f)); ox = W - p.x * scale; oy = H - p.y * scale; draw(); },
@@ -320,6 +321,32 @@ function labelPoint(h, r) {
       const t = Math.max(0, Math.min(pr.L, pr.t)); d = Math.min(d, Math.hypot(p.x - (a.x + pr.ux * t), p.y - (a.y + pr.uy * t))); }
     if (d > bd) { bd = d; best = p; } }
   return best;
+}
+
+// Rumshörn som ligger på en viss punkt
+function roomRefs(h, pt) { const out = []; for (const r of h.rooms) r.pts.forEach((q, i) => { if (Math.abs(q.x - pt.x) < 1e-3 && Math.abs(q.y - pt.y) < 1e-3) out.push([r, i]); }); return out; }
+// Förbered att flytta en vägg: kom ihåg grannar i hörnen
+function wallDrag(h, w, p) {
+  const L = wallLen(w), n = { x: -(w.b.y - w.a.y) / L, y: (w.b.x - w.a.x) / L }, ends = [];
+  for (const k of ['a', 'b']) { const P = { ...w[k] }, nbs = [];
+    for (const o of h.walls) { if (o === w) continue; for (const ok of ['a', 'b']) { const q = o[ok]; if (Math.abs(q.x - P.x) > 1e-3 || Math.abs(q.y - P.y) > 1e-3) continue;
+      const other = o[ok === 'a' ? 'b' : 'a'], ol = Math.hypot(other.x - P.x, other.y - P.y) || 1, u = { x: (other.x - P.x) / ol, y: (other.y - P.y) / ol };
+      nbs.push({ o, ok, u, dot: u.x * n.x + u.y * n.y }); } }
+    ends.push({ k, P, nbs, rooms: roomRefs(h, P) }); }
+  return { wall: w, start: p, n, ends };
+}
+function moveWall(d, p, free) {
+  const w = d.wall, dx = p.x - d.start.x, dy = p.y - d.start.y;
+  let mx, my; if (free) { mx = Math.round(dx / .05) * .05; my = Math.round(dy / .05) * .05; }
+  else { const dist = Math.round((dx * d.n.x + dy * d.n.y) / .05) * .05; mx = d.n.x * dist; my = d.n.y * dist; }
+  const r3 = v => Math.round(v * 1000) / 1000;
+  for (const e of d.ends) {
+    const np = { x: r3(e.P.x + mx), y: r3(e.P.y + my) }; w[e.k] = np;
+    e.rooms.forEach(([r, i]) => r.pts[i] = np);
+    for (const nb of e.nbs) { const along = mx * d.n.x + my * d.n.y;
+      if (free || Math.abs(nb.dot) < .35) { nb.o[nb.ok] = { ...e.P }; continue; }   // rak fortsättning: rörs inte
+      const s = along / nb.dot; nb.o[nb.ok] = { x: r3(e.P.x + nb.u.x * s), y: r3(e.P.y + nb.u.y * s) }; }
+  }
 }
 
 export function insideSign(h, w, o) {

@@ -197,7 +197,7 @@ function wallPanel(w) {
   return `<h2>🧱 Vägg</h2>
     <div class="g2">${field('Längd (cm)', 'len', wallLen(w))}${field('Tjocklek (cm)', 't', w.t)}${field('Höjd (cm)', 'h', w.h)}</div>
     <label class="f">Färg</label>${swatches('color', w.color)}
-    <p class="note">Dra väggen eller de vita hörnen i ritningen för att flytta. Rummen följer med.</p>
+    <p class="note">Dra väggen för att flytta den rakt ut/in – väggarna runt hörnen följer med så att hörnen håller. Dra en vit prick för att flytta bara den änden. Håll Alt för att flytta fritt.</p>
     <div class="btns"><button class="btn danger" data-act="del">🗑 Ta bort vägg</button></div>`;
 }
 function roomPanel(r) {
@@ -299,7 +299,7 @@ function setField(f, v) {
   if (f === 'home.ceiling') { const old = h.ceiling; h.ceiling = v; h.walls.forEach(w => { if (Math.abs(w.h - old) < .01) w.h = v; });
     h.items.forEach(it => { if (ITEMS[it.type].ceil) it.elev = v - it.h; }); return; }
   const o = selected(); if (!o) return;
-  if (f === 'len') { const L = wallLen(o), ux = (o.b.x - o.a.x) / L, uy = (o.b.y - o.a.y) / L; movePoint(h, o.b, { x: Math.round((o.a.x + ux * v) * 1000) / 1000, y: Math.round((o.a.y + uy * v) * 1000) / 1000 }); return; }
+  if (f === 'len') { const L = wallLen(o), ux = (o.b.x - o.a.x) / L, uy = (o.b.y - o.a.y) / L; o.b = { x: Math.round((o.a.x + ux * v) * 1000) / 1000, y: Math.round((o.a.y + uy * v) * 1000) / 1000 }; return; }
   if (f === 'roomwalls') { h.walls.forEach(w => { if (o.pts.some((p, i) => { const q = o.pts[(i + 1) % o.pts.length];
     const on = pt => Math.abs((q.x - p.x) * (pt.y - p.y) - (q.y - p.y) * (pt.x - p.x)) < .01 && pt.x >= Math.min(p.x, q.x) - .01 && pt.x <= Math.max(p.x, q.x) + .01 && pt.y >= Math.min(p.y, q.y) - .01 && pt.y <= Math.max(p.y, q.y) + .01;
     return on(w.a) && on(w.b); })) w.color = v; }); return; }
@@ -508,4 +508,4 @@ requestAnimationFrame(() => { plan.resize(); plan.fit(); });
 window.addEventListener('resize', () => plan.resize());
 new ResizeObserver(() => plan.resize()).observe($('#pane2d'));
 if (S.ha.url && S.ha.token) ha.connect(S.ha.url, S.ha.token);
-window.__hemma = { S, home, emit };
+window.__hemma = { S, home, emit, plan };
