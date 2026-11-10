@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341112';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341112';
-import { createPlan } from './plan2d.js?v=1794341112';
-import { createView } from './view3d.js?v=1794341112';
-import { createHA } from './ha.js?v=1794341112';
-import { detectPlan } from './autoplan.js?v=1794341112';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341431';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341431';
+import { createPlan } from './plan2d.js?v=1794341431';
+import { createView } from './view3d.js?v=1794341431';
+import { createHA } from './ha.js?v=1794341431';
+import { detectPlan } from './autoplan.js?v=1794341431';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -91,7 +91,7 @@ $('#topRight').addEventListener('click', e => {
   if (t.hasAttribute('data-eye')) { const h = home(), r = (S.sel?.type === 'room' && h.rooms.find(x => x.id === S.sel.id)) || h.rooms.find(x => x.id === S.focus) || [...h.rooms].filter(x => !x.outdoor).sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
     if (!r) return window.toast('Rita ett rum först'); S.walls = 'hela'; S.ceil = true; if (S.mode === 'bygg' && S.view === '2d') S.view = 'split'; renderTop(); view.buildNow(); view.eye(r);
     window.toast(`🧍 Du står i ${r.name} · dra = titta runt · högerklick-dra = gå · ⤢ = tillbaka`); }
-  if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.setLighting(); }
+  if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.build(); }
   if (t.hasAttribute('data-cam')) { view.fitCam(); plan.fit(); }
 });
 const TOOLS = [['select', '✋', 'Välj'], ['room', '⬜', 'Rum'], ['wall', '🧱', 'Vägg'], ['divider', '✂️', 'Rumsgräns'], ['add', '🛋️', 'Lägg till'], ['bild', '🖼️', 'Bild']];
