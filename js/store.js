@@ -63,6 +63,70 @@ export function wallSides(h, w) {
   return { P: roomAt(h, { x: m.x + nx * off, y: m.y + ny * off }), N: roomAt(h, { x: m.x - nx * off, y: m.y - ny * off }) };
 }
 
+// Flytta polygonens kanter utåt d meter (hörn möts snett)
+function offsetPoly(pts, d) {
+  let a2 = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; a2 += p.x * q.y - q.x * p.y; }); const sgn = a2 > 0 ? 1 : -1;
+  const n = pts.length, out = [];
+  for (let i = 0; i < n; i++) { const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
+    const e1 = norm(p1.x - p0.x, p1.y - p0.y), e2 = norm(p2.x - p1.x, p2.y - p1.y);
+    const n1 = { x: e1.y * sgn, y: -e1.x * sgn }, n2 = { x: e2.y * sgn, y: -e2.x * sgn }, b = norm(n1.x + n2.x, n1.y + n2.y), c = b.x * n1.x + b.y * n1.y;
+    const k = Math.abs(c) > .2 ? d / c : d; out.push({ x: r3(p1.x + b.x * k), y: r3(p1.y + b.y * k) }); }
+  return out;
+}
+const norm = (x, y) => { const L = Math.hypot(x, y) || 1; return { x: x / L, y: y / L }; };
+// Räkna om rummen utifrån väggarna. Gamla rum behåller namn/golv/färg genom att matcha på överlapp.
+export function rebuildRooms(h) {
+  if (h.autoRooms === false || !h.walls.length) return;
+  const res = .04, pts = h.walls.flatMap(w => [w.a, w.b]);
+  const x0 = Math.min(...pts.map(p => p.x)) - 1, y0 = Math.min(...pts.map(p => p.y)) - 1;
+  const W = Math.ceil((Math.max(...pts.map(p => p.x)) + 1 - x0) / res), H = Math.ceil((Math.max(...pts.map(p => p.y)) + 1 - y0) / res);
+  if (W * H > 4e6) return;
+  const block = new Uint8Array(W * H);
+  for (const w of h.walls) { const r = w.t / 2 + .005;
+    const ix0 = Math.max(0, Math.floor((Math.min(w.a.x, w.b.x) - r - x0) / res)), ix1 = Math.min(W - 1, Math.ceil((Math.max(w.a.x, w.b.x) + r - x0) / res));
+    const iy0 = Math.max(0, Math.floor((Math.min(w.a.y, w.b.y) - r - y0) / res)), iy1 = Math.min(H - 1, Math.ceil((Math.max(w.a.y, w.b.y) + r - y0) / res));
+    for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) { const p = { x: x0 + (x + .5) * res, y: y0 + (y + .5) * res }, pr = proj(p, w.a, w.b);
+      const t = Math.max(0, Math.min(pr.L, pr.t)), d = Math.hypot(p.x - (w.a.x + pr.ux * t), p.y - (w.a.y + pr.uy * t)); if (d <= r) block[y * W + x] = 1; } }
+  const label = new Int32Array(W * H), q = new Int32Array(W * H);
+  const fill = (seeds, id) => { let hd = 0, tl = 0, n = 0; for (const s of seeds) if (!block[s] && !label[s]) { label[s] = id; q[tl++] = s; }
+    while (hd < tl) { const i = q[hd++]; n++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * H && !block[j] && !label[j]) { label[j] = id; q[tl++] = j; } } return n; };
+  const edge = []; for (let x = 0; x < W; x++) edge.push(x, (H - 1) * W + x); for (let y = 0; y < H; y++) edge.push(y * W, y * W + W - 1);
+  fill(edge, -1);
+  const regions = []; let id = 0;
+  for (let i = 0; i < W * H; i++) if (!block[i] && !label[i]) { id++; const n = fill([i], id); if (n * res * res >= .5) regions.push({ id, start: i, n }); }
+  // kontur → polygon
+  const dirs = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+  const simplify = (p, eps) => { if (p.length < 3) return p; const a = p[0], b = p[p.length - 1], L = Math.hypot(b.x - a.x, b.y - a.y) || 1e-9; let md = 0, mi = 0;
+    for (let i = 1; i < p.length - 1; i++) { const d = L > 1e-6 ? Math.abs((b.x - a.x) * (a.y - p[i].y) - (a.x - p[i].x) * (b.y - a.y)) / L : Math.hypot(p[i].x - a.x, p[i].y - a.y); if (d > md) { md = d; mi = i; } }
+    return md > eps ? simplify(p.slice(0, mi + 1), eps).slice(0, -1).concat(simplify(p.slice(mi), eps)) : [a, b]; };
+  const newRooms = [];
+  for (const rg of regions) {
+    const inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H && label[y * W + x] === rg.id;
+    let x = rg.start % W, y = (rg.start / W) | 0; const sx = x, sy = y, out = [{ x, y }]; let d = 6;
+    for (let g = 0; g < W * H; g++) { let f = false; for (let k = 0; k < 8; k++) { const nd = (d + 6 + k) % 8; if (inside(x + dirs[nd][0], y + dirs[nd][1])) { x += dirs[nd][0]; y += dirs[nd][1]; d = nd; f = true; break; } }
+      if (!f || (x === sx && y === sy)) break; out.push({ x, y }); }
+    out.push({ x: sx, y: sy });
+    let poly = simplify(out, 1.5).slice(0, -1).map(p => ({ x: r3(x0 + (p.x + .5) * res), y: r3(y0 + (p.y + .5) * res) }));
+    // räta upp nästan raka kanter
+    for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length];
+      if (Math.abs(a.y - b.y) < .06) { const m = r3((a.y + b.y) / 2); a.y = b.y = m; } else if (Math.abs(a.x - b.x) < .06) { const m = r3((a.x + b.x) / 2); a.x = b.x = m; } }
+    if (poly.length >= 3) newRooms.push({ rg, poly: offsetPoly(poly, .04) });
+  }
+  // matcha mot gamla rum
+  const old = h.rooms.filter(r => !r.outdoor), used = new Set();
+  const scored = [];
+  for (const nr of newRooms) for (const o of old) { let c = 0, tot = 0;
+    for (let i = nr.rg.start; i < W * H; i += 3) if (label[i] === nr.rg.id) { tot++; if (inPoly({ x: x0 + (i % W + .5) * res, y: y0 + (((i / W) | 0) + .5) * res }, o.pts)) c++; }
+    if (c) scored.push({ nr, o, c }); }
+  scored.sort((a, b) => b.c - a.c);
+  const match = new Map();
+  for (const s of scored) { if (match.has(s.nr) || used.has(s.o)) continue; match.set(s.nr, s.o); used.add(s.o); }
+  let n = old.length;
+  const rooms = newRooms.map(nr => { const o = match.get(nr); if (o) return { ...o, pts: nr.poly };
+    const near = scored.find(s => s.nr === nr)?.o; return { ...(near || { floor: '#b8915f', style: 'tra' }), id: uid(), name: 'Rum ' + (++n), pts: nr.poly }; });
+  h.rooms = [...rooms, ...h.rooms.filter(r => r.outdoor)];
+}
+
 // ---------- ångra ----------
 const undoStack = [], redoStack = [];
 export function commit() {

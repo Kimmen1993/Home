@@ -71,6 +71,14 @@ export const ITEMS = {
   gang:        { cat: 'ute', name: 'Gång/plattor', icon: '⬜', w: 1.2, d: 4, h: .03, color: '#9a958c' },
   trad:        { cat: 'ute', name: 'Träd', icon: '🌳', w: 2.2, d: 2.2, h: 4.5, color: '#2f5a2c' },
   buske:       { cat: 'ute', name: 'Buske', icon: '🌿', w: .9, d: .9, h: .8, color: '#3d6b34' },
+  gran:        { cat: 'ute', name: 'Gran', icon: '🌲', w: 2.2, d: 2.2, h: 5.5, color: '#24452a' },
+  frukttrad:   { cat: 'ute', name: 'Fruktträd', icon: '🍎', w: 2.4, d: 2.4, h: 3.2, color: '#3f7a3a' },
+  hack:        { cat: 'ute', name: 'Häck', icon: '🌳', w: 3, d: .6, h: 1.2, color: '#2f5a2c' },
+  rabatt:      { cat: 'ute', name: 'Rabatt', icon: '🌷', w: 2, d: .8, h: .25, color: '#5a4030' },
+  utekruka:    { cat: 'ute', name: 'Kruka', icon: '🪴', w: .5, d: .5, h: 1.0, color: '#b0643c' },
+  parasoll:    { cat: 'ute', name: 'Parasoll', icon: '⛱️', w: 2.6, d: 2.6, h: 2.4, color: '#e8e2d6' },
+  solstol:     { cat: 'ute', name: 'Solstol', icon: '🏖️', w: .65, d: 1.9, h: .45, color: '#9a7550', color2: '#e8e2d6', c2: 'Dyna' },
+  utebord:     { cat: 'ute', name: 'Utebord', icon: '🪵', w: 1.6, d: .9, h: .74, color: '#8a6440' },
   utelampa:    { cat: 'ute', name: 'Utebelysning', icon: '🏮', w: .14, d: .14, h: .6, color: '#222222', dev: 'light' },
   staket:      { cat: 'ute', name: 'Staket', icon: '🚧', w: 3, d: .06, h: 1.0, color: '#b4844f' },
   utesoffa:    { cat: 'ute', name: 'Utesoffa', icon: '🛋️', w: 2.0, d: .8, h: .7, color: '#7a6a58' },
@@ -81,7 +89,7 @@ export const ITEMS = {
 export const PALETTE = ['#ffffff', '#f2efe9', '#e6dccb', '#cfc6b8', '#9aa19a', '#5b6b5a', '#2f5d50', '#3f4a5a', '#2f3b45', '#1f2328',
   '#7a4e2d', '#9a7550', '#b8915f', '#d9b48c', '#a33b2b', '#c9a227', '#c8ccd0', '#6b6f75'];
 
-export const FLOORS = { tra: 'Trä', fiskben: 'Fiskben', klinker: 'Plattor', kakel: 'Kakel', betong: 'Betong', matta: 'Matta' };
+export const FLOORS = { tra: 'Trä', fiskben: 'Fiskben', klinker: 'Plattor', kakel: 'Kakel', betong: 'Betong', matta: 'Matta', grass: 'Gräs', grus: 'Grus' };
 export const WALLMATS = { malad: 'Målad', tapet: 'Tapet', kakel: 'Kakel', panel: 'Träpanel', tegel: 'Tegel', betong: 'Betong' };
 
 export const HOME_TYPES = {

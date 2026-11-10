@@ -34,7 +34,7 @@ export function createView(host, api) {
   }
   // ---------- texturer (ritas i kod) ----------
   const texCache = new Map();
-  const TEX_SIZE = { tra: 1.8, fiskben: .9, klinker: 1.2, grass: 4, kakel: 1, tegel: 1, panel: 1, tapet: .6, betong: 2, matta: 1 };
+  const TEX_SIZE = { grus: 1.5, tra: 1.8, fiskben: .9, klinker: 1.2, grass: 4, kakel: 1, tegel: 1, panel: 1, tapet: .6, betong: 2, matta: 1 };
   function floorTex(style, color) {
     const k = style + color; if (texCache.has(k)) return texCache.get(k);
     const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
@@ -60,6 +60,7 @@ export function createView(host, api) {
     else if (style === 'panel') { for (let i = 0; i < 8; i++) { g.fillStyle = shade(.94 + R() * .1); g.fillRect(i * 64, 0, 64, 512); g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(i * 64, 0, 3, 512); grain(i * 64, 0, 64, 512, true); } }
     else if (style === 'tapet') { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? shade(1.06) : shade(.97); g.fillRect(i * 64, 0, 64, 512); }
       g.fillStyle = 'rgba(255,255,255,.14)'; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.beginPath(); g.arc(i * 64 + 32, j * 64 + (i % 2 ? 32 : 0), 6, 0, 7); g.fill(); } }
+    else if (style === 'grus') { for (let i = 0; i < 7000; i++) { g.fillStyle = shade(.7 + R() * .6); const r = 1 + R() * 3; g.beginPath(); g.arc(R() * 512, R() * 512, r, 0, 7); g.fill(); } }
     else if (style === 'grass') { for (let i = 0; i < 9000; i++) { g.fillStyle = shade(.75 + R() * .5); g.fillRect(R() * 512, R() * 512, 2, 4); } }
     else { for (let i = 0; i < 5000; i++) { g.fillStyle = `rgba(${R() > .5 ? '255,255,255' : '0,0,0'},${R() * .06})`; g.fillRect(R() * 512, R() * 512, 3, 3); } }
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
@@ -202,6 +203,30 @@ export function createView(host, api) {
       case 'trad': { C(g, .12, .18, h * .45, '#4a3020', 0, h * .225, 0, 8);
         for (const [x, y, z, s] of [[0, .62, 0, .5], [.25, .5, .15, .36], [-.22, .55, -.2, .38], [.05, .82, .05, .34]]) {
           const m = new THREE.Mesh(new THREE.IcosahedronGeometry(w * s, 1), M(shade(c, .9 + s * .3), { flatShading: true, roughness: .9 })); m.position.set(x * w, y * h, z * w); m.castShadow = true; m.receiveShadow = true; g.add(m); } break; }
+      case 'gran': { C(g, .1, .15, h * .2, '#4a3020', 0, h * .1, 0, 8);
+        for (let i = 0; i < 4; i++) { const r = w / 2 * (1 - i * .2), ch = h * .38, m = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 9), M(shade(c, .9 + i * .06), { flatShading: true, roughness: .9 }));
+          m.position.y = h * .2 + i * h * .18 + ch / 2; m.castShadow = m.receiveShadow = true; g.add(m); } break; }
+      case 'frukttrad': { C(g, .08, .12, h * .4, '#5a3a24', 0, h * .2, 0, 8);
+        const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(w * .45, 1), M(c, { flatShading: true, roughness: .9 })); crown.position.y = h * .68; crown.scale.y = .8; crown.castShadow = true; g.add(crown);
+        let sd = 7; const Rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+        for (let i = 0; i < 18; i++) { const a = Rr() * 6.28, b = Rr() * 3.14, r = w * .45; const ap = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 6), M('#c0392b', { roughness: .4 }));
+          ap.position.set(Math.cos(a) * Math.sin(b) * r, h * .68 + Math.cos(b) * r * .8, Math.sin(a) * Math.sin(b) * r); g.add(ap); } break; }
+      case 'hack': { const n = Math.max(1, Math.round(w / .5));
+        for (let i = 0; i < n; i++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(.5, 1), M(shade(c, .9 + (i % 3) * .07), { flatShading: true, roughness: .95 }));
+          m.position.set(-w / 2 + (i + .5) * w / n, h / 2, 0); m.scale.set(w / n * 1.3, h, d * 1.6); m.castShadow = m.receiveShadow = true; g.add(m); } break; }
+      case 'rabatt': { B(g, w, .12, d, '#8a8178', 0, .06, 0); B(g, w - .08, .02, d - .08, c, 0, .12, 0);
+        const cols = ['#e84393', '#fdcb6e', '#e17055', '#a29bfe', '#ffffff']; let sd = 3; const Rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+        for (let i = 0; i < Math.round(w * d * 40); i++) { const x = (Rr() - .5) * (w - .15), z = (Rr() - .5) * (d - .15), sh = .08 + Rr() * .15;
+          B(g, .01, sh, .01, '#3d6b34', x, .13 + sh / 2, z); const f = new THREE.Mesh(new THREE.SphereGeometry(.035, 6, 5), M(cols[(Rr() * 5) | 0])); f.position.set(x, .13 + sh, z); g.add(f); } break; }
+      case 'utekruka': { C(g, w * .45, w * .35, .5, c, 0, .25, 0, 16); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(w * .35, 1), M('#3f7a3a', { flatShading: true }));
+          m.position.set(Math.sin(i * 2.1) * w * .12, .55 + i * (h - .6) / 3, Math.cos(i * 2.1) * w * .12); m.castShadow = true; g.add(m); } break; }
+      case 'parasoll': { C(g, .25, .3, .08, '#555', 0, .04, 0); C(g, .025, .025, h, '#ddd', 0, h / 2, 0);
+        const can = new THREE.Mesh(new THREE.ConeGeometry(w / 2, .5, 8, 1, true), new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: .9, side: THREE.DoubleSide }));
+        can.position.y = h - .2; can.castShadow = true; g.add(can); break; }
+      case 'solstol': { for (const s of [-1, 1]) for (const t of [-1, 1]) B(g, .04, .25, .04, c, s * (w / 2 - .04), .125, t * (d / 2 - .1));
+        B(g, w, .04, d * .68, c, 0, .27, d * .16); B(g, w - .04, .06, d * .66, c2 || '#e8e2d6', 0, .32, d * .16);
+        const back = B(g, w - .04, .06, d * .34, c2 || '#e8e2d6', 0, .45, -d * .3); back.rotation.x = .7; break; }
+      case 'utebord': { B(g, w, .04, d, c, 0, h - .02, 0); for (const s of [-1, 1]) B(g, .06, h - .04, d - .1, c, s * (w / 2 - .12), (h - .04) / 2, 0); break; }
       case 'buske': { for (const [x, z, s] of [[0, 0, .5], [.25, .1, .35], [-.2, -.15, .38]]) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(w * s, 1), M(c, { flatShading: true, roughness: .9 }));
         m.position.set(x * w, h * .45, z * w); m.scale.y = h / w * 1.1; m.castShadow = true; g.add(m); } break; }
       case 'utelampa': { C(g, .05, .06, h - .12, c, 0, (h - .12) / 2, 0); const bulb = C(g, .065, .065, .12, new THREE.MeshStandardMaterial({ color: 0x777777 }), 0, h - .06, 0); C(g, .08, .08, .02, c, 0, h + .01, 0);
@@ -292,15 +317,15 @@ export function createView(host, api) {
   }
   function buildOpening(h, w, o, g, H) {
     handleC = o.handleColor || null;
-    const t = w.t, ref = { o }, s = o.t - o.w / 2, e = o.t + o.w / 2, top = o.sill + o.h, fm = M(o.color || '#ffffff', { roughness: .5 });
+    const t = w.t, fd = o.depth || t + .02, ref = { o }, s = o.t - o.w / 2, e = o.t + o.w / 2, top = o.sill + o.h, fm = M(o.color || '#ffffff', { roughness: .5 });
     const pickIt = m => { m.traverse(x => x.userData.pick = { type: 'opening', id: o.id }); return m; };
     if (top > H + .01 && o.kind !== 'hole') { /* lågt snitt: visa bara den nedre delen */ }
     const vis = Math.min(top, H);
     if (o.kind === 'window') {
       const f = .05;
-      [[s + f / 2, o.sill + o.h / 2, f, o.h], [e - f / 2, o.sill + o.h / 2, f, o.h]].forEach(([x, y, ww, hh]) => { if (o.sill < H) pickIt(B(g, ww, Math.min(hh, H - o.sill), t * .6, fm, x, o.sill + Math.min(hh, H - o.sill) / 2, 0)); });
-      if (o.sill < H) pickIt(B(g, o.w, f, t * .6, fm, o.t, o.sill + f / 2, 0));
-      if (top <= H) pickIt(B(g, o.w, f, t * .6, fm, o.t, top - f / 2, 0));
+      [[s + f / 2, o.sill + o.h / 2, f, o.h], [e - f / 2, o.sill + o.h / 2, f, o.h]].forEach(([x, y, ww, hh]) => { if (o.sill < H) pickIt(B(g, ww, Math.min(hh, H - o.sill), fd, fm, x, o.sill + Math.min(hh, H - o.sill) / 2, 0)); });
+      if (o.sill < H) pickIt(B(g, o.w, f, fd, fm, o.t, o.sill + f / 2, 0));
+      if (top <= H) pickIt(B(g, o.w, f, fd, fm, o.t, top - f / 2, 0));
       const gh = Math.max(0, Math.min(o.h - f * 2, H - o.sill - f));
       if (gh > .01) { // fönsterbågar som går att öppna inåt
         const n = o.w > 1.0 ? 2 : 1, sw = (o.w - f * 2) / n, sgn = insideSign(h, w, o), sf = .035, gm = M('#9fc3d6', { transparent: true, opacity: .25, roughness: .05, metalness: .2 });
@@ -326,7 +351,7 @@ export function createView(host, api) {
         bg.add(cloth); ref.cloth = cloth; if (top > H + .01) bg.visible = false; ref.blindH = o.h; ref.blindG = bg; bg.traverse(x => x.userData.pick = { type: 'blind', id: o.id });
       }
     } else if (o.kind === 'door') {
-      const f = .06, fz = t + .02;
+      const f = .06, fz = fd;
       pickIt(B(g, f, Math.min(o.h, H), fz, fm, s + f / 2, Math.min(o.h, H) / 2, 0)); pickIt(B(g, f, Math.min(o.h, H), fz, fm, e - f / 2, Math.min(o.h, H) / 2, 0));
       if (o.h <= H) pickIt(B(g, o.w, f, fz, fm, o.t, o.h - f / 2, 0));
       const lw = o.w - f * 2, lh = Math.min(o.h - f - .01, H - .01), hingeX = o.hinge === 'L' ? s + f : e - f, dir = o.hinge === 'L' ? 1 : -1;

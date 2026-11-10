@@ -1,6 +1,6 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls } from './store.js';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js';
 import { ITEMS, OPENINGS } from './catalog.js';
 
 export function createPlan(canvas, ui) {
@@ -123,7 +123,7 @@ export function createPlan(canvas, ui) {
     const sr = S.sel?.type === 'room' && h.rooms.find(r => r.id === S.sel.id);
     if (sr && S.tool === 'select') sr.pts.forEach((q, i) => { const s1 = ts(q), q2 = sr.pts[(i + 1) % sr.pts.length], m = ts({ x: (q.x + q2.x) / 2, y: (q.y + q2.y) / 2 });
       ctx.fillStyle = 'rgba(255,122,47,.85)'; ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('+', m.x, m.y + 4);
-      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s1.x, s1.y, 7, 0, 7); ctx.fill(); ctx.stroke(); });
+      const on = S.selPt?.room === sr.id && S.selPt.i === i; ctx.fillStyle = on ? '#ff7a2f' : '#fff'; ctx.strokeStyle = on ? '#fff' : '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s1.x, s1.y, on ? 9 : 7, 0, 7); ctx.fill(); ctx.stroke(); });
     if (calib?.p1) { const s = ts(calib.p1); dot(s, '#ff7a2f'); if (mouse) { const m = ts(mouse); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(m.x, m.y); ctx.stroke(); } }
     if (S.tool === 'wall' && mouse && !chain) { const p = snap(mouse); dot(ts(p), p.snapped ? '#7bd88f' : '#ff7a2f'); }
   }
@@ -221,14 +221,14 @@ export function createPlan(canvas, ui) {
       if (!chain) { chain = [q]; draw(); return; }
       const last = chain[chain.length - 1];
       if (Math.hypot(q.x - last.x, q.y - last.y) < .05) { chain = null; draw(); return; }
-      commit(); addWall(h, last, q); splitWalls(h); chain.push(q);
+      commit(); addWall(h, last, q); splitWalls(h); rebuildRooms(h); chain.push(q);
       if (Math.hypot(q.x - chain[0].x, q.y - chain[0].y) < .01) chain = null;
       emit('full'); return;
     }
     if (S.tool === 'bild') { bgDown(p, sx, sy); return; }
     // välj
     const rh = hitRoomHandle(p);
-    if (rh) { commit(); if (rh.mid) { rh.room.pts.splice(rh.i + 1, 0, { ...rh.pt }); rh.i++; } drag = { rpt: rh }; emit('full', 'drag'); return; }
+    if (rh) { commit(); if (rh.mid) { rh.room.pts.splice(rh.i + 1, 0, { ...rh.pt }); rh.i++; } S.selPt = { room: rh.room.id, i: rh.i }; drag = { rpt: rh }; emit('full', 'drag'); ui.ptSel?.(); return; }
     const hd = hitHandle(p); if (hd) { commit(); const w = h.walls.find(w => w.id === S.sel.id); drag = { end: hd, wallE: w, rooms: roomRefs(h, hd) }; return; }
     const it = hitItem(p);
     if (it) { commit(); select({ type: 'item', id: it.id }); drag = { item: it, dx: p.x - it.x, dy: p.y - it.y, moved: false }; return; }
@@ -267,8 +267,9 @@ export function createPlan(canvas, ui) {
     const h = home();
     if (rect) { const x0 = Math.min(rect.a.x, rect.b.x), y0 = Math.min(rect.a.y, rect.b.y), w = Math.abs(rect.b.x - rect.a.x), d = Math.abs(rect.b.y - rect.a.y);
       rect = null;
-      if (w >= .5 && d >= .5) { commit(); const r = addRoom(h, x0, y0, w, d, 'Rum ' + (h.rooms.length + 1)); splitWalls(h); S.sel = { type: 'room', id: r.id }; emit('full'); ui.toolDone?.(); }
+      if (w >= .5 && d >= .5) { commit(); const r = addRoom(h, x0, y0, w, d, 'Rum ' + (h.rooms.length + 1)); splitWalls(h); rebuildRooms(h); S.sel = h.rooms.some(x => x.id === r.id) ? { type: 'room', id: r.id } : null; emit('full'); ui.toolDone?.(); }
       else draw(); return; }
+    if (drag && (drag.wall || drag.end)) { splitWalls(h); rebuildRooms(h); const r = S.sel; if (r?.type === 'room' && !h.rooms.some(x => x.id === r.id)) S.sel = null; }
     if (drag && !drag.pan && !drag.bg) emit('full');
     if (drag?.bg) emit('full');
     drag = null;

@@ -1,5 +1,5 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides } from './store.js';
+import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js';
 import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js';
 import { createPlan } from './plan2d.js';
 import { createView } from './view3d.js';
@@ -12,7 +12,7 @@ let toastT = 0;
 window.toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); };
 
 load();
-const ui = { toast: window.toast, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
+const ui = { toast: window.toast, ptSel() { renderRight(); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
 const plan = createPlan($('#plan'), ui);
 const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone });
 const ha = createHA({ onState: haState, onStatus: (s, msg) => { renderSide(); if (msg) window.toast(msg); if (s === 'on') { window.toast('Ansluten till Home Assistant ✔'); renderRight(); } } });
@@ -23,7 +23,7 @@ let stateT = 0;
 on((kind, id) => {
   if (kind === 'item') { plan.draw(); view.syncItem(id); return; }
   if (kind === 'state') { plan.draw(); view.states(); cancelAnimationFrame(stateT); stateT = requestAnimationFrame(() => { if (S.mode === 'styr') renderRight(); }); return; }
-  if (kind === 'sel') { plan.draw(); view.highlight(); renderRight();
+  if (kind === 'sel') { if (S.sel?.type !== 'room' || S.sel.id !== S.selPt?.room) S.selPt = null; plan.draw(); view.highlight(); renderRight();
     if (S.walls === 'rum' && S.sel?.type === 'room' && S.sel.id !== S.focus) { S.focus = S.sel.id; view.build(); } return; }
   plan.draw(); view.build();
   if (id !== 'panel' && id !== 'drag') renderRight();
@@ -159,6 +159,7 @@ function homePanel() {
     <label class="f">Typ</label>${opt('home.type', h.type, Object.entries(HOME_TYPES).map(([k, v]) => [k, v.icon + ' ' + v.name]))}
     <div style="height:10px"></div>
     <label class="f">Takhöjd (cm)<input data-f="home.ceiling" data-u="cm" value="${cm(h.ceiling)}"></label>
+    <label class="f">Rummen följer väggarna</label>${opt('home.autoRooms', h.autoRooms === false ? 'nej' : 'ja', [['ja', '🔄 Automatiskt'], ['nej', '✋ Manuellt']])}<div style="height:8px"></div>
     <div class="note">${h.rooms.filter(r => !r.outdoor).length} rum · ${h.rooms.filter(r => !r.outdoor).reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
 }
 function catalogPanel() {
@@ -187,7 +188,7 @@ function openingPanel(o) {
   const c = OPENINGS[o.key];
   return `<h2>${c.icon} ${esc(c.name)}</h2>
     ${field('Namn (valfritt)', 'name', o.name, 'text')}
-    <div class="g2">${field('Bredd (cm)', 'w', o.w)}${field('Höjd (cm)', 'h', o.h)}${o.kind === 'window' ? field('Bröstning (cm)', 'sill', o.sill) : ''}</div>
+    <div class="g2">${field('Bredd (cm)', 'w', o.w)}${field('Höjd (cm)', 'h', o.h)}${o.kind === 'window' ? field('Bröstning (cm)', 'sill', o.sill) : ''}${o.kind !== 'hole' ? `<label class="f">Karmdjup (cm)<input data-f="depth" data-u="cm" value="${o.depth ? cm(o.depth) : ''}" placeholder="auto (${cm((home().walls.find(w => w.id === o.wall) || { t: .15 }).t)})"></label>` : ''}</div>
     ${o.kind === 'door' ? `<label class="f">Gångjärn</label>${opt('hinge', o.hinge, [['L', '◧ Vänster'], ['R', 'Höger ◨']])}<div class="btns" style="margin:8px 0 10px"><button class="btn" data-act="swing">⇅ Öppnas åt andra hållet</button></div>` : ''}
     ${o.kind !== 'hole' ? `<label class="f">Färg</label>${swatches('color', o.color)}` : ''}
     ${o.kind === 'door' && !o.glass ? `<label class="f">Material</label>${opt('mat', o.mat || 'malad', [['malad', 'Målad'], ['tra', 'Trä']])}<div style="height:8px"></div>` : ''}
@@ -215,14 +216,14 @@ function roomPanel(r) {
   return `<h2>⬜ Rum</h2>
     ${field('Namn', 'name', r.name, 'text')}
     <label class="f">Typ</label>${opt('outdoor', r.outdoor ? '1' : '', [['', '🛋️ Inne'], ['1', '🌤️ Ute']])}<div style="height:8px"></div>
-    <h3>GOLV</h3>${opt('style', r.style || 'tra', Object.entries(FLOORS).slice(0, 3))}${opt('style', r.style || 'tra', Object.entries(FLOORS).slice(3))}
+    <h3>GOLV</h3>${opt('style', r.style || 'tra', Object.entries(FLOORS).slice(0, 4))}${opt('style', r.style || 'tra', Object.entries(FLOORS).slice(4))}
     <label class="f" style="margin-top:8px">Riktning</label>${opt('floorRot', String(r.floorRot || 0), [['0', '↔ Längs'], ['90', '↕ Tvärs'], ['45', '⤢ Diagonalt']])}
     <div style="height:8px"></div>${swatches('floor', r.floor)}
     <h3>ALLA VÄGGAR I RUMMET</h3>${opt('roomwallmat', '', Object.entries(WALLMATS).slice(0, 3))}${opt('roomwallmat', '', Object.entries(WALLMATS).slice(3))}${swatches('roomwalls', null)}
     ${r.outdoor ? '' : `<h3>TAK</h3>${swatches('ceilColor', r.ceilColor || '#f4f2ee')}`}
     <div class="note">${polyArea(r.pts).toFixed(1).replace('.', ',')} m²</div>
-    <p class="note">Ändra formen i 2D: dra de vita hörnen · dra ett <b>+</b> för nytt hörn · dubbelklicka ett hörn för att ta bort det${r.outdoor ? ' · dra ytan för att flytta den' : ''}.</p>
-    <div class="btns"><button class="btn danger" data-act="del">🗑 Ta bort rum</button></div>`;
+    <p class="note">Ändra formen i 2D: dra de vita hörnen · dra ett <b>+</b> för nytt hörn · klicka ett hörn och tryck Delete för att ta bort det${r.outdoor ? ' · dra ytan för att flytta den' : ''}.</p>
+    <div class="btns">${S.selPt?.room === r.id ? '<button class="btn" data-act="delpt">✕ Ta bort markerad punkt</button>' : ''}<button class="btn danger" data-act="del">🗑 Ta bort rum</button></div>`;
 }
 function bgPanel() {
   const b = home().bg;
@@ -282,6 +283,7 @@ right.addEventListener('click', e => {
   const act = t.dataset.act; if (!act) return;
   const obj = selected();
   if (act.startsWith('rot')) { commit(); obj.rot = ((obj.rot + +act.slice(3)) % 360 + 360) % 360; emit('full', 'panel'); return; }
+  if (act === 'delpt') return deletePoint();
   if (act === 'del') return deleteSel();
   if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
   if (act === 'test') return onDevice({ type: 'item', id: obj.id }, true);
@@ -298,7 +300,8 @@ right.addEventListener('change', e => {
   const t = e.target; if (!t.dataset.f) return;
   commit(); let v = t.value;
   if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v >= 0)) { renderRight(); return; } }
-  setField(t.dataset.f, v); emit('full', t.dataset.u === 'color' ? 'panel' : undefined);
+  if (t.dataset.f === 'depth' && !t.value.trim()) { delete selected().depth; emit('full'); return; }
+  setField(t.dataset.f, v); if (S.sel?.type === 'wall' && ['len', 't'].includes(t.dataset.f)) rebuildRooms(home()); emit('full', t.dataset.u === 'color' ? 'panel' : undefined);
 });
 right.addEventListener('input', e => {
   const t = e.target, h = home();
@@ -312,6 +315,7 @@ function selected() { const h = home(), s = S.sel; if (!s) return null;
 function setField(f, v) {
   const h = home();
   if (f === 'home.type') { h.type = v; return; }
+  if (f === 'home.autoRooms') { h.autoRooms = v === 'ja'; if (h.autoRooms) rebuildRooms(h); return; }
   if (f === 'home.ceiling') { const old = h.ceiling; h.ceiling = v; h.walls.forEach(w => { if (Math.abs(w.h - old) < .01) w.h = v; });
     h.items.forEach(it => { if (ITEMS[it.type].ceil) it.elev = v - it.h; }); return; }
   const o = selected(); if (!o) return;
@@ -322,11 +326,16 @@ function setField(f, v) {
   if (f === 'outdoor') { o.outdoor = !!v; return; }
   o[f] = v;
 }
+function deletePoint() {
+  const h = home(), r = h.rooms.find(x => x.id === S.selPt?.room); if (!r) return;
+  if (r.pts.length <= 3) return window.toast('Ett rum behöver minst 3 hörn');
+  commit(); r.pts.splice(S.selPt.i, 1); S.selPt = null; emit('full');
+}
 function deleteSel() {
   const h = home(), s = S.sel; if (!s) return; commit();
   if (s.type === 'item') h.items = h.items.filter(i => i.id !== s.id);
   if (s.type === 'opening') h.openings = h.openings.filter(i => i.id !== s.id);
-  if (s.type === 'wall') { h.walls = h.walls.filter(i => i.id !== s.id); h.openings = h.openings.filter(o => o.wall !== s.id); }
+  if (s.type === 'wall') { h.walls = h.walls.filter(i => i.id !== s.id); h.openings = h.openings.filter(o => o.wall !== s.id); rebuildRooms(h); }
   if (s.type === 'room') h.rooms = h.rooms.filter(i => i.id !== s.id);
   S.sel = null; emit('full');
 }
@@ -509,6 +518,7 @@ window.addEventListener('keydown', e => {
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
   if (S.mode !== 'bygg') return;
   if (e.key === 'Escape') { if (S.placing || S.tool !== 'select') setTool('select'); else { S.sel = null; plan.cancel(); emit('sel'); } return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && S.selPt && S.sel?.type === 'room') { e.preventDefault(); deletePoint(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && S.sel) { e.preventDefault(); deleteSel(); return; }
   const it = S.sel?.type === 'item' && selected();
   if (it && e.key.toLowerCase() === 'r') { commit(); it.rot = ((it.rot + (e.shiftKey ? -15 : 90)) % 360 + 360) % 360; emit('full', 'panel'); return; }
