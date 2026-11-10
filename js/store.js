@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342594';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342730';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -19,7 +19,7 @@ export function emit(kind = 'full', id) {
   if (kind !== 'sel') { clearTimeout(saveT); saveT = setTimeout(save, 500); }
 }
 // Våningar: varje våning har egna väggar/rum/öppningar/saker. home() ger en vy av den aktiva våningen.
-const LEVEL_KEYS = new Set(['walls', 'rooms', 'openings', 'items', 'ceiling', 'bg']);
+const LEVEL_KEYS = new Set(['walls', 'rooms', 'openings', 'items', 'ceiling', 'bg', 'ignore']);
 export function ensureLevels(h) {
   if (!h.levels) { h.levels = [{ id: uid(), name: 'Plan 1', z: 0, walls: h.walls || [], rooms: h.rooms || [], openings: h.openings || [], items: h.items || [], ceiling: h.ceiling || 2.5, bg: h.bg || null }];
     for (const k of LEVEL_KEYS) delete h[k]; }
@@ -182,6 +182,13 @@ export function touchRooms(h, segs) {
         else for (let k = 0; k < r.pts.length && !hit; k++) { const q1 = r.pts[k], q2 = r.pts[(k + 1) % r.pts.length], pr = proj(p, q1, q2); if (pr.t >= 0 && pr.t <= pr.L && Math.abs(pr.d) < .35) hit = true; } }
       if (hit) { r.custom = false; break; } } }
 }
+// En punkt som garanterat ligger inne i polygonen
+export function insidePoint(pts) {
+  const c = centroid(pts); if (inPoly(c, pts)) return c;
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  for (let i = 1; i < 12; i++) for (let j = 1; j < 12; j++) { const p = { x: Math.min(...xs) + (Math.max(...xs) - Math.min(...xs)) * i / 12, y: Math.min(...ys) + (Math.max(...ys) - Math.min(...ys)) * j / 12 }; if (inPoly(p, pts)) return p; }
+  return c;
+}
 // Räkna om rummen utifrån väggarna. Gamla rum behåller namn/golv/färg genom att matcha på överlapp.
 export function rebuildRooms(h) {
   if (h.autoRooms === false || !h.walls.length) return;
@@ -202,6 +209,9 @@ export function rebuildRooms(h) {
   fill(edge, -1);
   const regions = []; let id = 0;
   for (let i = 0; i < W * H; i++) if (!block[i] && !label[i]) { id++; const n = fill([i], id); if (n * res * res >= .5) regions.push({ id, start: i, n }); }
+  // ytor man tagit bort som rum ska inte komma tillbaka
+  const skip = new Set((h.ignore || []).map(p => { const x = Math.floor((p.x - x0) / res), y = Math.floor((p.y - y0) / res); return x >= 0 && y >= 0 && x < W && y < H ? label[y * W + x] : 0; }));
+  for (let i = regions.length - 1; i >= 0; i--) if (skip.has(regions[i].id)) regions.splice(i, 1);
   // kontur → polygon
   const dirs = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
   const simplify = (p, eps) => { if (p.length < 3) return p; const a = p[0], b = p[p.length - 1], L = Math.hypot(b.x - a.x, b.y - a.y) || 1e-9; let md = 0, mi = 0;

@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342594';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342594';
-import { createPlan } from './plan2d.js?v=1794342594';
-import { createView } from './view3d.js?v=1794342594';
-import { createHA } from './ha.js?v=1794342594';
-import { detectPlan } from './autoplan.js?v=1794342594';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342730';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342730';
+import { createPlan } from './plan2d.js?v=1794342730';
+import { createView } from './view3d.js?v=1794342730';
+import { createHA } from './ha.js?v=1794342730';
+import { detectPlan } from './autoplan.js?v=1794342730';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -170,6 +170,7 @@ function homePanel() {
     <div style="height:10px"></div>
     <label class="f">Takhöjd (cm)<input data-f="home.ceiling" data-u="cm" value="${cm(h.ceiling)}"></label>
     <div class="btns" style="margin-bottom:10px"><button class="btn" data-act="cleanwalls" title="Slår ihop raka väggbitar och tar bort småbitar från planritningen">🧹 Städa väggar</button></div>
+    ${(h.ignore || []).length ? `<div class="btns" style="margin-bottom:10px"><button class="btn" data-act="unignore">↩ Visa ${h.ignore.length} borttagna rum igen</button></div>` : ''}
     <label class="f">Rummen följer väggarna</label>${opt('home.autoRooms', h.autoRooms === false ? 'nej' : 'ja', [['ja', '🔄 Automatiskt'], ['nej', '✋ Manuellt']])}<div style="height:8px"></div>
     <div class="note">${h.rooms.filter(r => !r.outdoor).length} rum · ${h.rooms.filter(r => !r.outdoor).reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
 }
@@ -302,6 +303,7 @@ right.addEventListener('click', e => {
   const obj = selected();
   if (act.startsWith('rot')) { commit(); obj.rot = ((obj.rot + +act.slice(3)) % 360 + 360) % 360; emit('full', 'panel'); return; }
   if (act === 'dellevel') { const raw = h.__raw; if (!confirm(`Ta bort ${h.__level.name} med allt på den?`)) return; commit(); raw.levels = raw.levels.filter(l => l !== h.__level); S.level = null; renderAll(); emit('full'); view.buildNow(); view.fitCam(); return; }
+  if (act === 'unignore') { commit(); h.ignore = []; rebuildRooms(h); emit('full'); return; }
   if (act === 'cleanwalls') { commit(); const before = h.walls.length; mergeWalls(h); cleanWalls(h); splitWalls(h); h.rooms.forEach(r => { if (!r.outdoor) r.custom = false; }); rebuildRooms(h); emit('full');
     window.toast(`🧹 ${before} → ${h.walls.length} väggar`); return; }
   if (act === 'delpt') return deletePoint();
@@ -363,7 +365,7 @@ function deleteSel() {
   if (s.type === 'item') h.items = h.items.filter(i => i.id !== s.id);
   if (s.type === 'opening') h.openings = h.openings.filter(i => i.id !== s.id);
   if (s.type === 'wall') { const w = h.walls.find(i => i.id === s.id); if (w) touchRooms(h, [[w.a, w.b]]); h.walls = h.walls.filter(i => i.id !== s.id); h.openings = h.openings.filter(o => o.wall !== s.id); rebuildRooms(h); }
-  if (s.type === 'room') h.rooms = h.rooms.filter(i => i.id !== s.id);
+  if (s.type === 'room') { const r = h.rooms.find(i => i.id === s.id); if (r && !r.outdoor && h.autoRooms !== false) h.ignore = [...(h.ignore || []), insidePoint(r.pts)]; h.rooms = h.rooms.filter(i => i.id !== s.id); }
   S.sel = null; emit('full');
 }
 
