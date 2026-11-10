@@ -328,15 +328,21 @@ export function createView(host, api) {
       if (top <= H) pickIt(B(g, o.w, f, fd, fm, o.t, top - f / 2, 0));
       const gh = Math.max(0, Math.min(o.h - f * 2, H - o.sill - f));
       if (gh > .01) { // fönsterbågar som går att öppna inåt
-        const n = o.w > 1.0 ? 2 : 1, sw = (o.w - f * 2) / n, sgn = insideSign(h, w, o), sf = .035, gm = M('#9fc3d6', { transparent: true, opacity: .25, roughness: .05, metalness: .2 });
+        const n = o.panes || (o.w > 1.0 ? 2 : 1), sw = (o.w - f * 2) / n, sgn = insideSign(h, w, o), sf = .035, gm = M('#9fc3d6', { transparent: true, opacity: .25, roughness: .05, metalness: .2 });
+        const th = o.transom && gh > .6 ? Math.min(.45, gh * .3) : 0, sh = gh - th;
+        if (th) { pickIt(B(g, o.w - f * 2, f, fd * .9, fm, o.t, o.sill + f + sh + f / 2, 0));   // överljus: fast ruta
+          const tg = new THREE.Mesh(new THREE.BoxGeometry(o.w - f * 2, th - f, .01), gm); tg.position.set(o.t, o.sill + f + sh + f + (th - f) / 2, 0); tg.castShadow = false; g.add(pickIt(tg));
+          if (o.grid && o.grid !== 'none') for (let i = 1; i < n * (o.grid === 'sprojs' ? 2 : 1); i++) pickIt(B(g, .02, th - f, .025, fm, s + f + i * (o.w - f * 2) / (n * (o.grid === 'sprojs' ? 2 : 1)), o.sill + f + sh + f + (th - f) / 2, 0)); }
         ref.sashes = [];
-        for (let i = 0; i < n; i++) { const left = i === 0, sg = new THREE.Group(), dir = left ? 1 : -1;
-          sg.position.set(left ? s + f : e - f, o.sill + f, 0); g.add(sg);
+        for (let i = 0; i < n; i++) { const left = i < n / 2 || n === 1, sg = new THREE.Group(), dir = left ? 1 : -1;
+          sg.position.set(left ? s + f + i * sw : s + f + (i + 1) * sw, o.sill + f, 0); g.add(sg);
           const cx = dir * sw / 2;
-          B(sg, sf, gh, .04, fm, dir * sf / 2, gh / 2, 0); B(sg, sf, gh, .04, fm, dir * (sw - sf / 2), gh / 2, 0);
-          B(sg, sw, sf, .04, fm, cx, sf / 2, 0); B(sg, sw, sf, .04, fm, cx, gh - sf / 2, 0);
-          const glass = new THREE.Mesh(new THREE.BoxGeometry(sw - sf * 2, gh - sf * 2, .01), gm); glass.position.set(cx, gh / 2, 0); glass.castShadow = false; sg.add(glass);
-          B(sg, .015, .12, .03, metalM(), dir * (sw - .06), gh / 2, sgn * .03);
+          B(sg, sf, sh, .04, fm, dir * sf / 2, sh / 2, 0); B(sg, sf, sh, .04, fm, dir * (sw - sf / 2), sh / 2, 0);
+          B(sg, sw, sf, .04, fm, cx, sf / 2, 0); B(sg, sw, sf, .04, fm, cx, sh - sf / 2, 0);
+          const glass = new THREE.Mesh(new THREE.BoxGeometry(sw - sf * 2, sh - sf * 2, .01), gm); glass.position.set(cx, sh / 2, 0); glass.castShadow = false; sg.add(glass);
+          if (o.grid === 'kors') { B(sg, .022, sh - sf * 2, .028, fm, cx, sh / 2, 0); B(sg, sw - sf * 2, .022, .028, fm, cx, sh * .58, 0); }
+          if (o.grid === 'sprojs') { B(sg, .02, sh - sf * 2, .026, fm, cx, sh / 2, 0); for (const k of [1 / 3, 2 / 3]) B(sg, sw - sf * 2, .02, .026, fm, cx, sf + (sh - sf * 2) * k, 0); }
+          B(sg, .015, .12, .03, metalM(), dir * (sw - .06), sh / 2, sgn * .03);
           pickIt(sg); ref.sashes.push({ g: sg, sign: left ? -sgn : sgn }); } }
       if (o.sill > .3 && o.sill < H) pickIt(B(g, o.w + .06, .03, t + .06, '#e8e8e8', o.t, o.sill - .015, 0));
       if (o.blind !== 'none') {
@@ -406,10 +412,11 @@ export function createView(host, api) {
       const base = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: .1, bevelEnabled: false }), M('#8a8580')); base.rotation.x = -Math.PI / 2; base.position.y = -.1; base.receiveShadow = true; world.add(base);
     }
     // innertak (syns bara underifrån, så man kan se ner i huset ovanifrån)
-    if (S.walls === 'hela' && S.ceil !== false) for (const r of h.rooms) { if (r.outdoor || (focus && r !== focus)) continue;
+    if (S.walls === 'hela' && S.ceil === true) for (const r of h.rooms) { if (r.outdoor || (focus && r !== focus)) continue;
       const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, p.y)));
       const c = new THREE.Mesh(new THREE.ShapeGeometry(sh), M(r.ceilColor || '#f4f2ee', { roughness: .95 })); c.rotation.x = Math.PI / 2; c.position.y = h.ceiling || 2.5; c.receiveShadow = true;
-      c.userData.pick = { type: 'room', id: r.id }; world.add(c); }
+      c.userData.pick = { type: 'room', id: r.id }; world.add(c);
+      const top = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)))), M('#9a958f', { roughness: .9 })); top.rotation.x = -Math.PI / 2; top.position.y = (h.ceiling || 2.5) + .02; top.castShadow = true; world.add(top); }
     // väggar
     const cut = { hela: 0, halva: 1.15, golv: .1, rum: 0 }[S.walls] ?? 1.15;
     joints = wallJoints(h.walls);
@@ -426,7 +433,7 @@ export function createView(host, api) {
   }
   let bounds = { cx: 6, cy: 5, size: 12 }, focusB = null;
   const area = r => { let s = 0; r.pts.forEach((a, i) => { const b = r.pts[(i + 1) % r.pts.length]; s += a.x * b.y - b.x * a.y; }); return Math.abs(s / 2); };
-  function fitCam() { const { cx, cy, size } = focusB || bounds; controls.target.set(cx, 0, cy); const s = focusB ? size * 1.1 : Math.max(size, 10); cam.position.set(cx + s * .9, s * 1.15, cy + s * 1.3); controls.update(); }
+  function fitCam() { cam.fov = 36; cam.updateProjectionMatrix(); controls.minDistance = 2; controls.maxDistance = 90; const { cx, cy, size } = focusB || bounds; controls.target.set(cx, 0, cy); const s = focusB ? size * 1.1 : Math.max(size, 10); cam.position.set(cx + s * .9, s * 1.15, cy + s * 1.3); controls.update(); }
 
   function setLighting() {
     const day = S.day;
@@ -532,6 +539,12 @@ export function createView(host, api) {
     syncItem(id) { const r = refs.items[id]; if (!r) return; const it = r.it; r.group.position.set(it.x, it.elev || 0, it.y); r.group.rotation.y = -it.rot * Math.PI / 180; },
     states() { applyStates(false); },
     highlight, fitCam, setLighting, resize,
+    eye(room) { // stå i rummet i ögonhöjd
+      const xs = room.pts.map(p => p.x), ys = room.pts.map(p => p.y), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const wide = Math.max(...xs) - Math.min(...xs) > Math.max(...ys) - Math.min(...ys);
+      cam.fov = 65; cam.updateProjectionMatrix(); controls.minDistance = .2; controls.maxDistance = 4;
+      const back = wide ? { x: Math.max(...xs) - .6, y: cy } : { x: cx, y: Math.max(...ys) - .6 };
+      cam.position.set(back.x, 1.6, back.y); controls.target.set(back.x + (wide ? -.8 : 0), 1.5, back.y + (wide ? 0 : -.8)); controls.update(); },
     topView() { const { cx, cy, size } = bounds; controls.target.set(cx, 0, cy); cam.position.set(cx, size * 1.6, cy + .01); },
   };
 }

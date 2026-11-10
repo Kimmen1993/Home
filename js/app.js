@@ -75,7 +75,8 @@ function renderTop() {
   $('#topRight').innerHTML = `
     ${S.mode === 'bygg' ? `<div class="seg">${[['2d', '📐 2D'], ['split', '◫ Båda'], ['3d', '🧊 3D']].map(([k, l]) => `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     <div class="seg" title="Hur mycket av väggarna som syns">${[['hela', '▮', 'Hela'], ['halva', '▬', 'Halva'], ['golv', '▁', 'Golv'], ['rum', '⬚', 'Ett rum']].map(([k, i, l]) => `<button data-walls="${k}" class="${S.walls === k ? 'on' : ''}">${i} ${l}</button>`).join('')}</div>
-    ${S.walls === 'hela' ? `<button class="ib ${S.ceil !== false ? 'on' : ''}" data-ceil title="Innertak">🏠 Tak ${S.ceil !== false ? 'på' : 'av'}</button>` : ''}
+    ${S.walls === 'hela' ? `<button class="ib ${S.ceil === true ? 'on' : ''}" data-ceil title="Innertak">🏠 Tak ${S.ceil === true ? 'på' : 'av'}</button>` : ''}
+    <button class="ib" data-eye title="Stå i rummet i ögonhöjd">🧍 Gå in</button>
     <button class="ib" data-day>${S.day ? '☀️ Dag' : '🌙 Kväll'}</button>
     <button class="ib" data-cam title="Centrera">⤢</button>`;
   $('#stage').dataset.view = S.mode === 'styr' ? '3d' : S.view;
@@ -86,7 +87,10 @@ $('#topRight').addEventListener('click', e => {
   if (t.dataset.view) { S.view = t.dataset.view; renderTop(); requestAnimationFrame(() => plan.fit()); }
   if (t.dataset.walls) { S.walls = t.dataset.walls; if (S.walls === 'rum' && S.sel?.type === 'room') S.focus = S.sel.id;
     renderTop(); view.build(); if (S.walls === 'rum') window.toast('Välj ett annat rum: klicka på det i 2D-ritningen'); }
-  if (t.hasAttribute('data-ceil')) { S.ceil = S.ceil === false; renderTop(); view.build(); }
+  if (t.hasAttribute('data-ceil')) { S.ceil = S.ceil !== true; renderTop(); view.build(); }
+  if (t.hasAttribute('data-eye')) { const h = home(), r = (S.sel?.type === 'room' && h.rooms.find(x => x.id === S.sel.id)) || h.rooms.find(x => x.id === S.focus) || [...h.rooms].filter(x => !x.outdoor).sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
+    if (!r) return window.toast('Rita ett rum först'); S.walls = 'hela'; S.ceil = true; if (S.mode === 'bygg' && S.view === '2d') S.view = 'split'; renderTop(); view.buildNow(); view.eye(r);
+    window.toast(`🧍 Du står i ${r.name} · dra = titta runt · högerklick-dra = gå · ⤢ = tillbaka`); }
   if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.setLighting(); }
   if (t.hasAttribute('data-cam')) { view.fitCam(); plan.fit(); }
 });
@@ -193,6 +197,9 @@ function openingPanel(o) {
     ${o.kind !== 'hole' ? `<label class="f">Färg</label>${swatches('color', o.color)}` : ''}
     ${o.kind === 'door' && !o.glass ? `<label class="f">Material</label>${opt('mat', o.mat || 'malad', [['malad', 'Målad'], ['tra', 'Trä']])}<div style="height:8px"></div>` : ''}
     ${o.kind === 'door' ? handles(o.handleColor) : ''}
+    ${o.kind === 'window' ? `<h3>FÖNSTER</h3><label class="f">Indelning</label>${opt('panes', String(o.panes || (o.w > 1 ? 2 : 1)), [['1', '▯ Ett'], ['2', '▯▯ Två'], ['3', '▯▯▯ Tre']])}
+      <label class="f" style="margin-top:8px">Spröjs</label>${opt('grid', o.grid || 'none', [['none', 'Inga'], ['kors', '✚ Kors'], ['sprojs', '▦ Spröjs']])}
+      <label class="f" style="margin-top:8px">Överljus</label>${opt('transom', o.transom ? '1' : '', [['', 'Nej'], ['1', 'Ja']])}` : ''}
     ${o.kind === 'window' ? `<h3>GARDIN</h3>${opt('blind', o.blind, [['none', 'Ingen'], ['rullgardin', 'Rullgardin'], ['persienn', 'Persienn']])}
       ${o.blind !== 'none' ? `<div style="height:8px"></div><label class="f">Gardinfärg</label>${swatches('blindColor', o.blindColor)}
       <label class="f">Nere: ${Math.round(o.state.blind * 100)}%<input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}"></label>
@@ -324,6 +331,8 @@ function setField(f, v) {
   if (f === 'roomwalls') { for (const w of h.walls) { const sd = wallSides(h, w); if (sd.P === o) w.colorP = v; if (sd.N === o) w.colorN = v; } return; }
   if (f === 'h' && o.type && ITEMS[o.type].ceil) { o.elev = h.ceiling - v; }
   if (f === 'outdoor') { o.outdoor = !!v; return; }
+  if (f === 'panes') { o.panes = +v; return; }
+  if (f === 'transom') { o.transom = !!v; return; }
   o[f] = v;
 }
 function deletePoint() {

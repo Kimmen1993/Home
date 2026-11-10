@@ -150,6 +150,7 @@ export function createPlan(canvas, ui) {
       if (o.kind === 'window') {
         seg(o.t - o.w / 2, o.t + o.w / 2, os ? 'rgba(255,122,47,.25)' : 'rgba(156,200,255,.18)');
         for (const d of [-t2, 0, t2]) { const p0 = P(o.t - o.w / 2, d), p1 = P(o.t + o.w / 2, d); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); }
+        { const n = o.panes || (o.w > 1 ? 2 : 1); for (let i = 1; i < n; i++) { const x = o.t - o.w / 2 + o.w * i / n, p0 = P(x, -t2), p1 = P(x, t2); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); } }
         if (o.blind !== 'none') { const p0 = P(o.t - o.w / 2, (t2 + .05) * insideSign(h, w, o)), p1 = P(o.t + o.w / 2, (t2 + .05) * insideSign(h, w, o));
           ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); ctx.setLineDash([]); }
       } else if (o.kind === 'door') {
