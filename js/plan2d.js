@@ -89,6 +89,9 @@ export function createPlan(canvas, ui) {
       ctx.fillStyle = hexA(r.floor, sel ? .5 : .28); ctx.fill();
       if (sel) { ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.stroke(); }
     }
+    // våningen under, svagt
+    { const raw = h.__raw, li = raw ? raw.levels.indexOf(h.__level) : -1;
+      if (li > 0) { ctx.strokeStyle = 'rgba(255,255,255,.16)'; for (const w of raw.levels[li - 1].walls) { if (w.virtual) continue; const a = ts(w.a), b = ts(w.b); ctx.lineWidth = Math.max(2, w.t * scale); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); } } }
     // saker (golv först)
     const items = [...h.items].sort((a, b) => a.elev - b.elev);
     for (const it of items) drawItem(it, S.sel?.type === 'item' && S.sel.id === it.id);
@@ -125,7 +128,7 @@ export function createPlan(canvas, ui) {
       ctx.fillStyle = 'rgba(255,122,47,.85)'; ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('+', m.x, m.y + 4);
       const on = S.selPt?.room === sr.id && S.selPt.i === i; ctx.fillStyle = on ? '#ff7a2f' : '#fff'; ctx.strokeStyle = on ? '#fff' : '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s1.x, s1.y, on ? 9 : 7, 0, 7); ctx.fill(); ctx.stroke(); });
     if (calib?.p1) { const s = ts(calib.p1); dot(s, '#ff7a2f'); if (mouse) { const m = ts(mouse); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(m.x, m.y); ctx.stroke(); } }
-    if (S.tool === 'wall' && mouse && !chain) { const p = snap(mouse); dot(ts(p), p.snapped ? '#7bd88f' : '#ff7a2f'); }
+    if ((S.tool === 'wall' || S.tool === 'divider') && mouse && !chain) { const p = snap(mouse); dot(ts(p), p.snapped ? '#7bd88f' : '#ff7a2f'); }
   }
   function label(t, x, y) { ctx.font = '600 12px system-ui'; const w = ctx.measureText(t).width + 12;
     ctx.fillStyle = 'rgba(10,14,10,.85)'; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(t, x, y + 4); }
@@ -133,6 +136,10 @@ export function createPlan(canvas, ui) {
 
   function drawWall(h, w) {
     const L = wallLen(w); if (L < .01) return;
+    if (w.virtual) { const sel = S.sel?.type === 'wall' && S.sel.id === w.id, a = ts(w.a), b = ts(w.b);
+      ctx.strokeStyle = sel ? '#ff7a2f' : 'rgba(255,192,97,.85)'; ctx.lineWidth = sel ? 3 : 2; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+      if (sel) for (const q of [w.a, w.b]) { const s1 = ts(q); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s1.x, s1.y, 7, 0, 7); ctx.fill(); ctx.stroke(); }
+      return; }
     const ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L, nx = -uy, ny = ux, t2 = w.t / 2;
     const ops = h.openings.filter(o => o.wall === w.id).sort((a, b) => a.t - b.t);
     const sel = S.sel?.type === 'wall' && S.sel.id === w.id;
@@ -217,12 +224,12 @@ export function createPlan(canvas, ui) {
     if (e.button === 1 || e.button === 2) { drag = { pan: true, sx, sy, ox, oy }; return; }
     if (S.placing) { place(p, e.shiftKey); return; }
     if (S.tool === 'room') { const q = snap(p); rect = { a: q, b: q }; return; }
-    if (S.tool === 'wall') {
+    if (S.tool === 'wall' || S.tool === 'divider') {
       const q = chain ? ortho(chain[chain.length - 1], snap(p)) : snap(p);
       if (!chain) { chain = [q]; draw(); return; }
       const last = chain[chain.length - 1];
       if (Math.hypot(q.x - last.x, q.y - last.y) < .05) { chain = null; draw(); return; }
-      commit(); addWall(h, last, q); splitWalls(h); rebuildRooms(h); chain.push(q);
+      commit(); addWall(h, last, q, S.tool === 'divider' ? { t: .02, virtual: true } : {}); splitWalls(h); rebuildRooms(h); chain.push(q);
       if (Math.hypot(q.x - chain[0].x, q.y - chain[0].y) < .01) chain = null;
       emit('full'); return;
     }
@@ -262,7 +269,7 @@ export function createPlan(canvas, ui) {
     // spöke vid placering
     if (S.placing) updateGhost(p, e.altKey);
     canvas.style.cursor = S.placing || S.tool !== 'select' ? 'crosshair' : (hitRoomHandle(p) || hitHandle(p) || hitItem(p) || hitOpening(p) || hitWall(p)) ? 'move' : 'default';
-    if (chain || S.tool === 'wall' || calib) draw();
+    if (chain || S.tool === 'wall' || S.tool === 'divider' || calib) draw();
   });
   canvas.addEventListener('pointerup', () => {
     const h = home();

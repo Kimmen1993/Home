@@ -146,3 +146,7 @@ input[type=range]{padding:0;accent-color:var(--acc);border:0;background:none}
   .title input{font-size:16px}
 }
 .opt + .opt{margin-top:4px}
+
+.levels{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:4px;z-index:3}
+.levels button{background:var(--card);border:1px solid var(--line);color:#cfd6cb;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;min-width:74px}
+.levels button.on{background:var(--acc);border-color:var(--acc);color:#1a0d05;font-weight:650}

@@ -1,5 +1,5 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js';
+import { rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js';
 import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js';
 import { createPlan } from './plan2d.js';
 import { createView } from './view3d.js';
@@ -14,7 +14,7 @@ window.toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.
 load();
 const ui = { toast: window.toast, ptSel() { renderRight(); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
 const plan = createPlan($('#plan'), ui);
-const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone });
+const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone, levelChanged() { renderAll(); emit('full'); } });
 const ha = createHA({ onState: haState, onStatus: (s, msg) => { renderSide(); if (msg) window.toast(msg); if (s === 'on') { window.toast('Ansluten till Home Assistant ✔'); renderRight(); } } });
 let catTab = 'oppningar';
 
@@ -27,7 +27,7 @@ on((kind, id) => {
     if (S.walls === 'rum' && S.sel?.type === 'room' && S.sel.id !== S.focus) { S.focus = S.sel.id; view.build(); } return; }
   plan.draw(); view.build();
   if (id !== 'panel' && id !== 'drag') renderRight();
-  if (id !== 'drag') { renderSide(); $('#homeName').value = home().name; }
+  if (id !== 'drag') { renderSide(); renderLevels(); $('#homeName').value = home().name; }
 });
 
 // ---------- sidomeny ----------
@@ -58,7 +58,7 @@ $('#side').addEventListener('click', e => {
   else if (t.hasAttribute('data-export')) exportHome();
   else if (t.hasAttribute('data-import')) $('#fileJson').click();
 });
-function switchHome(id) { S.cur = id; S.sel = null; S.placing = null; clearHistory(); emit('full'); view.buildNow(); view.fitCam(); plan.fit(); }
+function switchHome(id) { S.cur = id; S.level = null; S.sel = null; S.placing = null; clearHistory(); emit('full'); view.buildNow(); view.fitCam(); plan.fit(); }
 function setMode(m) {
   S.mode = m; S.sel = null; S.placing = null; S.tool = 'select'; plan.cancel();
   if (m === 'styr') { if (S.walls === 'hela') S.walls = 'halva'; S.day = false; } else { S.day = true; if (!S._seenBygg) S.view = innerWidth < 980 ? '2d' : 'split'; }
@@ -94,7 +94,7 @@ $('#topRight').addEventListener('click', e => {
   if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.setLighting(); }
   if (t.hasAttribute('data-cam')) { view.fitCam(); plan.fit(); }
 });
-const TOOLS = [['select', '✋', 'Välj'], ['room', '⬜', 'Rum'], ['wall', '🧱', 'Vägg'], ['add', '🛋️', 'Lägg till'], ['bild', '🖼️', 'Bild']];
+const TOOLS = [['select', '✋', 'Välj'], ['room', '⬜', 'Rum'], ['wall', '🧱', 'Vägg'], ['divider', '✂️', 'Rumsgräns'], ['add', '🛋️', 'Lägg till'], ['bild', '🖼️', 'Bild']];
 function renderToolbar() {
   if (S.mode !== 'bygg') { $('#toolbar').innerHTML = ''; return; }
   const cur = S.placing ? 'add' : S.tool;
@@ -109,7 +109,7 @@ $('#toolbar').addEventListener('click', e => {
 });
 function setTool(k) {
   S.tool = k; S.placing = null; plan.cancel(); S.sel = null;
-  if ((k === 'room' || k === 'wall' || k === 'bild') && S.view === '3d') { S.view = 'split'; renderTop(); }
+  if ((k === 'room' || k === 'wall' || k === 'divider' || k === 'bild') && S.view === '3d') { S.view = 'split'; renderTop(); }
   if (k === 'bild' && !home().bg) $('#fileImg').click();
   renderToolbar(); renderRight(); hint(); emit('sel');
 }
@@ -118,6 +118,7 @@ function hint() {
     select: '✋ Klicka för att välja · dra för att flytta · R = vrid · Delete = ta bort',
     room: '⬜ Dra en rektangel i ritningen = nytt rum med väggar',
     wall: '🧱 Klicka punkt för punkt i ritningen · dubbelklicka eller Esc = klar',
+    divider: '✂️ Dra en osynlig gräns över golvet för att dela ett rum (t.ex. kök | tv-rum) · Esc = klar',
     add: '🛋️ Välj något i listan till höger',
     bild: '🖼️ Dra bilden på plats · kalibrera med ett mått du vet',
   };
@@ -159,6 +160,9 @@ function homePanel() {
       <div><b>🖼️</b>Har du en planritning? Lägg in den som bild och rita ovanpå</div>
     </div>
     ${h.bg ? `<h3>RITNINGSBILDEN</h3><div class="btns"><button class="btn ${h.bg.hidden ? '' : 'acc'}" data-act="bgtoggle">${h.bg.hidden ? '👁 Visa bilden' : '✔ Nöjd – göm bilden'}</button><button class="btn danger" data-act="bgdel">🗑 Ta bort</button></div>` : ''}
+    <h3>VÅNING</h3>
+    <div class="g2"><label class="f">Namn<input data-f="level.name" data-u="text" value="${esc(h.__level.name)}"></label><label class="f">Golvhöjd över mark (cm)<input data-f="level.z" data-u="cm" value="${cm(h.__level.z || 0)}"></label></div>
+    ${h.__raw.levels.length > 1 ? '<div class="btns"><button class="btn danger" data-act="dellevel">🗑 Ta bort våningen</button></div>' : ''}
     <h3>HEMMET</h3>
     <label class="f">Typ</label>${opt('home.type', h.type, Object.entries(HOME_TYPES).map(([k, v]) => [k, v.icon + ' ' + v.name]))}
     <div style="height:10px"></div>
@@ -210,6 +214,7 @@ function openingPanel(o) {
     <div class="btns" style="margin-top:14px"><button class="btn danger" data-act="del">🗑 Ta bort</button></div>`;
 }
 function wallPanel(w) {
+  if (w.virtual) return `<h2>✂️ Rumsgräns</h2><p class="note">En osynlig gräns som delar golvet i två rum. Syns inte i 3D.</p>${field('Längd (cm)', 'len', wallLen(w))}<div class="btns"><button class="btn danger" data-act="del">🗑 Ta bort gräns</button></div>`;
   return `<h2>🧱 Vägg</h2>
     <div class="g2">${field('Längd (cm)', 'len', wallLen(w))}${field('Tjocklek (cm)', 't', w.t)}${field('Höjd (cm)', 'h', w.h)}</div>
     ${(() => { const sd = wallSides(home(), w); return `
@@ -290,6 +295,7 @@ right.addEventListener('click', e => {
   const act = t.dataset.act; if (!act) return;
   const obj = selected();
   if (act.startsWith('rot')) { commit(); obj.rot = ((obj.rot + +act.slice(3)) % 360 + 360) % 360; emit('full', 'panel'); return; }
+  if (act === 'dellevel') { const raw = h.__raw; if (!confirm(`Ta bort ${h.__level.name} med allt på den?`)) return; commit(); raw.levels = raw.levels.filter(l => l !== h.__level); S.level = null; renderAll(); emit('full'); view.buildNow(); view.fitCam(); return; }
   if (act === 'delpt') return deletePoint();
   if (act === 'del') return deleteSel();
   if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
@@ -306,7 +312,7 @@ right.addEventListener('click', e => {
 right.addEventListener('change', e => {
   const t = e.target; if (!t.dataset.f) return;
   commit(); let v = t.value;
-  if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v >= 0)) { renderRight(); return; } }
+  if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v >= 0) && !(t.dataset.f === 'level.z' && isFinite(v))) { renderRight(); return; } }
   if (t.dataset.f === 'depth' && !t.value.trim()) { delete selected().depth; emit('full'); return; }
   setField(t.dataset.f, v); if (S.sel?.type === 'wall' && ['len', 't'].includes(t.dataset.f)) rebuildRooms(home()); emit('full', t.dataset.u === 'color' ? 'panel' : undefined);
 });
@@ -322,6 +328,8 @@ function selected() { const h = home(), s = S.sel; if (!s) return null;
 function setField(f, v) {
   const h = home();
   if (f === 'home.type') { h.type = v; return; }
+  if (f === 'level.name') { h.__level.name = v || h.__level.name; renderLevels(); return; }
+  if (f === 'level.z') { h.__level.z = v; h.__raw.levels.sort((a, b) => a.z - b.z); renderLevels(); return; }
   if (f === 'home.autoRooms') { h.autoRooms = v === 'ja'; if (h.autoRooms) rebuildRooms(h); return; }
   if (f === 'home.ceiling') { const old = h.ceiling; h.ceiling = v; h.walls.forEach(w => { if (Math.abs(w.h - old) < .01) w.h = v; });
     h.items.forEach(it => { if (ITEMS[it.type].ceil) it.elev = v - it.h; }); return; }
@@ -374,20 +382,20 @@ function blindSet(o, v) {
   o.state.blind = v; emit('state');
 }
 function onDevice(p) {
-  const h = home();
+  const raw = home().__raw, L = raw.levels.find(l => l.id === p.lv) || home().__level, h = levelView(raw, L);
   if (p.type === 'item') { const it = h.items.find(i => i.id === p.id); if (!it) return; const dev = ITEMS[it.type].dev;
     if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev) mediaSet(it, !it.state.on);
-    else { const r = roomAt(h, it); if (r) roomLights(r); }
+    else { const r = roomAt(h, it); if (r) roomLights(r, h); }
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'opening') { const o = h.openings.find(i => i.id === p.id); if (!o) return;
     if (o.kind === 'window') doorSet(o, o.state.open < .5);
     else if (o.kind !== 'hole') doorSet(o, o.state.open < .5);
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'blind') { const o = h.openings.find(i => i.id === p.id); blindSet(o, o.state.blind > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); return; }
-  if (p.type === 'room') { const r = h.rooms.find(i => i.id === p.id); if (r) roomLights(r); }
+  if (p.type === 'room') { const r = h.rooms.find(i => i.id === p.id); if (r) roomLights(r, h); }
 }
-function roomLights(r) {
-  const h = home(), ls = h.items.filter(i => ITEMS[i.type].dev === 'light' && roomAt(h, i) === r);
+function roomLights(r, h = home()) {
+  const ls = h.items.filter(i => ITEMS[i.type].dev === 'light' && roomAt(h, i) === r);
   if (!ls.length) return window.toast(`Inga lampor i ${r.name}`);
   const anyOn = ls.some(i => i.state.on); ls.forEach(i => lightSet(i, !anyOn, i.state.bri ?? .8));
 }
@@ -536,7 +544,28 @@ window.addEventListener('keydown', e => {
 });
 
 // ---------- start ----------
-function renderAll() { renderSide(); renderTop(); renderToolbar(); renderRight(); hint(); }
+function renderAll() { renderSide(); renderTop(); renderToolbar(); renderRight(); hint(); renderLevels(); }
+// ---------- våningar ----------
+function renderLevels() {
+  const raw = home().__raw, cur = home().__level;
+  $('#levels').innerHTML = [...raw.levels].reverse().map(L => `<button class="${L === cur ? 'on' : ''}" data-lv="${L.id}">${esc(L.name)}</button>`).join('') +
+    (S.mode === 'bygg' ? '<button data-lvadd title="Lägg till våning">＋</button>' : '') +
+    (raw.levels.length > 1 ? `<button data-lvall class="${S.showAll ? 'on' : ''}" title="Visa våningarna ovanför också">${S.showAll ? '👁 Alla' : '👁 Hit'}</button>` : '');
+}
+$('#levels').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.lv) { S.level = t.dataset.lv; S.sel = null; S.selPt = null; plan.cancel(); renderAll(); emit('full'); view.buildNow(); view.fitCam(); return; }
+  if (t.hasAttribute('data-lvall')) { S.showAll = !S.showAll; renderLevels(); view.build(); return; }
+  if (t.hasAttribute('data-lvadd')) {
+    const m = modal(`<h2>Ny våning</h2><div class="big4">
+      <button data-k="tom"><b>⬜</b>Tom våning ovanpå<br><span class="note">Rita själv</span></button>
+      <button data-k="kopia"><b>⧉</b>Kopiera ${esc(home().__level.name)}<br><span class="note">Samma väggar och fönster – bra för flerbostadshus</span></button>
+      <button data-k="kallare"><b>⬇️</b>Källare<br><span class="note">Under marken</span></button></div>
+      <div class="btns" style="margin-top:14px"><button class="btn" data-close>Avbryt</button></div>`);
+    m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { commit(); const L = addLevel(home().__raw, b.dataset.k); S.level = L.id; S.sel = null; m.hidden = true;
+      renderAll(); emit('full'); view.buildNow(); view.fitCam(); window.toast(`${L.name} skapad – den under syns svagt i ritningen`); });
+  }
+});
 renderAll();
 view.buildNow(); view.fitCam();
 requestAnimationFrame(() => { plan.resize(); plan.fit(); });

@@ -9,6 +9,7 @@ export const CATS = [
   ['ljus', 'Belysning', '💡'],
   ['media', 'Media', '📺'],
   ['ute', 'Utomhus', '🌳'],
+  ['trappor', 'Trappor', '🪜'],
 ];
 
 export const OPENINGS = {
@@ -79,6 +80,9 @@ export const ITEMS = {
   parasoll:    { cat: 'ute', name: 'Parasoll', icon: '⛱️', w: 2.6, d: 2.6, h: 2.4, color: '#e8e2d6' },
   solstol:     { cat: 'ute', name: 'Solstol', icon: '🏖️', w: .65, d: 1.9, h: .45, color: '#9a7550', color2: '#e8e2d6', c2: 'Dyna' },
   utebord:     { cat: 'ute', name: 'Utebord', icon: '🪵', w: 1.6, d: .9, h: .74, color: '#8a6440' },
+  vagglampa:   { cat: 'ute', name: 'Vägglampa ute', icon: '💡', w: .16, d: .18, h: .3, elev: 2.0, color: '#1f2328', dev: 'light', snap: 1 },
+  trappa:      { cat: 'trappor', name: 'Rak trappa', icon: '🪜', w: .9, d: 3.4, h: 2.8, color: '#9a7550', color2: '#1f2328', c2: 'Räcke', snap: 1 },
+  spiraltrappa:{ cat: 'trappor', name: 'Spiraltrappa', icon: '🌀', w: 1.6, d: 1.6, h: 2.8, color: '#9a7550', color2: '#1f2328', c2: 'Räcke' },
   utelampa:    { cat: 'ute', name: 'Utebelysning', icon: '🏮', w: .14, d: .14, h: .6, color: '#222222', dev: 'light' },
   staket:      { cat: 'ute', name: 'Staket', icon: '🚧', w: 3, d: .06, h: 1.0, color: '#b4844f' },
   utesoffa:    { cat: 'ute', name: 'Utesoffa', icon: '🛋️', w: 2.0, d: .8, h: .7, color: '#7a6a58' },

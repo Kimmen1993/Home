@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj } from './store.js';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js';
 import { ITEMS, OPENINGS } from './catalog.js';
 import { insideSign } from './plan2d.js';
 
@@ -203,6 +203,21 @@ export function createView(host, api) {
       case 'trad': { C(g, .12, .18, h * .45, '#4a3020', 0, h * .225, 0, 8);
         for (const [x, y, z, s] of [[0, .62, 0, .5], [.25, .5, .15, .36], [-.22, .55, -.2, .38], [.05, .82, .05, .34]]) {
           const m = new THREE.Mesh(new THREE.IcosahedronGeometry(w * s, 1), M(shade(c, .9 + s * .3), { flatShading: true, roughness: .9 })); m.position.set(x * w, y * h, z * w); m.castShadow = true; m.receiveShadow = true; g.add(m); } break; }
+      case 'trappa': { const n = Math.max(3, Math.round(h / .18)), rise = h / n, run = d / n;
+        for (let i = 0; i < n; i++) B(g, w - .08, .045, run + .03, c, 0, (i + 1) * rise - .022, d / 2 - (i + .5) * run);
+        const len = Math.hypot(d, h), ang = Math.atan2(h, d);
+        for (const sx of [-1, 1]) { const st = B(g, .04, .25, len, c, sx * (w / 2 - .02), h / 2 - .05, 0); st.rotation.x = ang;
+          const rail = B(g, .04, .04, len, c2 || '#1f2328', sx * (w / 2 - .02), h / 2 + .9, 0); rail.rotation.x = ang;
+          for (let i = 0; i < n; i += 3) B(g, .02, .9, .02, c2 || '#1f2328', sx * (w / 2 - .02), (i + 1) * rise + .45, d / 2 - (i + .5) * run); }
+        break; }
+      case 'spiraltrappa': { const n = Math.max(6, Math.round(h / .19)), rise = h / n, turn = Math.PI * 2 * .9;
+        C(g, .05, .05, h + .9, c2 || '#1f2328', 0, (h + .9) / 2, 0, 12);
+        for (let i = 0; i < n; i++) { const a = i / n * turn, st = new THREE.Group(); st.rotation.y = -a; st.position.y = (i + 1) * rise - .02; g.add(st);
+          B(st, w / 2 - .02, .04, .32, c, w / 4, 0, 0); B(st, .02, .9, .02, c2 || '#1f2328', w / 2 - .04, .45, 0); }
+        break; }
+      case 'vagglampa': { B(g, .1, .18, .02, c, 0, .12, -d / 2 + .01); B(g, .03, .03, .1, c, 0, .16, -d / 2 + .06);
+        const bulb = B(g, .11, .16, .11, new THREE.MeshStandardMaterial({ color: 0x777777, transparent: true, opacity: .9 }), 0, .1, d / 2 - .06); bulb.castShadow = false;
+        B(g, .13, .02, .13, c, 0, .19, d / 2 - .06); ref.bulb = bulb; ref.lightY = .1; ref.power = 5; break; }
       case 'gran': { C(g, .1, .15, h * .2, '#4a3020', 0, h * .1, 0, 8);
         for (let i = 0; i < 4; i++) { const r = w / 2 * (1 - i * .2), ch = h * .38, m = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 9), M(shade(c, .9 + i * .06), { flatShading: true, roughness: .9 }));
           m.position.y = h * .2 + i * h * .18 + ch / 2; m.castShadow = m.receiveShadow = true; g.add(m); } break; }
@@ -312,7 +327,7 @@ export function createView(host, api) {
     for (const o of ops) { const s = o.t - o.w / 2, e = o.t + o.w / 2; if (s > cur + .001 || first) piece(cur, s, 0, H, first, false); first = false; cur = Math.max(cur, e);
       piece(s, e, 0, Math.min(o.sill, H), false, false); if (o.sill + o.h < H) piece(s, e, o.sill + o.h, H, false, false); }
     piece(cur, L, 0, H, first, true);
-    world.add(g);
+    layer.add(g);
     for (const o of ops) buildOpening(h, w, o, g, H);
   }
   function buildOpening(h, w, o, g, H) {
@@ -386,54 +401,67 @@ export function createView(host, api) {
     world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isReflector || o.getRenderTarget) { o.dispose?.(); } });
     world.clear(); refs = { items: {}, openings: {}, pick: [] }; selBox = null;
   }
+  let layer = world;
   function build() {
-    need = false; const h = home(); if (!h) return; disposeWorld();
-    const pts = [...h.walls.flatMap(w => [w.a, w.b]), ...h.rooms.flatMap(r => r.pts), ...h.items.map(i => ({ x: i.x, y: i.y }))];
+    need = false; const hv = home(); if (!hv) return; disposeWorld();
+    const raw = hv.__raw, act = hv.__level, idxAct = raw.levels.indexOf(act);
+    const pts = raw.levels.flatMap(L => [...L.walls.flatMap(w => [w.a, w.b]), ...L.rooms.flatMap(r => r.pts), ...L.items.map(i => ({ x: i.x, y: i.y }))]);
     let x0 = -5, x1 = 15, y0 = -5, y1 = 15; if (pts.length) { x0 = Math.min(...pts.map(p => p.x)); x1 = Math.max(...pts.map(p => p.x)); y0 = Math.min(...pts.map(p => p.y)); y1 = Math.max(...pts.map(p => p.y)); }
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, size = Math.max(x1 - x0, y1 - y0, 8);
-    bounds = { cx, cy, size };
+    bounds = { cx, cy, size, z: act.z || 0 };
     // mark
     const gs = size * 3 + 40;
-    if (h.type !== 'lagenhet') { const gm = new THREE.Mesh(new THREE.PlaneGeometry(gs, gs), floorMat('grass', '#4b6a3a'));
+    if (raw.type !== 'lagenhet') { const gm = new THREE.Mesh(new THREE.PlaneGeometry(gs, gs), floorMat('grass', '#4b6a3a'));
       gm.rotation.x = -Math.PI / 2; gm.position.set(cx, -.02, cy); gm.receiveShadow = true; const uv = gm.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * gs, uv.getY(i) * gs);
       gm.userData.pick = { type: 'ground' }; world.add(gm); }
-    else { const gm = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 1.5, .3, y1 - y0 + 1.5), M('#3a3d40')); gm.position.set(cx, -.16, cy); gm.receiveShadow = true; gm.userData.pick = { type: 'ground' }; world.add(gm); }
-    // bara ett rum?
-    const focus = S.walls === 'rum' ? (h.rooms.find(r => r.id === S.focus) || [...h.rooms].filter(r => !r.outdoor).sort((a, b) => area(b) - area(a))[0]) : null;
-    if (focus) S.focus = focus.id;
-    const nearFocus = w => { const L = wallLen(w); for (let i = 0; i <= 20; i++) { const p = { x: w.a.x + (w.b.x - w.a.x) * i / 20, y: w.a.y + (w.b.y - w.a.y) * i / 20 };
-      for (let k = 0; k < focus.pts.length; k++) { const a = focus.pts[k], b = focus.pts[(k + 1) % focus.pts.length], pr = proj(p, a, b);
-        if (pr.t > -.05 && pr.t < pr.L + .05 && Math.abs(pr.d) < w.t / 2 + .12) { const ang = Math.abs(((Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x) - Math.atan2(b.y - a.y, b.x - a.x)) % Math.PI + Math.PI) % Math.PI); if (ang < .1 || ang > Math.PI - .1) return true; } } } return false; };
-    // golv
-    for (const r of h.rooms) { if (focus && r !== focus) continue;
-      const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)));
-      const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), floorMat(r.style || 'tra', r.floor, +(r.floorRot || 0))); m.rotation.x = -Math.PI / 2; m.position.y = .002; m.receiveShadow = true;
-      m.userData.pick = { type: 'room', id: r.id }; world.add(m);
-      const base = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: .1, bevelEnabled: false }), M('#8a8580')); base.rotation.x = -Math.PI / 2; base.position.y = -.1; base.receiveShadow = true; world.add(base);
-    }
-    // innertak (syns bara underifrån, så man kan se ner i huset ovanifrån)
-    if (S.walls === 'hela' && S.ceil === true) for (const r of h.rooms) { if (r.outdoor || (focus && r !== focus)) continue;
-      const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, p.y)));
-      const c = new THREE.Mesh(new THREE.ShapeGeometry(sh), M(r.ceilColor || '#f4f2ee', { roughness: .95 })); c.rotation.x = Math.PI / 2; c.position.y = h.ceiling || 2.5; c.receiveShadow = true;
-      c.userData.pick = { type: 'room', id: r.id }; world.add(c);
-      const top = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)))), M('#9a958f', { roughness: .9 })); top.rotation.x = -Math.PI / 2; top.position.y = (h.ceiling || 2.5) + .02; top.castShadow = true; world.add(top); }
-    // väggar
-    const cut = { hela: 0, halva: 1.15, golv: .1, rum: 0 }[S.walls] ?? 1.15;
-    joints = wallJoints(h.walls);
-    for (const w of h.walls) { if (focus && !nearFocus(w)) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
-    // saker
-    for (const it of h.items) { if (focus && !inPoly(it, focus.pts)) continue; const ref = buildItem(it); refs.items[it.id] = ref; world.add(ref.group);
-      if (cut && it.elev > cut - .05 && !ITEMS[it.type].dev) ref.group.visible = false; }
+    else { const z0 = Math.min(...raw.levels.map(l => l.z || 0)); const gm = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 1.5, .3, y1 - y0 + 1.5), M('#3a3d40')); gm.position.set(cx, z0 - .16, cy); gm.receiveShadow = true; gm.userData.pick = { type: 'ground' }; world.add(gm); }
+    const cutV = { hela: 0, halva: 1.15, golv: .1, rum: 0 }[S.walls] ?? 1.15;
+    let activeFocus = null;
+    raw.levels.forEach((L, li) => {
+      if (li > idxAct && !S.showAll) return;
+      const h = levelView(raw, L), active = L === act;
+      layer = new THREE.Group(); layer.position.y = L.z || 0; world.add(layer);
+      // bara ett rum?
+      const focus = active && S.walls === 'rum' ? (h.rooms.find(r => r.id === S.focus) || [...h.rooms].filter(r => !r.outdoor).sort((a, b) => area(b) - area(a))[0]) : null;
+      if (focus) { S.focus = focus.id; activeFocus = focus; }
+      const nearFocus = w => { for (let i = 0; i <= 20; i++) { const p = { x: w.a.x + (w.b.x - w.a.x) * i / 20, y: w.a.y + (w.b.y - w.a.y) * i / 20 };
+        for (let k = 0; k < focus.pts.length; k++) { const a = focus.pts[k], b = focus.pts[(k + 1) % focus.pts.length], pr = proj(p, a, b);
+          if (pr.t > -.05 && pr.t < pr.L + .05 && Math.abs(pr.d) < w.t / 2 + .12) { const ang = Math.abs(((Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x) - Math.atan2(b.y - a.y, b.x - a.x)) % Math.PI + Math.PI) % Math.PI); if (ang < .1 || ang > Math.PI - .1) return true; } } } return false; };
+      // golv
+      for (const r of h.rooms) { if (focus && r !== focus) continue;
+        const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)));
+        const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), floorMat(r.style || 'tra', r.floor, +(r.floorRot || 0))); m.rotation.x = -Math.PI / 2; m.position.y = .002; m.receiveShadow = true;
+        m.userData.pick = { type: 'room', id: r.id }; layer.add(m);
+        const base = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: L.z > 0 ? .3 : .1, bevelEnabled: false }), M('#8a8580')); base.rotation.x = -Math.PI / 2; base.position.y = L.z > 0 ? -.3 : -.1; base.receiveShadow = true; base.castShadow = L.z > 0; layer.add(base);
+      }
+      // innertak – på den aktiva våningen bara om man valt det, under-våningar alltid stängda
+      const ceilOn = active ? S.walls === 'hela' && S.ceil === true : true;
+      if (ceilOn) for (const r of h.rooms) { if (r.outdoor || (focus && r !== focus)) continue;
+        const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, p.y)));
+        const c = new THREE.Mesh(new THREE.ShapeGeometry(sh), M(r.ceilColor || '#f4f2ee', { roughness: .95 })); c.rotation.x = Math.PI / 2; c.position.y = h.ceiling || 2.5; c.receiveShadow = true;
+        c.userData.pick = { type: 'room', id: r.id }; layer.add(c);
+        const top = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)))), M('#9a958f', { roughness: .9 })); top.rotation.x = -Math.PI / 2; top.position.y = (h.ceiling || 2.5) + .02; top.castShadow = true; layer.add(top); }
+      // väggar
+      const cut = active ? cutV : 0;
+      joints = wallJoints(h.walls.filter(w => !w.virtual));
+      for (const w of h.walls) { if (w.virtual || (focus && !nearFocus(w))) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
+      // saker
+      for (const it of h.items) { if (focus && !inPoly(it, focus.pts)) continue; const ref = buildItem(it); refs.items[it.id] = ref; layer.add(ref.group);
+        if (cut && it.elev > cut - .05 && !ITEMS[it.type].dev && !['trappa', 'spiraltrappa'].includes(it.type)) ref.group.visible = false; }
+      layer.traverse(o => { if (o.userData.pick) o.userData.pick.lv = L.id; });
+    });
+    layer = world;
+    const focus = activeFocus;
     // sol
     sun.position.set(cx - size * .6, size * 1.2, cy + size * .8); sun.target.position.set(cx, 0, cy);
     const sc = sun.shadow.camera; sc.left = sc.bottom = -size * .9; sc.right = sc.top = size * .9; sc.near = 1; sc.far = size * 4; sc.updateProjectionMatrix();
-    if (focus) { const xs = focus.pts.map(p => p.x), ys = focus.pts.map(p => p.y); focusB = { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2, size: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 3) }; } else focusB = null;
-    const sig = h.id + ':' + (h.walls.length > 0) + ':' + (focus ? focus.id : ''); if (!built || sig !== lastSig) fitCam(); built = true; lastSig = sig;
+    if (focus) { const xs = focus.pts.map(p => p.x), ys = focus.pts.map(p => p.y); focusB = { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2, size: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 3), z: act.z || 0 }; } else focusB = null;
+    const sig = raw.id + ':' + (pts.length > 0) + ':' + (focus ? focus.id : '') + ':' + act.id; if (!built || sig !== lastSig) fitCam(); built = true; lastSig = sig;
     applyStates(true); setLighting(); highlight();
   }
   let bounds = { cx: 6, cy: 5, size: 12 }, focusB = null;
   const area = r => { let s = 0; r.pts.forEach((a, i) => { const b = r.pts[(i + 1) % r.pts.length]; s += a.x * b.y - b.x * a.y; }); return Math.abs(s / 2); };
-  function fitCam() { cam.fov = 36; cam.updateProjectionMatrix(); controls.minDistance = 2; controls.maxDistance = 90; const { cx, cy, size } = focusB || bounds; controls.target.set(cx, 0, cy); const s = focusB ? size * 1.1 : Math.max(size, 10); cam.position.set(cx + s * .9, s * 1.15, cy + s * 1.3); controls.update(); }
+  function fitCam() { cam.fov = 36; cam.updateProjectionMatrix(); controls.minDistance = 2; controls.maxDistance = 90; const { cx, cy, size, z = 0 } = focusB || bounds; controls.target.set(cx, z, cy); const s = focusB ? size * 1.1 : Math.max(size, 10); cam.position.set(cx + s * .9, z + s * 1.15, cy + s * 1.3); controls.update(); }
 
   function setLighting() {
     const day = S.day;
@@ -444,7 +472,7 @@ export function createView(host, api) {
 
   // ---------- tillstånd (lampor, dörrar, gardiner) ----------
   function applyStates(instant) {
-    const h = home();
+    const raw = home().__raw, h = { items: raw.levels.flatMap(L => L.items), openings: raw.levels.flatMap(L => L.openings) };
     for (const it of h.items) { const r = refs.items[it.id]; if (!r) continue; const st = it.state || {};
       r.target = st.on ? (st.bri ?? .8) : 0; if (instant) r.cur = r.target; }
     for (const o of h.openings) { const r = refs.openings[o.id]; if (!r) continue; r.tOpen = o.state?.open || 0; r.tBlind = o.state?.blind || 0;
@@ -483,7 +511,8 @@ export function createView(host, api) {
   // ---------- klick & dra ----------
   const ray = new THREE.Raycaster(), mv = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hp = new THREE.Vector3();
   let down = null, drag = null;
-  function rayAt(e) { const r = renderer.domElement.getBoundingClientRect(); mv.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mv, cam); }
+  const setPlane = () => { plane.constant = -(home().__level.z || 0); };
+  function rayAt(e) { setPlane(); const r = renderer.domElement.getBoundingClientRect(); mv.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mv, cam); }
   function pickAt(e) { rayAt(e); const hits = ray.intersectObjects(world.children, true);
     for (const h of hits) { let o = h.object, vis = true; while (o) { if (!o.visible) { vis = false; break; } o = o.parent; } if (!vis) continue;
       const p = h.object.userData.pick; if (p) return { ...p, point: h.point }; } return null; }
@@ -508,6 +537,7 @@ export function createView(host, api) {
     if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) { down = null; return; }
     down = null; const p = pickAt(e);
     if (S.mode === 'styr') { if (p) api.device(p); return; }
+    if (p?.lv && p.lv !== S.level && p.type !== 'ground') { S.level = p.lv; S.sel = { type: p.type, id: p.id }; api.levelChanged?.(); return; }
     if (S.placing) { placeAt(e, p); return; }
     if (!p || p.type === 'ground') S.sel = null; else S.sel = { type: p.type, id: p.id };
     emit('sel');
@@ -544,7 +574,7 @@ export function createView(host, api) {
       const wide = Math.max(...xs) - Math.min(...xs) > Math.max(...ys) - Math.min(...ys);
       cam.fov = 65; cam.updateProjectionMatrix(); controls.minDistance = .2; controls.maxDistance = 4;
       const back = wide ? { x: Math.max(...xs) - .6, y: cy } : { x: cx, y: Math.max(...ys) - .6 };
-      cam.position.set(back.x, 1.6, back.y); controls.target.set(back.x + (wide ? -.8 : 0), 1.5, back.y + (wide ? 0 : -.8)); controls.update(); },
+      const z = home().__level.z || 0; cam.position.set(back.x, z + 1.6, back.y); controls.target.set(back.x + (wide ? -.8 : 0), z + 1.5, back.y + (wide ? 0 : -.8)); controls.update(); },
     topView() { const { cx, cy, size } = bounds; controls.target.set(cx, 0, cy); cam.position.set(cx, size * 1.6, cy + .01); },
   };
 }

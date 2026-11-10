@@ -7,7 +7,7 @@ const r3 = v => Math.round(v * 1000) / 1000;
 
 export const S = {
   homes: [], cur: null, ha: { url: '', token: '' },
-  mode: 'styr', tool: 'select', view: '3d', sel: null, placing: null, day: false, walls: 'halva', focus: null,
+  mode: 'styr', tool: 'select', view: '3d', sel: null, placing: null, day: false, walls: 'halva', focus: null, level: null, showAll: false,
 };
 
 const listeners = [];
@@ -18,7 +18,32 @@ export function emit(kind = 'full', id) {
   for (const f of listeners) f(kind, id);
   if (kind !== 'sel') { clearTimeout(saveT); saveT = setTimeout(save, 500); }
 }
-export const home = () => S.homes.find(h => h.id === S.cur);
+// Våningar: varje våning har egna väggar/rum/öppningar/saker. home() ger en vy av den aktiva våningen.
+const LEVEL_KEYS = new Set(['walls', 'rooms', 'openings', 'items', 'ceiling', 'bg']);
+export function ensureLevels(h) {
+  if (!h.levels) { h.levels = [{ id: uid(), name: 'Plan 1', z: 0, walls: h.walls || [], rooms: h.rooms || [], openings: h.openings || [], items: h.items || [], ceiling: h.ceiling || 2.5, bg: h.bg || null }];
+    for (const k of LEVEL_KEYS) delete h[k]; }
+  return h;
+}
+export function levelView(raw, L) {
+  return new Proxy(raw, { get(t, k) { if (LEVEL_KEYS.has(k)) return L[k]; if (k === '__raw') return t; if (k === '__level') return L; return t[k]; },
+    set(t, k, v) { if (LEVEL_KEYS.has(k)) L[k] = v; else t[k] = v; return true; } });
+}
+export const rawHome = () => S.homes.find(h => h.id === S.cur);
+export function home() { const raw = rawHome(); if (!raw) return raw; ensureLevels(raw);
+  const L = raw.levels.find(l => l.id === S.level) || raw.levels.find(l => l.z === 0) || raw.levels[0]; S.level = L.id; return levelView(raw, L); }
+export function addLevel(raw, kind) {
+  const cur = raw.levels.find(l => l.id === S.level) || raw.levels[0], top = raw.levels[raw.levels.length - 1], bottom = raw.levels[0];
+  const L = { id: uid(), name: '', z: 0, walls: [], rooms: [], openings: [], items: [], ceiling: cur.ceiling || 2.5, bg: null };
+  if (kind === 'kallare') { L.z = r3(bottom.z - 2.4 - .3); L.ceiling = 2.4; raw.levels.unshift(L); }
+  else { L.z = r3(top.z + (top.ceiling || 2.5) + .3); raw.levels.push(L); }
+  if (kind === 'kopia') { const map = new Map();
+    for (const w of cur.walls) { const nw = JSON.parse(JSON.stringify(w)); nw.id = uid(); map.set(w.id, nw.id); L.walls.push(nw); }
+    for (const o of cur.openings) { const no = JSON.parse(JSON.stringify(o)); no.id = uid(); no.wall = map.get(o.wall); if (no.key === 'ytterdorr' || no.key === 'garageport') { no.key = 'fonster'; no.kind = 'window'; no.sill = .9; no.h = 1.2; no.w = Math.min(no.w, 1.2); } if (no.wall) L.openings.push(no); }
+    for (const r of cur.rooms) if (!r.outdoor) { const nr = JSON.parse(JSON.stringify(r)); nr.id = uid(); L.rooms.push(nr); } }
+  raw.levels.forEach((l, i) => { if (!l.name || /^Plan \d+$|^Källare$/.test(l.name)) l.name = l.z < 0 ? 'Källare' : 'Plan ' + (raw.levels.filter(x => x.z >= 0).indexOf(l) + 1); });
+  return L;
+}
 
 export function save() {
   try { localStorage.setItem(KEY, JSON.stringify({ homes: S.homes, cur: S.cur, ha: S.ha })); }
@@ -35,7 +60,7 @@ export function load() {
 }
 
 // äldre sparade hem: fönsterdörrar var fönster förut
-export function migrate(homes) { for (const h of homes) splitWalls(h); for (const h of homes) for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } }
+export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); for (const L of raw.levels) { const h = levelView(raw, L); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
 
 // Delar väggar där en annan vägg möter mitt på (T-korsning), så att varje bit gränsar mot ett rum per sida.
 export function splitWalls(h) {
@@ -82,7 +107,7 @@ export function rebuildRooms(h) {
   const W = Math.ceil((Math.max(...pts.map(p => p.x)) + 1 - x0) / res), H = Math.ceil((Math.max(...pts.map(p => p.y)) + 1 - y0) / res);
   if (W * H > 4e6) return;
   const block = new Uint8Array(W * H);
-  for (const w of h.walls) { const r = w.t / 2 + .005;
+  for (const w of h.walls) { const r = Math.max(w.t / 2 + .005, res * .8);
     const ix0 = Math.max(0, Math.floor((Math.min(w.a.x, w.b.x) - r - x0) / res)), ix1 = Math.min(W - 1, Math.ceil((Math.max(w.a.x, w.b.x) + r - x0) / res));
     const iy0 = Math.max(0, Math.floor((Math.min(w.a.y, w.b.y) - r - y0) / res)), iy1 = Math.min(H - 1, Math.ceil((Math.max(w.a.y, w.b.y) + r - y0) / res));
     for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) { const p = { x: x0 + (x + .5) * res, y: y0 + (y + .5) * res }, pr = proj(p, w.a, w.b);
@@ -133,7 +158,7 @@ export function commit() {
   undoStack.push(JSON.stringify(home())); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0;
 }
 function replace(json) {
-  const h = JSON.parse(json); const i = S.homes.findIndex(x => x.id === h.id);
+  const h = JSON.parse(json); const i = S.homes.findIndex(x => x.id === h.id); if (!h.levels) ensureLevels(h);
   if (i >= 0) S.homes[i] = h; S.sel = null; emit('full');
 }
 export function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(home())); replace(undoStack.pop()); }
@@ -177,7 +202,7 @@ export function addWall(h, a, b, o = {}) {
   const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, out = [];
   for (const [s, e] of pieces) {
     const w = { id: uid(), a: { x: r3(a.x + ux * s), y: r3(a.y + uy * s) }, b: { x: r3(a.x + ux * e), y: r3(a.y + uy * e) },
-      t: o.t || 0.15, h: o.h || h.ceiling || 2.5, color: o.color || '#eeebe5' };
+      t: o.t || 0.15, h: o.h || h.ceiling || 2.5, color: o.color || '#eeebe5', ...(o.virtual ? { virtual: true } : {}) };
     h.walls.push(w); out.push(w);
   }
   return out;
@@ -196,7 +221,7 @@ export function movePoint(h, from, to) {
 }
 export function findWall(h, p, maxD = 0.4) {
   let best = null;
-  for (const w of h.walls) {
+  for (const w of h.walls) { if (w.virtual) continue;
     const pr = proj(p, w.a, w.b);
     if (pr.t < 0 || pr.t > pr.L) continue;
     const d = Math.abs(pr.d);
@@ -207,7 +232,7 @@ export function findWall(h, p, maxD = 0.4) {
 // Lägger möbeln mot närmaste vägg och vänder fronten ut i rummet.
 export function snapToWall(h, it, p) {
   let best = null;
-  for (const w of h.walls) {
+  for (const w of h.walls) { if (w.virtual) continue;
     const pr = proj(p, w.a, w.b);
     if (pr.t < -0.05 || pr.t > pr.L + 0.05) continue;
     const need = w.t / 2 + it.d / 2, gap = Math.abs(Math.abs(pr.d) - need);
@@ -248,10 +273,10 @@ function blank(name, type) { return { id: uid(), name, type, ceiling: 2.5, walls
 function op(h, key, x, y, extra) { const f = findWall(h, { x, y }, 0.2); if (f) makeOpening(h, key, f.wall, f.t, extra); }
 
 export function template(kind) {
-  if (kind === 'villa') return splitWalls(villa());
-  if (kind === 'lagenhet') return splitWalls(apartment());
-  if (kind === 'stuga') return splitWalls(cabin());
-  return blank('Mitt nya hem', kind === 'tom-lagenhet' ? 'lagenhet' : 'hus');
+  if (kind === 'villa') return ensureLevels(splitWalls(villa()));
+  if (kind === 'lagenhet') return ensureLevels(splitWalls(apartment()));
+  if (kind === 'stuga') return ensureLevels(splitWalls(cabin()));
+  return ensureLevels(blank('Mitt nya hem', kind === 'tom-lagenhet' ? 'lagenhet' : 'hus'));
 }
 
 function villa() {
