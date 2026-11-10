@@ -1,14 +1,14 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms } from './store.js?v=1794343270';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343270';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj } from './store.js?v=1794343755';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343755';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
   let scale = 40, ox = 0, oy = 0, dpr = 1;
   const ts = p => ({ x: p.x * scale + ox, y: p.y * scale + oy });
   const tw = (sx, sy) => ({ x: (sx - ox) / scale, y: (sy - oy) / scale });
-  let free = false; let drag = null, mouse = null, chain = null, rect = null, ghost = null, calib = null;
+  let free = false, track = null; let drag = null, mouse = null, chain = null, rect = null, ghost = null, calib = null;
   const bgImg = new Image(); let bgSrc = null;
 
   function resize() {
@@ -46,6 +46,7 @@ export function createPlan(canvas, ui) {
   function hitItem(p) {
     const h = home(); const list = [...h.items].sort((a, b) => (b.elev + b.h) - (a.elev + a.h));
     for (const it of list) {
+      if (it.type === 'skena') { if ((it.pts || []).length > 1 && trackProj(it.pts, p).d < Math.max(.12, 8 / scale)) return it; continue; }
       const a = -it.rot * Math.PI / 180, dx = p.x - it.x, dy = p.y - it.y;
       const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
       if (Math.abs(lx) <= Math.max(it.w, .2) / 2 && Math.abs(ly) <= Math.max(it.d, .2) / 2) return it;
@@ -122,6 +123,8 @@ export function createPlan(canvas, ui) {
     if (rect) { const p0 = ts(rect.a), p1 = ts(rect.b); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
       ctx.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y); ctx.setLineDash([]);
       label(`${Math.abs(rect.b.x - rect.a.x).toFixed(1)} × ${Math.abs(rect.b.y - rect.a.y).toFixed(1)} m`, (p0.x + p1.x) / 2, (p0.y + p1.y) / 2); }
+    if (track && mouse && S.tool === 'track') { const last = ts(track.pts[track.pts.length - 1]), q = trackSnap(mouse), m = ts(q); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 3; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(m.x, m.y); ctx.stroke(); ctx.setLineDash([]); dot(m, q.snapped ? '#7bd88f' : '#ff7a2f'); }
+    if (S.tool === 'track' && mouse && !track) { const q = trackSnap(mouse); dot(ts(q), q.snapped ? '#7bd88f' : '#ff7a2f'); }
     if (chain && mouse) { const last = chain[chain.length - 1], p = ortho(last, snap(mouse)), s0 = ts(last), s1 = ts(p);
       ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
       label(Math.hypot(p.x - last.x, p.y - last.y).toFixed(2).replace('.', ',') + ' m', (s0.x + s1.x) / 2, (s0.y + s1.y) / 2 - 14); }
@@ -180,7 +183,20 @@ export function createPlan(canvas, ui) {
     if (sel) for (const q of [w.a, w.b]) { const s = ts(q); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, 7); ctx.fill(); ctx.stroke(); }
   }
 
+  function drawTrack(it, sel) {
+    const pts = it.pts || []; if (pts.length < 1) return;
+    ctx.strokeStyle = sel ? '#ff7a2f' : '#ffc061'; ctx.lineWidth = sel ? 4 : 3; ctx.lineCap = 'round'; ctx.beginPath();
+    pts.forEach((p, i) => { const s1 = ts(p); i ? ctx.lineTo(s1.x, s1.y) : ctx.moveTo(s1.x, s1.y); }); ctx.stroke();
+    for (const p of it.panels || []) { const sel2 = S.panelSel === p.id, n = p.cstyle === 'vanster' || p.cstyle === 'hoger' ? 1 : 2, pos = p.pos || 0;
+      const seg = (s0, s1, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let k = 0; k <= 8; k++) { const a = ts(trackAt(pts, s0 + (s1 - s0) * k / 8)); k ? ctx.lineTo(a.x, a.y) : ctx.moveTo(a.x, a.y); } ctx.stroke(); };
+      seg(p.s - p.w / 2, p.s + p.w / 2, sel2 ? 'rgba(255,122,47,.45)' : 'rgba(255,255,255,.18)', 10);
+      const part = (n === 1 ? .2 + .8 * pos : .12 + .38 * pos) * p.w;
+      if (p.cstyle !== 'hoger') seg(p.s - p.w / 2, p.s - p.w / 2 + part, hexA(p.color || '#d8cfc0', .95), 7);
+      if (p.cstyle !== 'vanster') seg(p.s + p.w / 2 - part, p.s + p.w / 2, hexA(p.color || '#d8cfc0', .95), 7); }
+    ctx.lineCap = 'butt';
+  }
   function drawItem(it, sel, alpha = 1) {
+    if (it.type === 'skena') return drawTrack(it, sel);
     const c = ITEMS[it.type], s = ts(it);
     ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(it.rot * Math.PI / 180); ctx.globalAlpha = alpha;
     const w = it.w * scale, d = it.d * scale;
@@ -207,7 +223,7 @@ export function createPlan(canvas, ui) {
         ctx.globalAlpha = alpha * .9; ctx.fillText(c.icon, 0, 1); ctx.textBaseline = 'alphabetic'; }
     }
     ctx.restore();
-    if (sel) { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(it.rot * Math.PI / 180); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+    if (sel && it.type !== 'skena') { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(it.rot * Math.PI / 180); ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
       ctx.strokeRect(-Math.max(w, 10) / 2 - 3, -Math.max(d, 10) / 2 - 3, Math.max(w, 10) + 6, Math.max(d, 10) + 6); ctx.setLineDash([]);
       const hy = -Math.max(d, 10) / 2 - 26; ctx.beginPath(); ctx.moveTo(0, -Math.max(d, 10) / 2 - 3); ctx.lineTo(0, hy + 9); ctx.stroke();   // vridhandtag
       ctx.fillStyle = '#ff7a2f'; ctx.beginPath(); ctx.arc(0, hy, 9, 0, 7); ctx.fill(); ctx.rotate(-it.rot * Math.PI / 180); ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -231,6 +247,10 @@ export function createPlan(canvas, ui) {
     if (e.button === 1 || e.button === 2) { drag = { pan: true, sx, sy, ox, oy }; return; }
     if (S.placing) { place(p, e.shiftKey); return; }
     if (S.tool === 'room') { const q = snap(p); rect = { a: q, b: q }; return; }
+    if (S.tool === 'track') { const q = trackSnap(p);
+      if (!track) { commit(); track = makeItem(h, 'skena', q.x, q.y, 0, { pts: [q], panels: [] }); }
+      else { const last = track.pts[track.pts.length - 1]; if (Math.hypot(q.x - last.x, q.y - last.y) < .05) { finishTrack(); return; } track.pts.push(q); }
+      emit('full', 'drag'); return; }
     if (S.tool === 'wall' || S.tool === 'divider') {
       const q = chain ? ortho(chain[chain.length - 1], snap(p)) : snap(p);
       if (!chain) { chain = [q]; draw(); return; }
@@ -264,6 +284,7 @@ export function createPlan(canvas, ui) {
     if (drag?.item) {
       const it = drag.item; const st = free ? .001 : .05; let q = { x: Math.round((p.x - drag.dx) / st) * st, y: Math.round((p.y - drag.dy) / st) * st };
       if (ITEMS[it.type].snap && !e.altKey) { const sw = snapToWall(h, it, q); if (sw) { q = sw; it.rot = sw.rot; } }
+      if (it.type === 'skena') { const dx = q.x - it.x, dy = q.y - it.y; it.pts = it.pts.map(pt => ({ x: Math.round((pt.x + dx) * 1000) / 1000, y: Math.round((pt.y + dy) * 1000) / 1000 })); it.x = q.x; it.y = q.y; drag.moved = true; emit('full', 'drag'); return; }
       it.x = q.x; it.y = q.y; drag.moved = true; emit('item', it.id); return;
     }
     if (drag?.opening) { const o = drag.opening, w = h.walls.find(w => w.id === o.wall); const pr = proj(p, w.a, w.b);
@@ -279,7 +300,7 @@ export function createPlan(canvas, ui) {
     // spöke vid placering
     if (S.placing) updateGhost(p, e.altKey);
     canvas.style.cursor = S.placing || S.tool !== 'select' ? 'crosshair' : hitRotHandle(p) ? 'grab' : (hitRoomHandle(p) || hitHandle(p) || hitItem(p) || hitOpening(p) || hitWall(p)) ? 'move' : 'default';
-    if (chain || S.tool === 'wall' || S.tool === 'divider' || calib) draw();
+    if (chain || S.tool === 'wall' || S.tool === 'divider' || S.tool === 'track' || calib) draw();
   });
   canvas.addEventListener('pointerup', () => {
     const h = home();
@@ -292,11 +313,28 @@ export function createPlan(canvas, ui) {
     if (drag?.bg) emit('full');
     drag = null;
   });
-  canvas.addEventListener('dblclick', e => { if (chain) { chain = null; draw(); return; }
+  canvas.addEventListener('dblclick', e => { if (track) { finishTrack(); return; } if (chain) { chain = null; draw(); return; }
     const { sx, sy } = pos(e), rh = hitRoomHandle(tw(sx, sy));
     if (rh && !rh.mid && rh.room.pts.length > 3) { commit(); rh.room.pts.splice(rh.i, 1); emit('full'); } });
+  // Skenan läggs en bit ut från väggen (i taket); i hörn där två väggar möts hamnar punkten i skärningen
+  function trackSnap(p) {
+    const h = home(), gap = .12, lines = [];
+    for (const w of h.walls) { if (w.virtual) continue; const pr = proj(p, w.a, w.b); if (pr.t < -.4 || pr.t > pr.L + .4 || Math.abs(pr.d) > .7) continue;
+      const sg = Math.sign(pr.d) || 1, off = w.t / 2 + gap, nx = -pr.uy * sg, ny = pr.ux * sg;
+      lines.push({ P: { x: w.a.x + nx * off, y: w.a.y + ny * off }, u: { x: pr.ux, y: pr.uy }, d: Math.abs(pr.d) }); }
+    lines.sort((a, b) => a.d - b.d);
+    for (let i = 0; i < lines.length; i++) for (let j = i + 1; j < lines.length; j++) { const A = lines[i], Bl = lines[j], cr = A.u.x * Bl.u.y - A.u.y * Bl.u.x; if (Math.abs(cr) < .3) continue;
+      const t = ((Bl.P.x - A.P.x) * Bl.u.y - (Bl.P.y - A.P.y) * Bl.u.x) / cr, X = { x: A.P.x + A.u.x * t, y: A.P.y + A.u.y * t };
+      if (Math.hypot(X.x - p.x, X.y - p.y) < .6) return { x: Math.round(X.x * 1000) / 1000, y: Math.round(X.y * 1000) / 1000, snapped: true }; }
+    if (lines.length) { const L = lines[0], t = (p.x - L.P.x) * L.u.x + (p.y - L.P.y) * L.u.y; return { x: Math.round((L.P.x + L.u.x * t) * 1000) / 1000, y: Math.round((L.P.y + L.u.y * t) * 1000) / 1000, snapped: true }; }
+    return snap(p);
+  }
+  function finishTrack() { const h = home(), t = track; track = null;
+    if (t && (t.pts || []).length < 2) h.items = h.items.filter(i => i !== t);
+    else if (t) { S.sel = { type: 'item', id: t.id }; ui.trackDone?.(t); }
+    S.tool = 'select'; emit('full'); ui.toolDone?.(); }
   function hitRotHandle(p) {
-    const it = S.sel?.type === 'item' && home().items.find(i => i.id === S.sel.id); if (!it || S.tool !== 'select') return null;
+    const it = S.sel?.type === 'item' && home().items.find(i => i.id === S.sel.id); if (!it || S.tool !== 'select' || it.type === 'skena') return null;
     const hy = Math.max(it.d * scale, 10) / 2 + 26, a = it.rot * Math.PI / 180, hx = it.x + Math.sin(a) * hy / scale, hyw = it.y - Math.cos(a) * hy / scale;
     return Math.hypot(p.x - hx, p.y - hyw) < 12 / scale ? it : null;
   }
@@ -354,7 +392,7 @@ export function createPlan(canvas, ui) {
 
   return {
     draw, resize, fit, ts, tw,
-    cancel() { chain = null; rect = null; ghost = null; calib = null; draw(); },
+    cancel() { if (track) finishTrack(); chain = null; rect = null; ghost = null; calib = null; draw(); },
     calibrate() { calib = {}; draw(); },
     zoom(f) { const W = canvas.clientWidth / 2, H = canvas.clientHeight / 2, p = tw(W, H); scale = Math.min(300, Math.max(8, scale * f)); ox = W - p.x * scale; oy = H - p.y * scale; draw(); },
   };

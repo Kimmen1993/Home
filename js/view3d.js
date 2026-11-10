@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794343270';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343270';
-import { insideSign } from './plan2d.js?v=1794343270';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt } from './store.js?v=1794343755';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343755';
+import { insideSign } from './plan2d.js?v=1794343755';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -73,6 +73,22 @@ export function createView(host, api) {
     const m = new THREE.MeshStandardMaterial({ map: t, roughness: style === 'klinker' || style === 'kakel' ? .35 : style === 'matta' ? 1 : .7 }); mats.set(k, m); return m; }
   // väggmaterial: målad = slät färg, annars textur
   function wallMat(mat, color) { return !mat || mat === 'malad' ? M(color, { roughness: .92 }) : floorMat(mat, color); }
+  // Gardintyg: en eller två längder, ankrade i ytterkanterna så att de kan dras ihop
+  function curtainFabric(parent, o, w, ph) {
+    const c = o.color || '#d8cfc0', fabric = o.fabric || 'tjock', pat = o.pattern || 'enfargad', folds = o.folds || 'veck';
+    const tex = pat === 'enfargad' ? null : curtainTex(pat, c);
+    const fm = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : new THREE.Color(fabric === 'mork' ? shade(c, .8) : c), map: tex, roughness: 1, side: THREE.DoubleSide,
+      transparent: fabric === 'tunn', opacity: fabric === 'tunn' ? .5 : 1 });
+    const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, nf = folds === 'wave' ? 6 : 10;
+    const sides = o.cstyle === 'vanster' ? [-1] : o.cstyle === 'hoger' ? [1] : [-1, 1], panels = [];
+    for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); parent.add(pg);
+      const geo = new THREE.PlaneGeometry(1, ph, 40, 1), pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + .5; pos.setX(i, -sx * x); pos.setZ(i, Math.sin(x * nf * Math.PI * 2) * amp); }
+      geo.computeVertexNormals(); const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; pg.add(m);
+      if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w * (sides.length === 1 ? 1 : .5) * 3, uv.getY(i) * ph * 3); }
+      panels.push({ g: pg, sx }); }
+    return { panels, sides: sides.length };
+  }
   function curtainTex(pat, color) { const k = 'C' + pat + color; if (texCache.has(k)) return texCache.get(k);
     const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0, 0, 64, 64);
     g.fillStyle = shade(color, pat === 'rand' ? .75 : .82); if (pat === 'rand') { g.fillRect(0, 0, 16, 64); g.fillRect(40, 0, 6, 64); }
@@ -231,19 +247,15 @@ export function createView(host, api) {
           for (const sx of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(.025, 10, 8), M(c2 || '#3a3a3a', { metalness: .5, roughness: .4 })); k.position.set(sx * (w / 2 + .07), top, 0); fz.add(k); } }
         else if (rodT === 'skena') B(fz, w + .04, .025, .05, c2 || '#f2f2f0', 0, top + .005, 0);
         else if (rodT === 'tak') B(fz, w + .1, .03, .06, c2 || '#f2f2f0', 0, hh - .015, 0);
-        const fabric = it.fabric || 'tjock', pat = it.pattern || 'enfargad', folds = it.folds || 'veck';
-        const tex = pat === 'enfargad' ? null : curtainTex(pat, c);
-        const fm = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : new THREE.Color(fabric === 'mork' ? shade(c, .8) : c), map: tex, roughness: 1, side: THREE.DoubleSide,
-          transparent: fabric === 'tunn', opacity: fabric === 'tunn' ? .5 : 1 });
-        const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, nf = folds === 'wave' ? 6 : 10, ph = hh - .06;
-        const sides = it.cstyle === 'vanster' ? [-1] : it.cstyle === 'hoger' ? [1] : [-1, 1], panels = [];
-        for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); fz.add(pg);
-          const geo = new THREE.PlaneGeometry(1, ph, 40, 1), pos = geo.attributes.position;
-          for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + .5; pos.setX(i, -sx * x); pos.setZ(i, Math.sin(x * nf * Math.PI * 2) * amp); }
-          geo.computeVertexNormals(); const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; pg.add(m);
-          if (tex) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w * (sides.length === 1 ? 1 : .5) * 3, uv.getY(i) * ph * 3); }
-          panels.push({ g: pg, sx }); }
-        ref.curtains = panels; ref.cw = w; ref.single = sides.length === 1; break; }
+        const cf = curtainFabric(fz, { ...it, color: c }, w, hh - .06), panels = cf.panels, sides = cf.sides;
+        ref.curtains = panels; ref.cw = w; ref.single = sides === 1; break; }
+      case 'skena': { const hh = curCeil - (it.elev || 0), pts = it.pts.map(p => ({ x: p.x - it.x, y: p.y - it.y })), tc = c || '#f2f2f0';
+        for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b.x - a.x, b.y - a.y); const m = B(g, L + .03, .03, .06, tc, (a.x + b.x) / 2, hh - .015, (a.y + b.y) / 2); m.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x); }
+        ref.tracks = [];
+        for (const p of it.panels || []) { const at = trackAt(pts, p.s), pg = new THREE.Group(); pg.position.set(at.x, 0, at.y); pg.rotation.y = -Math.atan2(at.uy, at.ux); g.add(pg);
+          const cf = curtainFabric(pg, p, p.w, hh - .06); pg.traverse(q => q.userData.pick = { type: 'panel', id: it.id, pid: p.id });
+          ref.tracks.push({ pid: p.id, panels: cf.panels, single: cf.sides === 1, cw: p.w, cur: p.pos || 0, target: p.pos || 0 }); }
+        break; }
       case 'element': { const n = Math.max(4, Math.round(w / .05));
         for (let i = 0; i < n; i++) B(g, .03, h, d * .7, c, -w / 2 + (i + .5) * w / n, h / 2, 0);
         B(g, w, .03, d * .8, c, 0, h - .015, 0); C(g, .012, .012, .15, metalM(), -w / 2 + .05, -.075, 0); C(g, .012, .012, .15, metalM(), w / 2 - .05, -.075, 0); break; }
@@ -302,7 +314,7 @@ export function createView(host, api) {
     }
     if (cat.dev === 'tv') { const L = new THREE.PointLight(0x7aa7ff, 0, 4, 2); L.position.set(0, h / 2, front + .3); g.add(L); ref.light = L; ref.power = 2; }
     handleC = null; g.position.set(it.x, it.elev || 0, it.y); g.rotation.y = -it.rot * Math.PI / 180;
-    g.traverse(o => { o.userData.pick = { type: 'item', id: it.id }; });
+    g.traverse(o => { if (!o.userData.pick) o.userData.pick = { type: 'item', id: it.id }; });
     return ref;
   }
   function scaleTopUV(geo, w, d) { const uv = geo.attributes.uv; for (let i = 8; i < 12; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * d); uv.needsUpdate = true; }
@@ -534,6 +546,7 @@ export function createView(host, api) {
   function applyStates(instant) {
     const raw = home().__raw, h = { items: raw.levels.flatMap(L => L.items), openings: raw.levels.flatMap(L => L.openings) };
     for (const it of h.items) { const r = refs.items[it.id]; if (!r) continue; const st = it.state || {};
+      if (r.tracks) r.tracks.forEach(tr => { const p = (it.panels || []).find(x => x.id === tr.pid); tr.target = p?.pos || 0; if (instant) tr.cur = tr.target; });
       r.target = ITEMS[it.type].dev === 'curtain' ? (st.pos ?? (st.on ? 1 : 0)) : st.on ? (st.bri ?? .8) : 0; if (instant) r.cur = r.target; }
     for (const o of h.openings) { const r = refs.openings[o.id]; if (!r) continue; r.tOpen = o.state?.open || 0; r.tBlind = o.state?.blind || 0;
       if (instant) { r.open = r.tOpen; r.blind = r.tBlind; } }
@@ -546,6 +559,7 @@ export function createView(host, api) {
       if (r.bulb) { r.bulb.material.emissive.setRGB(1, .72, .42); r.bulb.material.emissiveIntensity = v * 3; r.bulb.material.color.setScalar(v > .05 ? 1 : .45); }
       if (r.shade) { r.shade.material.emissive.setRGB(1, .7, .4); r.shade.material.emissiveIntensity = v * .9; }
       if (r.screen) { const m = r.screen.material; if (v > .05 && !m.emissiveMap) { m.emissiveMap = tvScreen(); m.emissive.set(0xffffff); m.needsUpdate = true; } m.emissiveIntensity = v * 1.2; }
+      if (r.tracks) r.tracks.forEach(tr => { tr.cur += (tr.target - tr.cur) * k; const full = tr.single ? 1 : .5, min = tr.single ? .2 : .12; tr.panels.forEach(cp => cp.g.scale.x = (min + (full - min) * tr.cur) * tr.cw); });
       if (r.curtains) r.curtains.forEach(cp => { const full = r.single ? 1 : .5, min = r.single ? .2 : .12; cp.g.scale.x = (min + (full - min) * v) * r.cw; });
       if (r.cones) { const p = v > .5 ? 1 + Math.abs(Math.sin(now * 9)) * .12 : 1; r.cones.forEach(c => c.scale.set(p, 1, p)); }
     }
@@ -565,7 +579,7 @@ export function createView(host, api) {
     if (selBox) { scene.remove(selBox); selBox = null; }
     const s = S.sel; if (!s || S.mode !== 'bygg') return;
     let obj = null;
-    if (s.type === 'item') obj = refs.items[s.id]?.group;
+    if (s.type === 'item' && refs.items[s.id]?.it.type !== 'skena') obj = refs.items[s.id]?.group;
     if (obj) { selBox = new THREE.BoxHelper(obj, 0xff7a2f); scene.add(selBox); }
   }
 
@@ -602,7 +616,7 @@ export function createView(host, api) {
     if (S.mode === 'styr') { if (p) api.device(p); return; }
     if (p?.lv && p.lv !== S.level && p.type !== 'ground') { S.level = p.lv; S.sel = { type: p.type, id: p.id }; api.levelChanged?.(); return; }
     if (S.placing) { placeAt(e, p); return; }
-    if (!p || p.type === 'ground') S.sel = null; else S.sel = { type: p.type, id: p.id };
+    if (!p || p.type === 'ground') S.sel = null; else if (p.type === 'panel') { S.sel = { type: 'item', id: p.id }; S.panelSel = p.pid; } else S.sel = { type: p.type, id: p.id };
     emit('sel');
   });
   function placeAt(e, p) {

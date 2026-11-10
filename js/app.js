@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794343270';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794343270';
-import { createPlan } from './plan2d.js?v=1794343270';
-import { createView } from './view3d.js?v=1794343270';
-import { createHA } from './ha.js?v=1794343270';
-import { detectPlan } from './autoplan.js?v=1794343270';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, trackProj, trackLen, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794343755';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794343755';
+import { createPlan } from './plan2d.js?v=1794343755';
+import { createView } from './view3d.js?v=1794343755';
+import { createHA } from './ha.js?v=1794343755';
+import { detectPlan } from './autoplan.js?v=1794343755';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -12,7 +12,7 @@ let toastT = 0;
 window.toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); };
 
 load();
-const ui = { toast: window.toast, ptSel() { renderRight(); }, rotated(it) { const r = right.querySelector('[data-rot]'), b = right.querySelector('[data-f=rot]'); if (r) r.value = Math.round(it.rot); if (b) b.value = Math.round(it.rot); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
+const ui = { trackDone(t) { const n = panelsForWindows(home(), t); window.toast(n ? `🛤️ Skena klar – ${n} gardiner hängdes vid fönstren` : '🛤️ Skena klar – lägg till gardiner i panelen'); }, toast: window.toast, ptSel() { renderRight(); }, rotated(it) { const r = right.querySelector('[data-rot]'), b = right.querySelector('[data-f=rot]'); if (r) r.value = Math.round(it.rot); if (b) b.value = Math.round(it.rot); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
 const plan = createPlan($('#plan'), ui);
 const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone, levelChanged() { renderAll(); emit('full'); } });
 const ha = createHA({ onState: haState, onStatus: (s, msg) => { renderSide(); if (msg) window.toast(msg); if (s === 'on') { window.toast('Ansluten till Home Assistant ✔'); renderRight(); } } });
@@ -110,8 +110,8 @@ $('#toolbar').addEventListener('click', e => {
   setTool(t.dataset.tool);
 });
 function setTool(k) {
-  S.tool = k; S.placing = null; plan.cancel(); S.sel = null;
-  if ((k === 'room' || k === 'wall' || k === 'divider' || k === 'bild') && S.view === '3d') { S.view = 'split'; renderTop(); }
+  S.tool = k; S.placing = null; S.sel = null; plan.cancel();
+  if ((k === 'room' || k === 'wall' || k === 'divider' || k === 'track' || k === 'bild') && S.view === '3d') { S.view = 'split'; renderTop(); }
   if (k === 'bild' && !home().bg) $('#fileImg').click();
   renderToolbar(); renderRight(); hint(); emit('sel');
 }
@@ -120,6 +120,7 @@ function hint() {
     select: '✋ Klicka = välj · dra en vald sak = flytta (i 3D) · dra tomt = snurra · R = vrid · Delete = ta bort',
     room: '⬜ Dra en rektangel i ritningen = nytt rum med väggar',
     wall: '🧱 Klicka punkt för punkt i ritningen · dubbelklicka eller Esc = klar',
+    track: '🛤️ Klicka hörn för hörn där skenan ska gå (den lägger sig 12 cm ut från väggen) · dubbelklicka eller Esc = klar',
     divider: '✂️ Klicka från vägg till vägg för att dela ett rum · Alt eller 🧲 av = fritt · Esc = klar',
     add: '🛋️ Välj något i listan till höger',
     bild: '🖼️ Dra bilden på plats · kalibrera med ett mått du vet',
@@ -137,7 +138,7 @@ function renderRight() {
   if (S.tool === 'bild') { el.innerHTML = bgPanel(); return; }
   if (S.tool === 'add' || S.placing) { el.innerHTML = catalogPanel(); return; }
   const h = home(), s = S.sel;
-  if (s?.type === 'item') { const it = h.items.find(i => i.id === s.id); if (it) { el.innerHTML = itemPanel(it); fillEnts(); return; } }
+  if (s?.type === 'item') { const it = h.items.find(i => i.id === s.id); if (it) { el.innerHTML = it.type === 'skena' ? trackPanel(it) : itemPanel(it); fillEnts(); return; } }
   if (s?.type === 'opening') { const o = h.openings.find(i => i.id === s.id); if (o) { el.innerHTML = openingPanel(o); fillEnts(); return; } }
   if (s?.type === 'wall') { const w = h.walls.find(i => i.id === s.id); if (w) { el.innerHTML = wallPanel(w); return; } }
   if (s?.type === 'room') { const r = h.rooms.find(i => i.id === s.id); if (r) { el.innerHTML = roomPanel(r); return; } }
@@ -206,6 +207,41 @@ function itemPanel(it) {
       ${c.dev === 'light' && it.state?.on ? `<label class="f" style="margin-top:8px">Ljusstyrka<input type="range" min="5" max="100" value="${Math.round((it.state.bri ?? .8) * 100)}" data-bri="${it.id}"></label>` : ''}` : ''}
     <div class="btns" style="margin-top:14px"><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑 Ta bort</button></div>`;
 }
+// ---------- gardinskena ----------
+function windowsNear(h, it) { return h.openings.filter(o => o.kind === 'window' || o.glass).map(o => { const w = h.walls.find(x => x.id === o.wall); if (!w) return null;
+  const L = wallLen(w), c = { x: w.a.x + (w.b.x - w.a.x) / L * o.t, y: w.a.y + (w.b.y - w.a.y) / L * o.t }, pr = trackProj(it.pts, c); return pr.d < .6 ? { o, s: pr.s } : null; }).filter(Boolean); }
+function newPanel(extra) { return { id: uid(), s: 1, w: 1.6, cstyle: 'dubbel', pos: 0, color: '#d8cfc0', fabric: 'tjock', pattern: 'enfargad', folds: 'veck', window: null, entity: '', ...extra }; }
+function panelsForWindows(h, it) { let n = 0; it.panels = it.panels || [];
+  for (const { o, s } of windowsNear(h, it)) { if (it.panels.some(p => p.window === o.id)) continue; it.panels.push(newPanel({ s, w: Math.round((o.w + .5) * 100) / 100, window: o.id })); n++; }
+  emit('full'); return n; }
+function trackPanel(it) {
+  const h = home(), wins = windowsNear(h, it), P = (it.panels || []).find(p => p.id === S.panelSel);
+  const winName = p => { const o = h.openings.find(x => x.id === p.window); return o ? nameOf(h, o) : null; };
+  return `<h2>🛤️ Gardinskena</h2>
+    <div class="note">${(trackLen(it.pts) ).toFixed(2).replace('.', ',')} m · ${(it.panels || []).length} gardiner · ${wins.length} fönster längs skenan</div>
+    <label class="f" style="margin-top:8px">Färg på skenan</label>${swatches('color', it.color)}
+    <div class="btns"><button class="btn acc" data-act="pwin">＋ Gardin vid varje fönster</button><button class="btn" data-act="padd">＋ Lägg till gardin</button></div>
+    <h3>GARDINER PÅ SKENAN</h3>
+    ${(it.panels || []).map((p, i) => `<div class="row" data-psel="${p.id}" style="${p.id === S.panelSel ? 'color:#fff' : ''}"><div class="l"><span>${p.id === S.panelSel ? '▾' : '▸'} ${esc(p.name || winName(p) || 'Gardin ' + (i + 1))}</span><em>${Math.round(p.w * 100)} cm · ${Math.round((p.pos || 0) * 100)}% fördragen</em></div><span class="swc" style="background:${p.color};width:16px;height:16px"></span></div>
+      ${p.id === S.panelSel ? panelEditor(p, wins, h) : ''}`).join('') || '<p class="note">Inga gardiner än.</p>'}
+    <div class="btns" style="margin-top:14px"><button class="btn danger" data-act="del">🗑 Ta bort skenan</button></div>`;
+}
+const popt = (f, cur, list) => `<div class="opt">${list.map(([v, l]) => `<button data-popt="${f}" data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+function panelEditor(p, wins, h) {
+  return `<div class="card" style="margin:6px 0 10px">
+    <label class="f">Namn<input data-pf="name" value="${esc(p.name || '')}" placeholder="t.ex. Gardin vid soffan"></label>
+    <label class="f">Hör till fönster<select data-pf="window"><option value="">– inget –</option>${wins.map(({ o }) => `<option value="${o.id}" ${o.id === p.window ? 'selected' : ''}>${esc(nameOf(h, o))} (${Math.round(o.w * 100)} cm)</option>`).join('')}</select></label>
+    <div class="g2"><label class="f">Bredd (cm)<input data-pf="w" data-u="cm" value="${Math.round(p.w * 100)}"></label><label class="f">Läge längs skenan (cm)<input data-pf="s" data-u="cm" value="${Math.round(p.s * 100)}"></label></div>
+    <label class="f">Längder</label>${popt('cstyle', p.cstyle, [['dubbel', '▌▐ Två'], ['vanster', '▌ Vänster'], ['hoger', '▐ Höger']])}
+    <label class="f" style="margin-top:6px">Tyg</label>${popt('fabric', p.fabric, [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
+    <label class="f" style="margin-top:6px">Mönster</label>${popt('pattern', p.pattern, [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
+    <label class="f" style="margin-top:6px">Veck</label>${popt('folds', p.folds, [['raka', 'Raka'], ['veck', 'Veckade'], ['wave', 'Wave']])}
+    <div class="sws" style="margin-top:8px">${PALETTE.map(c => `<button class="swc ${c === p.color ? 'on' : ''}" style="background:${c}" data-pcolor="${c}"></button>`).join('')}<input type="color" data-pf="color" value="${p.color}"></div>
+    <label class="f">Fördragen: ${Math.round((p.pos || 0) * 100)}%<input type="range" min="0" max="100" value="${Math.round((p.pos || 0) * 100)}" data-ppos="${p.id}"></label>
+    <label class="f">Koppling (motor, valfritt)<input data-pf="entity" list="ents" value="${esc(p.entity || '')}" placeholder="cover.gardin_vardagsrum"></label>
+    <div class="btns"><button class="btn" data-act="pdup">⧉ Kopiera</button><button class="btn danger" data-act="pdel">✕ Ta bort gardin</button></div></div>`;
+}
+function panelSet(it, p, v) { if (linked(p.entity)) ha.call('cover', 'set_cover_position', { entity_id: p.entity, position: Math.round((1 - v) * 100) }); p.pos = v; emit('state'); }
 function openingPanel(o) {
   const c = OPENINGS[o.key];
   return `<h2>${c.icon} ${esc(c.name)}</h2>
@@ -269,7 +305,7 @@ function bgPanel() {
 function controlPanel() {
   const h = home();
   const lights = h.items.filter(i => ITEMS[i.type].dev === 'light'), media = h.items.filter(i => ['tv', 'speaker'].includes(ITEMS[i.type].dev));
-  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => (o.kind === 'window' || o.glass) && o.blind && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window'), curtains = h.items.filter(i => ITEMS[i.type].dev === 'curtain');
+  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => (o.kind === 'window' || o.glass) && o.blind && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window'), curtains = h.items.filter(i => ITEMS[i.type].dev === 'curtain'), tpanels = h.items.filter(i => i.type === 'skena').flatMap(it => (it.panels || []).map((p, k) => ({ it, p, k })));
   const on = lights.filter(i => i.state?.on).length, open = doors.filter(o => o.state.open > .5).length + wins.filter(o => o.state.open > .5).length;
   const src = x => x.entity ? (ha.ok && ha.state(x.entity) ? x.entity : x.entity + ' · ej ansluten') : 'Demo – ej kopplad';
   return `
@@ -278,7 +314,7 @@ function controlPanel() {
     <div class="card"><h3>💡 BELYSNING</h3>${lightGroups(h, lights, src) || '<div class="note">Inga lampor än – lägg till under Bygg.</div>'}</div>
     <div class="card"><h3>🚪 DÖRRAR & PORTAR</h3>${doors.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppen' : 'Stängd'}</span></div>`).join('') || '<div class="note">Inga dörrar.</div>'}</div>
     ${wins.length ? `<div class="card"><h3>🪟 FÖNSTER</h3>${wins.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppet' : 'Stängt'}</span></div>`).join('')}</div>` : ''}
-    ${blinds.length || curtains.length ? `<div class="card"><h3>🪟 GARDINER</h3>${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${curtainPos(i) > .5 ? 'bad' : 'ok'}">${curtainPos(i) > .5 ? 'Fördragna' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round(curtainPos(i) * 100)}" data-cpos="${i.id}">`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
+    ${blinds.length || curtains.length || tpanels.length ? `<div class="card"><h3>🪟 GARDINER</h3>${tpanels.map(({ it, p, k }) => { const o = h.openings.find(x => x.id === p.window); return `<div class="row" data-dev="panel:${it.id}:${p.id}"><div class="l"><span>🧵 ${esc(p.name || (o ? nameOf(h, o) : 'Gardin ' + (k + 1)))}</span><em>${esc(p.entity || 'Demo – ej kopplad')}</em></div><span class="pill ${(p.pos || 0) > .5 ? 'bad' : 'ok'}">${(p.pos || 0) > .5 ? 'Fördragen' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round((p.pos || 0) * 100)}" data-tpos="${it.id}:${p.id}">`; }).join('')}${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${curtainPos(i) > .5 ? 'bad' : 'ok'}">${curtainPos(i) > .5 ? 'Fördragna' : 'Ifrån'}</span></div><input type="range" min="0" max="100" value="${Math.round(curtainPos(i) * 100)}" data-cpos="${i.id}">`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
       <input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}">`).join('')}</div>` : ''}
     ${media.length ? `<div class="card"><h3>🎵 MEDIA</h3>${media.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${ITEMS[i.type].icon} ${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="sw ${i.state?.on ? 'on' : ''}"></span></div>`).join('')}</div>` : ''}
     <p class="note">Koppla till riktiga prylar: välj en sak under ✏️ Bygg och skriv in dess namn i Home Assistant.</p>`;
@@ -301,11 +337,15 @@ right.addEventListener('click', e => {
   const gsw = e.target.closest('[data-gsw]');
   if (gsw) { const k = gsw.dataset.gsw, ls = h.items.filter(i => ITEMS[i.type].dev === 'light' && ((roomAt(h, i)?.id) || 'ute') === k); const any = ls.some(i => i.state.on); ls.forEach(i => lightSet(i, !any, i.state.bri ?? .8)); return; }
   const grp = e.target.closest('[data-group]'); if (grp) { const k = grp.dataset.group; openRooms.has(k) ? openRooms.delete(k) : openRooms.add(k); renderRight(); return; }
+  const ps = e.target.closest('[data-psel]'); if (ps) { S.panelSel = S.panelSel === ps.dataset.psel ? null : ps.dataset.psel; renderRight(); plan.draw(); return; }
+  const pc = e.target.closest('[data-pcolor],[data-popt]'); if (pc) { const it = selected(), p = it?.panels?.find(x => x.id === S.panelSel); if (!p) return; commit();
+    if (pc.dataset.pcolor) p.color = pc.dataset.pcolor; else p[pc.dataset.popt] = pc.dataset.v; emit('full'); return; }
   const t = e.target.closest('button,[data-dev]'); if (!t) return;
   if (t.dataset.cat) { catTab = t.dataset.cat; renderRight(); return; }
+  if (t.dataset.place === 'item:skena') { setTool('track'); return; }
   if (t.dataset.place) { const [kind, key] = t.dataset.place.split(':'); S.placing = { kind, key }; S.tool = 'add'; renderRight(); renderToolbar(); hint(); return; }
   if (t.dataset.scene) return scene(t.dataset.scene);
-  if (t.dataset.dev) { const [type, id] = t.dataset.dev.split(':'); return onDevice({ type: type === 'blind' ? 'blind' : type, id }); }
+  if (t.dataset.dev) { const [type, id, pid] = t.dataset.dev.split(':'); return onDevice({ type, id, pid }); }
   if (t.dataset.color) { commit(); setField(t.dataset.f, t.dataset.color); emit('full'); return; }
   if (t.dataset.opt) { commit(); setField(t.dataset.opt, t.dataset.v); emit('full'); return; }
   const act = t.dataset.act; if (!act) return;
@@ -315,6 +355,10 @@ right.addEventListener('click', e => {
   if (act === 'unignore') { commit(); h.ignore = []; rebuildRooms(h); emit('full'); return; }
   if (act === 'cleanwalls') { commit(); const before = h.walls.length; mergeWalls(h); cleanWalls(h); splitWalls(h); h.rooms.forEach(r => { if (!r.outdoor) r.custom = false; }); rebuildRooms(h); emit('full');
     window.toast(`🧹 ${before} → ${h.walls.length} väggar`); return; }
+  if (act === 'pwin') { commit(); const n = panelsForWindows(h, obj); window.toast(n ? `${n} gardiner tillagda` : 'Alla fönster längs skenan har redan gardiner'); return; }
+  if (act === 'padd') { commit(); const p = newPanel({ s: Math.round(trackLen(obj.pts) / 2 * 100) / 100 }); obj.panels.push(p); S.panelSel = p.id; emit('full'); return; }
+  if (act === 'pdel') { commit(); obj.panels = obj.panels.filter(p => p.id !== S.panelSel); S.panelSel = null; emit('full'); return; }
+  if (act === 'pdup') { commit(); const p0 = obj.panels.find(p => p.id === S.panelSel); const p = { ...p0, id: uid(), s: p0.s + p0.w, window: null }; obj.panels.push(p); S.panelSel = p.id; emit('full'); return; }
   if (act === 'delpt') return deletePoint();
   if (act === 'del') return deleteSel();
   if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
@@ -329,7 +373,12 @@ right.addEventListener('click', e => {
   if (act === 'bgdel') { if (!confirm('Ta bort ritningsbilden? Väggarna och rummen ligger kvar.')) return; commit(); h.bg = null; emit('full'); return; }
 });
 right.addEventListener('change', e => {
-  const t = e.target; if (!t.dataset.f) return;
+  const t = e.target;
+  if (t.dataset.pf) { const it = selected(), p = it?.panels?.find(x => x.id === S.panelSel); if (!p) return; commit(); let v = t.value;
+    if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v > 0) && t.dataset.pf === 'w') return renderRight(); if (!isFinite(v)) return renderRight(); }
+    if (t.dataset.pf === 'window') { p.window = v || null; const wn = windowsNear(home(), it).find(x => x.o.id === v); if (wn) { p.s = wn.s; p.w = Math.round((wn.o.w + .5) * 100) / 100; } }
+    else p[t.dataset.pf] = v; emit('full'); return; }
+  if (!t.dataset.f) return;
   commit(); let v = t.value;
   if (t.dataset.u === 'deg') { v = ((parseFloat(String(v).replace(',', '.')) % 360) + 360) % 360; if (!isFinite(v)) { renderRight(); return; } }
   if (t.dataset.u === 'cm') { v = parseFloat(v.replace(',', '.')) / 100; if (!(v >= 0) && !(t.dataset.f === 'level.z' && isFinite(v))) { renderRight(); return; } }
@@ -340,6 +389,8 @@ right.addEventListener('input', e => {
   const t = e.target, h = home();
   if (t.dataset.u === 'color') { setField(t.dataset.f, t.value); emit('full', 'panel'); }
   if (t.hasAttribute('data-rot')) { const it = selected(); if (!t._c) { commit(); t._c = true; } it.rot = +t.value; emit('item', it.id); const box = right.querySelector('[data-f=rot]'); if (box) box.value = t.value; }
+  if (t.dataset.ppos) { const it = selected(), p = it?.panels?.find(x => x.id === t.dataset.ppos); if (p) panelSet(it, p, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Fördragen: ${t.value}%`; }
+  if (t.dataset.tpos) { const [iid, pid] = t.dataset.tpos.split(':'), it = home().items.find(i => i.id === iid), p = it?.panels?.find(x => x.id === pid); if (p) panelSet(it, p, t.value / 100); }
   if (t.dataset.cpos) { const it = home().items.find(i => i.id === t.dataset.cpos) || selected(); curtainSet(it, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Fördragna: ${t.value}%`; }
   if (t.dataset.bri) { const it = h.items.find(i => i.id === t.dataset.bri); lightSet(it, true, t.value / 100); }
   if (t.dataset.blind) { const o = h.openings.find(i => i.id === t.dataset.blind); blindSet(o, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Nere: ${t.value}%`; }
@@ -420,6 +471,7 @@ function onDevice(p) {
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'blind') { const o = h.openings.find(i => i.id === p.id); blindSet(o, o.state.blind > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'room') { const r = h.rooms.find(i => i.id === p.id); if (r) roomLights(r, h); }
+  if (p.type === 'panel') { const it = h.items.find(i => i.id === p.id), pn = it?.panels?.find(x => x.id === p.pid); if (pn) { panelSet(it, pn, (pn.pos || 0) > .5 ? 0 : 1); if (S.mode === 'bygg') renderRight(); } }
 }
 function roomLights(r, h = home()) {
   const ls = h.items.filter(i => ITEMS[i.type].dev === 'light' && roomAt(h, i) === r);
@@ -446,6 +498,7 @@ function haState(entity, st) {
     else if (dev === 'tv') it.state.on = !['off', 'standby', 'unavailable', 'unknown'].includes(st.state);
     else if (dev === 'curtain') { const p = st.attributes?.current_position; it.state.pos = p != null ? 1 - p / 100 : (st.state === 'closed' ? 1 : 0); it.state.on = it.state.pos > .5; }
     else it.state.on = st.state === 'playing'; }
+  for (const it of h.items) if (it.type === 'skena') for (const p of it.panels || []) if (p.entity === entity) { hit = true; const cp = st.attributes?.current_position; p.pos = cp != null ? 1 - cp / 100 : (st.state === 'closed' ? 1 : 0); }
   for (const o of h.openings) {
     if (o.entity === entity) { hit = true; const d = dom(entity); o.state.open = d === 'cover' ? pos() / 100 : d === 'lock' ? (st.state === 'unlocked' ? 1 : 0) : (st.state === 'on' ? 1 : 0); }
     if (o.blindEntity === entity) { hit = true; o.state.blind = 1 - pos() / 100; }

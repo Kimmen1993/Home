@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794343270';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343755';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -181,6 +181,21 @@ export function touchRooms(h, segs) {
         if (inPoly(p, r.pts)) hit = true;
         else for (let k = 0; k < r.pts.length && !hit; k++) { const q1 = r.pts[k], q2 = r.pts[(k + 1) % r.pts.length], pr = proj(p, q1, q2); if (pr.t >= 0 && pr.t <= pr.L && Math.abs(pr.d) < .35) hit = true; } }
       if (hit) { r.custom = false; break; } } }
+}
+// Gardinskena: punkt/riktning en sträcka s längs polylinjen, och projektion av en punkt på den
+export function trackAt(pts, s) {
+  let acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b.x - a.x, b.y - a.y) || 1e-9;
+    if (s <= acc + L || i === pts.length - 2) { const t = Math.max(0, Math.min(L, s - acc)), ux = (b.x - a.x) / L, uy = (b.y - a.y) / L; return { x: a.x + ux * t, y: a.y + uy * t, ux, uy, seg: i }; }
+    acc += L; }
+  return { x: pts[0].x, y: pts[0].y, ux: 1, uy: 0, seg: 0 };
+}
+export const trackLen = pts => pts.slice(1).reduce((s, b, i) => s + Math.hypot(b.x - pts[i].x, b.y - pts[i].y), 0);
+export function trackProj(pts, p) {
+  let best = { s: 0, d: Infinity }, acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) { const pr = proj(p, pts[i], pts[i + 1]), t = Math.max(0, Math.min(pr.L, pr.t));
+    const d = Math.hypot(p.x - (pts[i].x + pr.ux * t), p.y - (pts[i].y + pr.uy * t)); if (d < best.d) best = { s: acc + t, d }; acc += pr.L; }
+  return best;
 }
 // En punkt som garanterat ligger inne i polygonen
 export function insidePoint(pts) {

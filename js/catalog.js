@@ -81,6 +81,7 @@ export const ITEMS = {
   parasoll:    { cat: 'ute', name: 'Parasoll', icon: '⛱️', w: 2.6, d: 2.6, h: 2.4, color: '#e8e2d6' },
   solstol:     { cat: 'ute', name: 'Solstol', icon: '🏖️', w: .65, d: 1.9, h: .45, color: '#9a7550', color2: '#e8e2d6', c2: 'Dyna' },
   utebord:     { cat: 'ute', name: 'Utebord', icon: '🪵', w: 1.6, d: .9, h: .74, color: '#8a6440' },
+  skena:       { cat: 'inredning', name: 'Gardinskena', icon: '🛤️', w: .1, d: .1, h: .03, color: '#f2f2f0', track: 1 },
   gardin:      { cat: 'inredning', name: 'Gardiner', icon: '🪟', w: 1.8, d: .12, h: 2.3, elev: .05, color: '#d8cfc0', color2: '#3a3a3a', c2: 'Stång', dev: 'curtain', snap: 1 },
   element:     { cat: 'inredning', name: 'Element', icon: '♨️', w: 1.0, d: .1, h: .6, elev: .15, color: '#f4f4f2', snap: 1 },
   handdukstork:{ cat: 'inredning', name: 'Handdukstork', icon: '♨️', w: .5, d: .1, h: 1.0, elev: .3, color: '#c8ccd0', snap: 1 },
