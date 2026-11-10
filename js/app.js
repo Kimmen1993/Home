@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794341991';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794341991';
-import { createPlan } from './plan2d.js?v=1794341991';
-import { createView } from './view3d.js?v=1794341991';
-import { createHA } from './ha.js?v=1794341991';
-import { detectPlan } from './autoplan.js?v=1794341991';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342174';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342174';
+import { createPlan } from './plan2d.js?v=1794342174';
+import { createView } from './view3d.js?v=1794342174';
+import { createHA } from './ha.js?v=1794342174';
+import { detectPlan } from './autoplan.js?v=1794342174';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -117,7 +117,7 @@ function setTool(k) {
 }
 function hint() {
   const H = {
-    select: '✋ Klicka för att välja · dra för att flytta · R = vrid · Delete = ta bort',
+    select: '✋ Klicka = välj · dra en vald sak = flytta (i 3D) · dra tomt = snurra · R = vrid · Delete = ta bort',
     room: '⬜ Dra en rektangel i ritningen = nytt rum med väggar',
     wall: '🧱 Klicka punkt för punkt i ritningen · dubbelklicka eller Esc = klar',
     divider: '✂️ Klicka från vägg till vägg för att dela ett rum · Alt eller 🧲 av = fritt · Esc = klar',

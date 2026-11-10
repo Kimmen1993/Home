@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794341991';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794341991';
-import { insideSign } from './plan2d.js?v=1794341991';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342174';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342174';
+import { insideSign } from './plan2d.js?v=1794342174';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -532,11 +532,13 @@ export function createView(host, api) {
     if (e.button !== 0) return; down = { x: e.clientX, y: e.clientY }; drag = null;
     if (S.mode !== 'bygg' || S.placing) return;
     const p = pickAt(e);
-    if (p?.type === 'item') { const it = home().items.find(i => i.id === p.id); if (!it) return; rayAt(e); ray.ray.intersectPlane(plane, hp);
-      drag = { it, dx: hp.x - it.x, dy: hp.z - it.y, moved: false, committed: false }; controls.enabled = false; S.sel = { type: 'item', id: it.id }; emit('sel'); }
+    // bara en redan markerad möbel kan dras – annars snurrar man kameran
+    if (p?.type === 'item' && S.sel?.type === 'item' && S.sel.id === p.id) { const it = home().items.find(i => i.id === p.id); if (!it) return; rayAt(e); ray.ray.intersectPlane(plane, hp);
+      drag = { it, dx: hp.x - it.x, dy: hp.z - it.y, moved: false, committed: false, sx: e.clientX, sy: e.clientY, live: false }; controls.enabled = false; }
   });
   renderer.domElement.addEventListener('pointermove', e => {
-    if (drag) { rayAt(e); if (!ray.ray.intersectPlane(plane, hp)) return; const it = drag.it;
+    if (drag && !drag.live && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+    if (drag) { drag.live = true; rayAt(e); if (!ray.ray.intersectPlane(plane, hp)) return; const it = drag.it;
       if (!drag.committed) { commit(); drag.committed = true; }
       let q = { x: Math.round((hp.x - drag.dx) / .05) * .05, y: Math.round((hp.z - drag.dy) / .05) * .05 };
       if (ITEMS[it.type].snap && !e.altKey) { const sw = snapToWall(home(), it, q); if (sw) { q = sw; it.rot = sw.rot; } }
