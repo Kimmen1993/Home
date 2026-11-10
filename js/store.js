@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794340173';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340533';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -45,10 +45,21 @@ export function addLevel(raw, kind) {
   return L;
 }
 
+let lastSaved = '';
 export function save() {
-  try { localStorage.setItem(KEY, JSON.stringify({ homes: S.homes, cur: S.cur, ha: S.ha })); }
-  catch (e) { window.toast?.('Kunde inte spara – bakgrundsbilden är för stor'); }
+  const data = JSON.stringify({ homes: S.homes, cur: S.cur, ha: S.ha });
+  try { localStorage.setItem(KEY, data); lastSaved = data; }
+  catch (e) { // för stort – spara utan planritningsbilderna hellre än inte alls
+    try { const slim = JSON.parse(data); slim.homes.forEach(h => (h.levels || []).forEach(L => { if (L.bg) L.bg = null; }));
+      localStorage.setItem(KEY, JSON.stringify(slim)); window.toast?.('Sparat – men planritningsbilden var för stor för att sparas'); }
+    catch (e2) { window.toast?.('⚠️ Kunde inte spara! Använd "Spara som fil"'); } }
 }
+// Om Hemma är öppet i en annan flik: ta in dess ändringar i stället för att skriva över varandra
+export function syncFromStorage(json) {
+  if (!json || json === lastSaved) return false;
+  try { const d = JSON.parse(json); if (!d.homes?.length) return false; S.homes = d.homes; migrate(S.homes); if (!S.homes.some(h => h.id === S.cur)) S.cur = S.homes[0].id; lastSaved = json; return true; } catch (e) { return false; }
+}
+export const STORAGE_KEY = KEY;
 export function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || 'null');

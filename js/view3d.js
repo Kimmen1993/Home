@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794340173';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794340173';
-import { insideSign } from './plan2d.js?v=1794340173';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794340533';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340533';
+import { insideSign } from './plan2d.js?v=1794340533';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -408,6 +408,11 @@ export function createView(host, api) {
     world.clear(); refs = { items: {}, openings: {}, pick: [] }; selBox = null;
   }
   let layer = world;
+  // polygon förstorad d meter (hörnen följer med)
+  function grow(pts, d) { if (!d || pts.length < 3) return pts; let a2 = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; a2 += p.x * q.y - q.x * p.y; }); const sg = a2 > 0 ? 1 : -1, n = pts.length;
+    return pts.map((p1, i) => { const p0 = pts[(i - 1 + n) % n], p2 = pts[(i + 1) % n], nm = (x, y) => { const L = Math.hypot(x, y) || 1; return { x: x / L, y: y / L }; };
+      const e1 = nm(p1.x - p0.x, p1.y - p0.y), e2 = nm(p2.x - p1.x, p2.y - p1.y), n1 = { x: e1.y * sg, y: -e1.x * sg }, n2 = { x: e2.y * sg, y: -e2.x * sg }, b = nm(n1.x + n2.x, n1.y + n2.y), c = b.x * n1.x + b.y * n1.y;
+      const k = Math.abs(c) > .3 ? d / c : d; return { x: p1.x + b.x * k, y: p1.y + b.y * k }; }); }
   function build() {
     need = false; const hv = home(); if (!hv) return; disposeWorld();
     const raw = hv.__raw, act = hv.__level, idxAct = raw.levels.indexOf(act);
@@ -434,12 +439,12 @@ export function createView(host, api) {
         for (let k = 0; k < focus.pts.length; k++) { const a = focus.pts[k], b = focus.pts[(k + 1) % focus.pts.length], pr = proj(p, a, b);
           if (pr.t > -.05 && pr.t < pr.L + .05 && Math.abs(pr.d) < w.t / 2 + .12) { const ang = Math.abs(((Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x) - Math.atan2(b.y - a.y, b.x - a.x)) % Math.PI + Math.PI) % Math.PI); if (ang < .1 || ang > Math.PI - .1) return true; } } } return false; };
       // golv
-      for (const r of h.rooms) { if (focus && r !== focus) continue;
-        const sh = new THREE.Shape(r.pts.map(p => new THREE.Vector2(p.x, -p.y)));
-        const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), floorMat(r.style || 'tra', r.floor, +(r.floorRot || 0))); m.rotation.x = -Math.PI / 2; m.position.y = .002; m.receiveShadow = true;
+      h.rooms.forEach((r, ri) => { if (focus && r !== focus) return;
+        const sh = new THREE.Shape(grow(r.pts, r.outdoor ? 0 : .06).map(p => new THREE.Vector2(p.x, -p.y)));
+        const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), floorMat(r.style || 'tra', r.floor, +(r.floorRot || 0))); m.rotation.x = -Math.PI / 2; m.position.y = .002 + ri * .0004; m.receiveShadow = true;
         m.userData.pick = { type: 'room', id: r.id }; layer.add(m);
         const base = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: L.z > 0 ? .3 : .1, bevelEnabled: false }), M('#8a8580')); base.rotation.x = -Math.PI / 2; base.position.y = L.z > 0 ? -.3 : -.1; base.receiveShadow = true; base.castShadow = L.z > 0; layer.add(base);
-      }
+      });
       // innertak – på den aktiva våningen bara om man valt det, under-våningar alltid stängda
       const ceilOn = active ? S.walls === 'hela' && S.ceil === true : true;
       if (ceilOn) for (const r of h.rooms) { if (r.outdoor || (focus && r !== focus)) continue;

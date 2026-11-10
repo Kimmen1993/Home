@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794340173';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794340173';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms } from './store.js?v=1794340533';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794340533';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -240,14 +240,14 @@ export function createPlan(canvas, ui) {
     if (S.tool === 'bild') { bgDown(p, sx, sy); return; }
     // välj
     const rh = hitRoomHandle(p);
-    if (rh) { commit(); if (rh.mid) { rh.room.pts.splice(rh.i + 1, 0, { ...rh.pt }); rh.i++; } S.selPt = { room: rh.room.id, i: rh.i }; drag = { rpt: rh }; emit('full', 'drag'); ui.ptSel?.(); return; }
+    if (rh) { commit(); manualRooms(h); if (rh.mid) { rh.room.pts.splice(rh.i + 1, 0, { ...rh.pt }); rh.i++; } S.selPt = { room: rh.room.id, i: rh.i }; drag = { rpt: rh }; emit('full', 'drag'); ui.ptSel?.(); return; }
     const hd = hitHandle(p); if (hd) { commit(); const w = h.walls.find(w => w.id === S.sel.id); drag = { end: hd, wallE: w, rooms: roomRefs(h, hd) }; return; }
     const it = hitItem(p);
     if (it) { commit(); select({ type: 'item', id: it.id }); drag = { item: it, dx: p.x - it.x, dy: p.y - it.y, moved: false }; return; }
     const o = hitOpening(p); if (o) { commit(); select({ type: 'opening', id: o.id }); drag = { opening: o }; return; }
     const w = hitWall(p); if (w) { commit(); select({ type: 'wall', id: w.id }); drag = wallDrag(h, w, p); return; }
     const r = hitRoom(p);
-    if (r && r.outdoor && S.sel?.type === 'room' && S.sel.id === r.id) { commit(); drag = { room: r, start: p, pts: r.pts.map(q => ({ ...q })) }; return; }
+    if (r && r.outdoor && S.sel?.type === 'room' && S.sel.id === r.id) { commit(); manualRooms(h); drag = { room: r, start: p, pts: r.pts.map(q => ({ ...q })) }; return; }
     select(r ? { type: 'room', id: r.id } : null);
     drag = { pan: true, sx, sy, ox, oy };
   });
@@ -388,6 +388,9 @@ function moveWall(d, p, any, free) {
       const s = along / nb.dot; nb.o[nb.ok] = { x: r3(e.P.x + nb.u.x * s), y: r3(e.P.y + nb.u.y * s) }; }
   }
 }
+
+// Formar man ett rum för hand slutar rummen räknas om automatiskt (annars skrivs ändringen över)
+function manualRooms(h) { if (h.autoRooms !== false && !(S.sel && h.rooms.find(r => r.id === S.sel.id)?.outdoor)) { h.autoRooms = false; window.toast?.('✋ Rummen styrs nu manuellt – dina hörn ligger kvar (ändra under Hemmet)'); } }
 
 export function insideSign(h, w, o) {
   const L = wallLen(w), ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L, nx = -uy, ny = ux;

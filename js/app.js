@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794340173';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794340173';
-import { createPlan } from './plan2d.js?v=1794340173';
-import { createView } from './view3d.js?v=1794340173';
-import { createHA } from './ha.js?v=1794340173';
-import { detectPlan } from './autoplan.js?v=1794340173';
+import { syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, wallSides, rebuildRooms } from './store.js?v=1794340533';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794340533';
+import { createPlan } from './plan2d.js?v=1794340533';
+import { createView } from './view3d.js?v=1794340533';
+import { createHA } from './ha.js?v=1794340533';
+import { detectPlan } from './autoplan.js?v=1794340533';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -348,7 +348,7 @@ function setField(f, v) {
 function deletePoint() {
   const h = home(), r = h.rooms.find(x => x.id === S.selPt?.room); if (!r) return;
   if (r.pts.length <= 3) return window.toast('Ett rum behöver minst 3 hörn');
-  commit(); r.pts.splice(S.selPt.i, 1); S.selPt = null; emit('full');
+  commit(); if (!r.outdoor && h.autoRooms !== false) { h.autoRooms = false; window.toast('✋ Rummen styrs nu manuellt – dina hörn ligger kvar'); } r.pts.splice(S.selPt.i, 1); S.selPt = null; emit('full');
 }
 function deleteSel() {
   const h = home(), s = S.sel; if (!s) return; commit();
@@ -575,3 +575,4 @@ window.addEventListener('resize', () => plan.resize());
 new ResizeObserver(() => plan.resize()).observe($('#pane2d'));
 if (S.ha.url && S.ha.token) ha.connect(S.ha.url, S.ha.token);
 window.__hemma = { S, home, emit, plan };
+window.addEventListener('storage', e => { if (e.key === STORAGE_KEY && syncFromStorage(e.newValue)) { S.sel = null; renderAll(); emit('full'); window.toast('🔄 Uppdaterat från en annan flik'); } });
