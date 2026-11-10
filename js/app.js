@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342512';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342512';
-import { createPlan } from './plan2d.js?v=1794342512';
-import { createView } from './view3d.js?v=1794342512';
-import { createHA } from './ha.js?v=1794342512';
-import { detectPlan } from './autoplan.js?v=1794342512';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342594';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342594';
+import { createPlan } from './plan2d.js?v=1794342594';
+import { createView } from './view3d.js?v=1794342594';
+import { createHA } from './ha.js?v=1794342594';
+import { detectPlan } from './autoplan.js?v=1794342594';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -192,8 +192,8 @@ function itemPanel(it) {
     ${c.c2 ? `<label class="f">${c.c2}</label>${swatches('color2', it.color2)}` : ''}
     ${HANDLE_TYPES.includes(it.type) ? handles(it.handleColor) : ''}
     ${c.dev ? `<h3>SMART ENHET</h3>
-      <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : 'media_player.tv'}"></label>
-      <div class="btns"><button class="btn acc" data-act="test">${it.state?.on ? 'Släck / stäng av' : 'Tänd / sätt på'}</button></div>
+      <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : c.dev === 'curtain' ? 'cover.gardiner (valfritt)' : 'media_player.tv'}"></label>
+      <div class="btns"><button class="btn acc" data-act="test">${c.dev === 'curtain' ? (it.state?.on ? 'Dra ifrån' : 'Dra för') : it.state?.on ? 'Släck / stäng av' : 'Tänd / sätt på'}</button></div>
       ${c.dev === 'light' && it.state?.on ? `<label class="f" style="margin-top:8px">Ljusstyrka<input type="range" min="5" max="100" value="${Math.round((it.state.bri ?? .8) * 100)}" data-bri="${it.id}"></label>` : ''}` : ''}
     <div class="btns" style="margin-top:14px"><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑 Ta bort</button></div>`;
 }
@@ -259,7 +259,7 @@ function bgPanel() {
 function controlPanel() {
   const h = home();
   const lights = h.items.filter(i => ITEMS[i.type].dev === 'light'), media = h.items.filter(i => ['tv', 'speaker'].includes(ITEMS[i.type].dev));
-  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => (o.kind === 'window' || o.glass) && o.blind && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window');
+  const doors = h.openings.filter(o => o.kind === 'door' || o.kind === 'garage'), blinds = h.openings.filter(o => (o.kind === 'window' || o.glass) && o.blind && o.blind !== 'none'), wins = h.openings.filter(o => o.kind === 'window'), curtains = h.items.filter(i => ITEMS[i.type].dev === 'curtain');
   const on = lights.filter(i => i.state?.on).length, open = doors.filter(o => o.state.open > .5).length + wins.filter(o => o.state.open > .5).length;
   const src = x => x.entity ? (ha.ok && ha.state(x.entity) ? x.entity : x.entity + ' · ej ansluten') : 'Demo – ej kopplad';
   return `
@@ -268,7 +268,7 @@ function controlPanel() {
     <div class="card"><h3>💡 BELYSNING</h3>${lightGroups(h, lights, src) || '<div class="note">Inga lampor än – lägg till under Bygg.</div>'}</div>
     <div class="card"><h3>🚪 DÖRRAR & PORTAR</h3>${doors.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppen' : 'Stängd'}</span></div>`).join('') || '<div class="note">Inga dörrar.</div>'}</div>
     ${wins.length ? `<div class="card"><h3>🪟 FÖNSTER</h3>${wins.map(o => `<div class="row" data-dev="opening:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${esc(src(o))}</em></div><span class="pill ${o.state.open > .5 ? 'bad' : 'ok'}">${o.state.open > .5 ? 'Öppet' : 'Stängt'}</span></div>`).join('')}</div>` : ''}
-    ${blinds.length ? `<div class="card"><h3>🪟 GARDINER</h3>${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
+    ${blinds.length || curtains.length ? `<div class="card"><h3>🪟 GARDINER</h3>${curtains.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="pill ${i.state?.on ? 'bad' : 'ok'}">${i.state?.on ? 'Fördragna' : 'Ifrån'}</span></div>`).join('')}${blinds.map(o => `<div class="row" data-dev="blind:${o.id}"><div class="l"><span>${esc(nameOf(h, o))}</span><em>${o.blind === 'persienn' ? 'Persienn' : 'Rullgardin'} · ${esc(o.blindEntity || 'Demo')}</em></div><span class="pill ${o.state.blind > .5 ? 'bad' : 'ok'}">${o.state.blind > .5 ? 'Nere' : 'Uppe'}</span></div>
       <input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}">`).join('')}</div>` : ''}
     ${media.length ? `<div class="card"><h3>🎵 MEDIA</h3>${media.map(i => `<div class="row" data-dev="item:${i.id}"><div class="l"><span>${ITEMS[i.type].icon} ${esc(nameOf(h, i))}</span><em>${esc(src(i))}</em></div><span class="sw ${i.state?.on ? 'on' : ''}"></span></div>`).join('')}</div>` : ''}
     <p class="note">Koppla till riktiga prylar: välj en sak under ✏️ Bygg och skriv in dess namn i Home Assistant.</p>`;
@@ -394,7 +394,7 @@ function blindSet(o, v) {
 function onDevice(p) {
   const raw = home().__raw, L = raw.levels.find(l => l.id === p.lv) || home().__level, h = levelView(raw, L);
   if (p.type === 'item') { const it = h.items.find(i => i.id === p.id); if (!it) return; const dev = ITEMS[it.type].dev;
-    if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev) mediaSet(it, !it.state.on);
+    if (dev === 'light') lightSet(it, !it.state.on, it.state.bri ?? .8); else if (dev === 'curtain') { if (linked(it.entity)) ha.call('cover', it.state.on ? 'open_cover' : 'close_cover', { entity_id: it.entity }); it.state.on = !it.state.on; emit('state'); } else if (dev) mediaSet(it, !it.state.on);
     else { const r = roomAt(h, it); if (r) roomLights(r, h); }
     if (S.mode === 'bygg') renderRight(); return; }
   if (p.type === 'opening') { const o = h.openings.find(i => i.id === p.id); if (!o) return;
@@ -427,6 +427,7 @@ function haState(entity, st) {
   for (const it of h.items) if (it.entity === entity && it.state) { hit = true; const dev = ITEMS[it.type].dev;
     if (dev === 'light') { it.state.on = st.state === 'on'; if (st.attributes?.brightness != null) it.state.bri = st.attributes.brightness / 255; }
     else if (dev === 'tv') it.state.on = !['off', 'standby', 'unavailable', 'unknown'].includes(st.state);
+    else if (dev === 'curtain') it.state.on = st.state === 'closed';
     else it.state.on = st.state === 'playing'; }
   for (const o of h.openings) {
     if (o.entity === entity) { hit = true; const d = dom(entity); o.state.open = d === 'cover' ? pos() / 100 : d === 'lock' ? (st.state === 'unlocked' ? 1 : 0) : (st.state === 'on' ? 1 : 0); }

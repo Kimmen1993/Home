@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342512';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342512';
-import { insideSign } from './plan2d.js?v=1794342512';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342594';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342594';
+import { insideSign } from './plan2d.js?v=1794342594';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -219,6 +219,25 @@ export function createView(host, api) {
       case 'vagglampa': { B(g, .1, .18, .02, c, 0, .12, -d / 2 + .01); B(g, .03, .03, .1, c, 0, .16, -d / 2 + .06);
         const bulb = B(g, .11, .16, .11, new THREE.MeshStandardMaterial({ color: 0x777777, transparent: true, opacity: .9 }), 0, .1, d / 2 - .06); bulb.castShadow = false;
         B(g, .13, .02, .13, c, 0, .19, d / 2 - .06); ref.bulb = bulb; ref.lightY = .1; ref.power = 5; break; }
+      case 'gardin': { const rod = C(g, .012, .012, w + .1, c2 || '#3a3a3a', 0, h - .02, 0, 10); rod.rotation.z = Math.PI / 2;
+        const fab = M(c, { roughness: 1, side: THREE.DoubleSide }), panels = [];
+        for (const sx of [-1, 1]) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); pg.scale.x = w * .5; g.add(pg);
+          const n = 7; for (let i = 0; i < n; i++) B(pg, 1 / n * 1.05, h - .06, .02, fab, -sx * (i + .5) / n, (h - .06) / 2, (i % 2 ? .025 : -.025));
+          panels.push({ g: pg, sx }); }
+        ref.curtains = panels; ref.cw = w; break; }
+      case 'element': { const n = Math.max(4, Math.round(w / .05));
+        for (let i = 0; i < n; i++) B(g, .03, h, d * .7, c, -w / 2 + (i + .5) * w / n, h / 2, 0);
+        B(g, w, .03, d * .8, c, 0, h - .015, 0); C(g, .012, .012, .15, metalM(), -w / 2 + .05, -.075, 0); C(g, .012, .012, .15, metalM(), w / 2 - .05, -.075, 0); break; }
+      case 'handdukstork': { for (const sx of [-1, 1]) C(g, .015, .015, h, M(c, { metalness: .8, roughness: .25 }), sx * (w / 2 - .02), h / 2, 0);
+        for (let i = 0; i < 8; i++) { const r = C(g, .01, .01, w - .04, M(c, { metalness: .8, roughness: .25 }), 0, .05 + i * (h - .1) / 7, 0); r.rotation.z = Math.PI / 2; } break; }
+      case 'tavla': { B(g, w, h, d, c, 0, h / 2, 0); B(g, w - .08, h - .08, .005, M(c2 || '#c96f4a', { roughness: .9 }), 0, h / 2, d / 2 + .002);
+        B(g, (w - .08) * .5, (h - .08) * .35, .006, M('#2f5d50', { roughness: .9 }), -(w - .08) * .15, h * .38, d / 2 + .004);
+        const sun = C(g, h * .08, h * .08, .008, M('#f2d27a'), (w - .08) * .22, h * .68, d / 2 + .004, 18); sun.rotation.x = Math.PI / 2; break; }
+      case 'hylla': { B(g, w, h, d, c, 0, h / 2, 0); for (const sx of [-1, 1]) B(g, .02, .12, d * .7, '#2b2b2b', sx * (w / 2 - .12), -.06, -d * .15);
+        let sd = 11; const Rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const cols = ['#7a2e2e', '#2e4a7a', '#c9a227', '#ddd6c8', '#2f5d50'];
+        let x = -w / 2 + .05; while (x < w / 2 - .25) { const bw = .03 + Rr() * .03, bh = .16 + Rr() * .08; B(g, bw, bh, d * .7, cols[(Rr() * 5) | 0], x, h + bh / 2, 0); x += bw + .004; }
+        const v = C(g, .05, .04, .12, '#c9c2b6', w / 2 - .12, h + .06, 0, 12); break; }
+      case 'brandvarnare': { C(g, w / 2, w / 2, h, c, 0, h / 2, 0, 20); const led = new THREE.Mesh(new THREE.SphereGeometry(.006, 6, 6), M('#ff2222', { emissive: 0xff2222, emissiveIntensity: 2 })); led.position.set(.02, -.001, 0); g.add(led); break; }
       case 'gran': { C(g, .1, .15, h * .2, '#4a3020', 0, h * .1, 0, 8);
         for (let i = 0; i < 4; i++) { const r = w / 2 * (1 - i * .2), ch = h * .38, m = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 9), M(shade(c, .9 + i * .06), { flatShading: true, roughness: .9 }));
           m.position.y = h * .2 + i * h * .18 + ch / 2; m.castShadow = m.receiveShadow = true; g.add(m); } break; }
@@ -503,6 +522,7 @@ export function createView(host, api) {
       if (r.bulb) { r.bulb.material.emissive.setRGB(1, .72, .42); r.bulb.material.emissiveIntensity = v * 3; r.bulb.material.color.setScalar(v > .05 ? 1 : .45); }
       if (r.shade) { r.shade.material.emissive.setRGB(1, .7, .4); r.shade.material.emissiveIntensity = v * .9; }
       if (r.screen) { const m = r.screen.material; if (v > .05 && !m.emissiveMap) { m.emissiveMap = tvScreen(); m.emissive.set(0xffffff); m.needsUpdate = true; } m.emissiveIntensity = v * 1.2; }
+      if (r.curtains) r.curtains.forEach(cp => { const open = 1 - v; cp.g.scale.x = (.5 * (1 - open) + .1 * open) * r.cw; });
       if (r.cones) { const p = v > .5 ? 1 + Math.abs(Math.sin(now * 9)) * .12 : 1; r.cones.forEach(c => c.scale.set(p, 1, p)); }
     }
     for (const id in refs.openings) { const r = refs.openings[id];
