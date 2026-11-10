@@ -1,7 +1,7 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms } from './store.js?v=1794342174';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342174';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms } from './store.js?v=1794342329';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794342329';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -402,9 +402,13 @@ function moveWall(d, p, any, free) {
 
 export function insideSign(h, w, o) {
   const L = wallLen(w), ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L, nx = -uy, ny = ux;
-  const c = { x: w.a.x + ux * o.t, y: w.a.y + uy * o.t }, off = w.t / 2 + .3;
-  const a = h.rooms.some(r => inPoly({ x: c.x + nx * off, y: c.y + ny * off }, r.pts));
-  const b = h.rooms.some(r => inPoly({ x: c.x - nx * off, y: c.y - ny * off }, r.pts));
-  return a && !b ? 1 : b && !a ? -1 : 1;
+  const c = { x: w.a.x + ux * o.t, y: w.a.y + uy * o.t }, off = w.t / 2 + .3, inside = h.rooms.filter(r => !r.outdoor);
+  const a = inside.some(r => inPoly({ x: c.x + nx * off, y: c.y + ny * off }, r.pts));
+  const b = inside.some(r => inPoly({ x: c.x - nx * off, y: c.y - ny * off }, r.pts));
+  if (a !== b) return a ? 1 : -1;
+  // oklart (inga rum eller rum på båda sidor): sidan mot husets mitt är insidan
+  const pts = h.walls.filter(x => !x.virtual).flatMap(x => [x.a, x.b]); if (!pts.length) return 1;
+  const m = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length };
+  return (m.x - c.x) * nx + (m.y - c.y) * ny >= 0 ? 1 : -1;
 }
 export function hexA(hex, a) { const n = parseInt((hex || '#888888').slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
