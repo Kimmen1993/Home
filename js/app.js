@@ -1,10 +1,10 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794342948';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794342948';
-import { createPlan } from './plan2d.js?v=1794342948';
-import { createView } from './view3d.js?v=1794342948';
-import { createHA } from './ha.js?v=1794342948';
-import { detectPlan } from './autoplan.js?v=1794342948';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, insidePoint, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794343270';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794343270';
+import { createPlan } from './plan2d.js?v=1794343270';
+import { createView } from './view3d.js?v=1794343270';
+import { createHA } from './ha.js?v=1794343270';
+import { detectPlan } from './autoplan.js?v=1794343270';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -197,7 +197,8 @@ function itemPanel(it) {
       <label class="f" style="margin-top:8px">Tyg</label>${opt('fabric', it.fabric || 'tjock', [['tjock', 'Tjockt'], ['tunn', 'Tunt'], ['mork', 'Mörkläggning']])}
       <label class="f" style="margin-top:8px">Mönster</label>${opt('pattern', it.pattern || 'enfargad', [['enfargad', 'Enfärgat'], ['rand', 'Randigt'], ['rutig', 'Rutigt']])}
       <label class="f" style="margin-top:8px">Veck</label>${opt('folds', it.folds || 'veck', [['raka', 'Raka'], ['veck', 'Veckade'], ['wave', 'Wave']])}
-      <label class="f" style="margin-top:8px">Upphängning</label>${opt('rod', it.rod || 'stang', [['stang', 'Stång'], ['skena', 'Skena'], ['dold', 'Dold']])}
+      <label class="f" style="margin-top:8px">Upphängning</label>${opt('rod', it.rod || 'stang', [['stang', 'Stång'], ['skena', 'Skena'], ['tak', 'Takskena'], ['dold', 'Dold']])}
+      <label class="f" style="margin-top:8px">Avstånd från väggen (cm)<input data-f="gap" data-u="cm" value="${cm(it.gap ?? it.d / 2)}"></label>${it.rod === 'tak' ? '<p class="note">Takskena: gardinen går automatiskt från taket ner till golvet.</p>' : ''}
       <label class="f" style="margin-top:8px">Fördragna: ${Math.round(curtainPos(it) * 100)}%<input type="range" min="0" max="100" value="${Math.round(curtainPos(it) * 100)}" data-cpos="${it.id}"></label>` : ''}
     ${c.dev ? `<h3>SMART ENHET</h3>
       <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : c.dev === 'curtain' ? 'cover.gardiner (valfritt)' : 'media_player.tv'}"></label>
@@ -219,6 +220,7 @@ function openingPanel(o) {
       <label class="f" style="margin-top:8px">Spröjs</label>${opt('grid', o.grid || 'none', [['none', 'Inga'], ['kors', '✚ Kors'], ['sprojs', '▦ Spröjs']])}
       <label class="f" style="margin-top:8px">Överljus</label>${opt('transom', o.transom ? '1' : '', [['', 'Nej'], ['1', 'Ja']])}` : ''}
     ${o.kind === 'window' || o.glass ? `<h3>GARDIN</h3>${opt('blind', o.blind, [['none', 'Ingen'], ['rullgardin', 'Rullgardin'], ['persienn', 'Persienn']])}
+      ${o.blind !== 'none' && o.kind === 'window' ? `<div style="height:8px"></div><label class="f">Montering</label>${opt('blindMount', o.blindMount || 'nisch', [['nisch', 'I nischen'], ['mellan', 'Mellan glasen'], ['vagg', 'Utanpå väggen']])}` : ''}
       ${o.blind !== 'none' ? `<div style="height:8px"></div><label class="f">Gardinfärg</label>${swatches('blindColor', o.blindColor)}
       <label class="f">Nere: ${Math.round(o.state.blind * 100)}%<input type="range" min="0" max="100" value="${Math.round(o.state.blind * 100)}" data-blind="${o.id}"></label>
       <label class="f">Koppling gardin (cover)<input data-f="blindEntity" data-u="text" list="ents" value="${esc(o.blindEntity)}" placeholder="cover.sovrum"></label>` : ''}` : ''}

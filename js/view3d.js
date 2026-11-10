@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794342948';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794342948';
-import { insideSign } from './plan2d.js?v=1794342948';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView } from './store.js?v=1794343270';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794343270';
+import { insideSign } from './plan2d.js?v=1794343270';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -225,17 +225,19 @@ export function createView(host, api) {
         const bulb = B(g, .11, .16, .11, new THREE.MeshStandardMaterial({ color: 0x777777, transparent: true, opacity: .9 }), 0, .1, d / 2 - .06); bulb.castShadow = false;
         B(g, .13, .02, .13, c, 0, .19, d / 2 - .06); ref.bulb = bulb; ref.lightY = .1; ref.power = 5; break; }
       case 'gardin': {
-        const rodT = it.rod || 'stang', top = h - .02;
-        if (rodT === 'stang') { const rod = C(g, .012, .012, w + .14, c2 || '#3a3a3a', 0, top, 0, 10); rod.rotation.z = Math.PI / 2;
-          for (const sx of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(.025, 10, 8), M(c2 || '#3a3a3a', { metalness: .5, roughness: .4 })); k.position.set(sx * (w / 2 + .07), top, 0); g.add(k); } }
-        else if (rodT === 'skena') B(g, w + .04, .025, .05, c2 || '#f2f2f0', 0, top + .005, 0);
+        const rodT = it.rod || 'stang', hh = rodT === 'tak' ? Math.max(.5, curCeil - (it.elev || 0) - .005) : h, top = hh - .02;
+        const z0 = it.gap != null ? -d / 2 + it.gap : 0, fz = new THREE.Group(); fz.position.z = z0; g.add(fz);
+        if (rodT === 'stang') { const rod = C(fz, .012, .012, w + .14, c2 || '#3a3a3a', 0, top, 0, 10); rod.rotation.z = Math.PI / 2;
+          for (const sx of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(.025, 10, 8), M(c2 || '#3a3a3a', { metalness: .5, roughness: .4 })); k.position.set(sx * (w / 2 + .07), top, 0); fz.add(k); } }
+        else if (rodT === 'skena') B(fz, w + .04, .025, .05, c2 || '#f2f2f0', 0, top + .005, 0);
+        else if (rodT === 'tak') B(fz, w + .1, .03, .06, c2 || '#f2f2f0', 0, hh - .015, 0);
         const fabric = it.fabric || 'tjock', pat = it.pattern || 'enfargad', folds = it.folds || 'veck';
         const tex = pat === 'enfargad' ? null : curtainTex(pat, c);
         const fm = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : new THREE.Color(fabric === 'mork' ? shade(c, .8) : c), map: tex, roughness: 1, side: THREE.DoubleSide,
           transparent: fabric === 'tunn', opacity: fabric === 'tunn' ? .5 : 1 });
-        const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, nf = folds === 'wave' ? 6 : 10, ph = h - .06;
+        const amp = folds === 'raka' ? .004 : folds === 'wave' ? .05 : .025, nf = folds === 'wave' ? 6 : 10, ph = hh - .06;
         const sides = it.cstyle === 'vanster' ? [-1] : it.cstyle === 'hoger' ? [1] : [-1, 1], panels = [];
-        for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); g.add(pg);
+        for (const sx of sides) { const pg = new THREE.Group(); pg.position.set(sx * w / 2, 0, 0); fz.add(pg);
           const geo = new THREE.PlaneGeometry(1, ph, 40, 1), pos = geo.attributes.position;
           for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + .5; pos.setX(i, -sx * x); pos.setZ(i, Math.sin(x * nf * Math.PI * 2) * amp); }
           geo.computeVertexNormals(); const m = new THREE.Mesh(geo, fm); m.position.y = ph / 2; m.castShadow = fabric !== 'tunn'; m.receiveShadow = true; pg.add(m);
@@ -416,7 +418,11 @@ export function createView(host, api) {
           pickIt(pv); } }
       if (o.sill > .3 && o.sill < H) pickIt(B(g, o.w + .06, .03, t + .06, '#e8e8e8', o.t, o.sill - .015, 0));
       if (o.blind !== 'none') {
-        const bg = makeBlind(g, o, ref, o.w, o.h, o.t, top, insideSign(h, w, o) * (t / 2 + .03)); if (top > H + .01) bg.visible = false;
+        const mount = o.blindMount || 'nisch', sg2 = insideSign(h, w, o);
+        const bg = mount === 'vagg' ? makeBlind(g, o, ref, o.w, o.h, o.t, top, sg2 * (t / 2 + .03))
+          : mount === 'mellan' ? makeBlind(g, o, ref, o.w - f * 2 - .02, o.h - f * 2, o.t, top - f, 0)
+          : makeBlind(g, o, ref, o.w - f * 2 - .01, o.h - f * 2, o.t, top - f, sg2 * Math.max(.03, t / 2 - .025));
+        if (top > H + .01) bg.visible = false;
       }
     } else if (o.kind === 'door') {
       const f = .06, fz = fd;
@@ -449,7 +455,7 @@ export function createView(host, api) {
     world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isReflector || o.getRenderTarget) { o.dispose?.(); } });
     world.clear(); refs = { items: {}, openings: {}, pick: [] }; if (selBox) { scene.remove(selBox); selBox.dispose?.(); } selBox = null;
   }
-  let layer = world;
+  let layer = world, curCeil = 2.5;
   // polygon förstorad d meter (hörnen följer med)
   function grow(pts, d) { if (!d || pts.length < 3) return pts; let a2 = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; a2 += p.x * q.y - q.x * p.y; }); const sg = a2 > 0 ? 1 : -1, n = pts.length;
     return pts.map((p1, i) => { const p0 = pts[(i - 1 + n) % n], p2 = pts[(i + 1) % n], nm = (x, y) => { const L = Math.hypot(x, y) || 1; return { x: x / L, y: y / L }; };
@@ -499,6 +505,7 @@ export function createView(host, api) {
       joints = wallJoints(h.walls.filter(w => !w.virtual));
       for (const w of h.walls) { if (w.virtual || (focus && !nearFocus(w))) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
       // saker
+      curCeil = h.ceiling || 2.5;
       for (const it of h.items) { if (focus && !inPoly(it, focus.pts)) continue; const ref = buildItem(it); refs.items[it.id] = ref; layer.add(ref.group);
         if (cut && it.elev > cut - .05 && !ITEMS[it.type].dev && !['trappa', 'spiraltrappa'].includes(it.type)) ref.group.visible = false; }
       layer.traverse(o => { if (o.userData.pick) o.userData.pick.lv = L.id; });
