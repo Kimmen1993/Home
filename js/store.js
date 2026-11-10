@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794346802';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794347091';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -73,7 +73,7 @@ export function load() {
 }
 
 // äldre sparade hem: fönsterdörrar var fönster förut
-export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); if (raw.autoRooms === false && !raw.manualChosen) { raw.autoRooms = true; raw.levels.forEach(L => L.rooms.forEach(r => { if (!r.outdoor) r.custom = true; })); } for (const L of raw.levels) { const h = levelView(raw, L); mergeWalls(h); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
+export function migrate(homes) { for (const raw of homes) { ensureLevels(raw); if (raw.autoRooms === false && !raw.manualChosen) { raw.autoRooms = true; raw.levels.forEach(L => L.rooms.forEach(r => { if (!r.outdoor) r.custom = true; })); } for (const L of raw.levels) { const h = levelView(raw, L); dropTinyWalls(h); mergeWalls(h); splitWalls(h); for (const o of h.openings || []) if (o.key === 'fonsterdorr' && o.kind === 'window') { o.kind = 'door'; o.glass = true; o.hinge = o.hinge || 'L'; o.swing = o.swing || 1; o.blind = 'none'; } } } }
 
 // Slår ihop väggbitar som fortsätter rakt i varandra (och där ingen tredje vägg möter) till en hel vägg.
 // Fönster/dörrar flyttas med. Ger hela väggar hörn till hörn så att hörnen blir rena.
@@ -240,8 +240,12 @@ export function insidePoint(pts) {
   for (let i = 1; i < 12; i++) for (let j = 1; j < 12; j++) { const p = { x: Math.min(...xs) + (Math.max(...xs) - Math.min(...xs)) * i / 12, y: Math.min(...ys) + (Math.max(...ys) - Math.min(...ys)) * j / 12 }; if (inPoly(p, pts)) return p; }
   return c;
 }
+// Väggar utan längd (kan uppstå när hörn dras ihop) tas bort – de gör ingen nytta och fångar klick
+export function dropTinyWalls(h) { const bad = new Set(h.walls.filter(w => wallLen(w) < .02).map(w => w.id)); if (!bad.size) return;
+  h.walls = h.walls.filter(w => !bad.has(w.id)); h.openings = h.openings.filter(o => !bad.has(o.wall)); }
 // Räkna om rummen utifrån väggarna. Gamla rum behåller namn/golv/färg genom att matcha på överlapp.
 export function rebuildRooms(h) {
+  dropTinyWalls(h);
   if (h.autoRooms === false || !h.walls.length) return;
   const res = .04, pts = h.walls.flatMap(w => [w.a, w.b]);
   const x0 = Math.min(...pts.map(p => p.x)) - 1, y0 = Math.min(...pts.map(p => p.y)) - 1;
@@ -365,7 +369,7 @@ export function movePoint(h, from, to) {
 }
 export function findWall(h, p, maxD = 0.4) {
   let best = null;
-  for (const w of h.walls) { if (w.virtual) continue;
+  for (const w of h.walls) { if (w.virtual || wallLen(w) < .02) continue;
     const pr = proj(p, w.a, w.b);
     if (pr.t < 0 || pr.t > pr.L) continue;
     const d = Math.abs(pr.d);
