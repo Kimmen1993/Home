@@ -1,8 +1,8 @@
 // Elfa-verkstan: 1) välj vägg, system och färg  2) bygg väggen i stort format (dra in delar)  3) sätt in i rummet.
 // Används av demon (och sen huvudappen). Allt räknas i meter; ritningen i cm.
-import { ELFA_SYS, ELFA_PARTS, ELFA_CATS, elfaWhyNot, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794425574';
-import { FAMILIES } from './presets.js?v=1794425574';
-import { swatch } from './materials.js?v=1794425574';
+import { ELFA_SYS, ELFA_PARTS, ELFA_CATS, elfaWhyNot, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794426087';
+import { FAMILIES } from './presets.js?v=1794426087';
+import { swatch } from './materials.js?v=1794426087';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -362,5 +362,5 @@ export function openElfaStudio({ item, walls: walls0, rooms = null, startRoom = 
   return { close };
 }
 // sync utan att importera hela FURN-objektet i onödan
-import { FURN } from './furniture.js?v=1794425574';
+import { FURN } from './furniture.js?v=1794426087';
 const FURNSYNC = it => FURN.elfa.sync(it, it.o);

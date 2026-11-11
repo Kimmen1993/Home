@@ -1,15 +1,16 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794425574';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794425574';
-import { createPlan } from './plan2d.js?v=1794425574';
-import { createView } from './view3d.js?v=1794425574';
-import { createHA } from './ha.js?v=1794425574';
-import { detectPlan } from './autoplan.js?v=1794425574';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794425574';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794425574';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794425574';
-import { PRESETS, findPreset } from './presets.js?v=1794425574';
-import { openElfaStudio } from './elfastudio.js?v=1794425574';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794426087';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794426087';
+import { createPlan } from './plan2d.js?v=1794426087';
+import { createView } from './view3d.js?v=1794426087';
+import { createHA } from './ha.js?v=1794426087';
+import { detectPlan } from './autoplan.js?v=1794426087';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794426087';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794426087';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794426087';
+import { PRESETS, findPreset } from './presets.js?v=1794426087';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794426087';
+import { openElfaStudio } from './elfastudio.js?v=1794426087';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,7 +27,11 @@ let catTab = 'oppningar';
 // ---------- händelser från datan ----------
 let stateT = 0;
 on((kind, id) => {
-  if (kind === 'item') { plan.draw(); view.syncItem(id); return; }
+  // grupper: delarna följer med föräldern
+  if (kind === 'item') { const h = home(), it = h.items.find(i => i.id === id); let ids = [];
+    if (it?.g) ids = arrange(h, it); else if (it?.grp) { const p = h.items.find(i => i.id === it.grp); if (p) ids = arrange(h, p); }
+    plan.draw(); view.syncItem(id); ids.forEach(x => view.syncItem(x)); return; }
+  if (kind !== 'state' && kind !== 'sel') arrangeAll(home());
   if (kind === 'state') { plan.draw(); view.states(); cancelAnimationFrame(stateT); stateT = requestAnimationFrame(() => { if (S.mode === 'styr') renderRight(); }); return; }
   if (kind === 'sel') { if (S.sel?.type !== 'room' || S.sel.id !== S.selPt?.room) S.selPt = null; plan.draw(); view.highlight(); renderRight();
     if (S.walls === 'rum' && S.sel?.type === 'room' && S.sel.id !== S.focus) { S.focus = S.sel.id; view.build(); } return; }
@@ -194,11 +199,25 @@ function catalogPanel() {
     <div class="grid">${list.map(([kind, k, v]) => `<button class="cat ${S.placing?.key === k ? 'on' : ''}" data-place="${kind}:${k}"><b>${v.icon}</b>${v.name}</button>`).join('')}</div>
     <p class="note">Välj, klicka sedan i ritningen eller i 3D. Skåp, sängar, TV m.m. lägger sig automatiskt mot väggen.</p>`;
 }
+// smarta grupper i panelen: stolar runt bordet, sängbord, soffgrupp
+function groupPanel(it) {
+  const h = home(), k = groupKind(it), g = it.g || {};
+  if (it.grp) { const p = h.items.find(i => i.id === it.grp); if (!p) return '';
+    return `<div class="grp"><span>🔗 Hör till <b>${esc(p.family || p.name || ITEMS[p.type].name)}</b>. Den flyttar sig själv med gruppen.</span><div class="btns"><button class="btn" data-gsel="${p.id}">Välj hela gruppen</button><button class="btn" data-gfree>Lös från gruppen</button></div></div>`; }
+  if (k === 'stolar') { const round = it.o?.form === 'rund' && !(it.o.utdragen && it.o.ilagg), cap = it.o?.stolar || 4;
+    return `<div class="grp"><h4>🪑 Stolar runt bordet</h4><div class="cnt"><button data-g="n:-1">−</button><b>${g.n || 0}</b><button data-g="n:1">＋</button><span>${g.n > cap ? `⚠️ Trångt – ${cap} får plats bekvämt` : `Plats för ${cap}`}</span></div>
+      ${g.n && !round ? `<div class="opt">${[['runt', 'Jämnt runt'], ['lang', 'Långsidorna'], ['en', 'En sida']].map(([v, l]) => `<button data-g="mode:${v}" class="${(g.mode || 'runt') === v ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+      ${g.n ? `<div class="opt" style="margin-top:6px">${CHAIRS.map(([v, l]) => `<button data-g="chair:${v}" class="${(g.chair || CHAIRS[0][0]) === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>` : ''}</div>`; }
+  if (k === 'sangbord') return `<div class="grp"><h4>🛏️ Sängbord</h4><div class="opt">${[[0, 'Inga'], [1, 'Ett'], [2, 'Två']].map(([v, l]) => `<button data-g="n:=${v}" class="${(g.n || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+  if (k === 'soffgrupp') return `<div class="grp"><h4>🛋️ Soffgrupp</h4><div class="opt"><button data-g="bord:t" class="${g.bord ? 'on' : ''}">▭ Soffbord framför</button><button data-g="matta:t" class="${g.matta ? 'on' : ''}">🟫 Matta under</button></div></div>`;
+  return '';
+}
 function itemPanel(it) {
   const c = ITEMS[it.type];
   if (furnKey(it)) { ensureFurn(it); const f = furnObj(it);
     return `<h2>${c.icon} ${esc(it.family || it.name || c.name)}</h2>
     <div class="btns"><button class="btn" data-act="rot-90" title="Vrid">⟲</button><button class="btn" data-act="rot90" title="Vrid">⟳</button><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑</button></div>
+    ${groupPanel(it)}
     ${furnPanelHtml(f, { more: right._more })}
     ${c.dev ? `<h3>SMART ENHET</h3>
       <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : 'media_player.tv'}"></label>
@@ -365,6 +384,16 @@ bindFurnPanel(right, {
   redraw: () => renderRight(),
   act(a) { if (a === 'studio') openStudio(selected()); },
 });
+// grupper
+right.addEventListener('click', e => { const b = e.target.closest('[data-g],[data-gsel],[data-gfree]'); if (!b) return; const h = home(), it = selected(); if (!it) return;
+  if (b.dataset.gsel) { S.sel = { type: 'item', id: b.dataset.gsel }; emit('sel'); return; }
+  commit();
+  if ('gfree' in b.dataset) { const p = h.items.find(i => i.id === it.grp); delete it.grp; delete it.gtag; if (p?.g?.n) p.g.n--; emit('full'); return; }
+  const [k, v] = b.dataset.g.split(':'); it.g = it.g || {};
+  if (k === 'n') it.g.n = Math.max(0, Math.min(16, v[0] === '=' ? +v.slice(1) : (it.g.n || 0) + +v));
+  else if (k === 'chair') setChairs(h, it, v);
+  else if (v === 't') it.g[k] = !it.g[k]; else it.g[k] = v;
+  arrange(h, it); emit('full'); });
 // sök riktiga produkter
 right.addEventListener('input', e => { if (!('search' in e.target.dataset)) return; searchQ = e.target.value; right.querySelector('[data-sresbox]').innerHTML = searchResults(); });
 right.addEventListener('keydown', e => { if ('search' in e.target.dataset && e.key === 'Enter') right.querySelector('[data-sres]')?.click(); });
@@ -441,7 +470,7 @@ right.addEventListener('click', e => {
   if (act === 'pdup') { commit(); const p0 = obj.panels.find(p => p.id === S.panelSel); const p = { ...p0, id: uid(), s: p0.s + p0.w, window: null }; obj.panels.push(p); S.panelSel = p.id; emit('full'); return; }
   if (act === 'delpt') return deletePoint();
   if (act === 'del') return deleteSel();
-  if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
+  if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); delete c.grp; delete c.gtag; c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
   if (act === 'test') return onDevice({ type: 'item', id: obj.id }, true);
   if (act === 'testdoor') return onDevice({ type: 'opening', id: obj.id }, true);
   if (act === 'sameboth') { commit(); obj.colorN = obj.colorP || obj.color; obj.matN = obj.matP; emit('full'); return; }

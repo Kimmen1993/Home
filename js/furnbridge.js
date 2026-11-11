@@ -1,7 +1,7 @@
 // Bryggan mellan huvudappens saker (plan-koordinater x/y, rot i grader) och möbelmotorn (FURN).
 // En sak i appen som har en möbel bakom sig får it.o (val) och it.m (material) – samma som i demon.
-import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794425574';
-import { ITEMS } from './catalog.js?v=1794425574';
+import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794426087';
+import { ITEMS } from './catalog.js?v=1794426087';
 
 export const furnKey = it => ITEMS[it.type]?.furn || null;
 const hashSeed = id => { let s = 7; for (const c of String(id)) s = (s * 31 + c.charCodeAt(0)) % 9973; return s + 1; };
@@ -12,9 +12,11 @@ const slotColor = it => { const k = furnKey(it), s0 = FURN[k].slots[0]?.[0], m =
 export function syncF(it) { const k = furnKey(it); if (!k || !it.o) return; const f = furnObj(it); FURN[k].sync?.(f, f.o); it.color = slotColor(it); }
 // gamla sparade saker (före möbelmotorn) får val och material första gången de används
 export function ensureFurn(it) {
-  const k = furnKey(it); if (!k || it.o) return k;
-  const c = ITEMS[it.type], f = newFurniture(k, c.fo ? { o: JSON.parse(JSON.stringify(c.fo)) } : undefined);
-  it.o = f.o; it.m = f.m; it.seed = hashSeed(it.id);
+  const k = furnKey(it); if (!k) return k;
+  if (it.o && FURN[k].opts.every(op => op.k in it.o) && FURN[k].slots.every(([sk]) => it.m?.[sk])) return k;
+  const fresh = !it.o, c = ITEMS[it.type], f = newFurniture(k, c.fo ? { o: JSON.parse(JSON.stringify(c.fo)) } : undefined);
+  it.o = { ...f.o, ...(it.o || {}) }; it.m = { ...f.m, ...(it.m || {}) }; it.seed = it.seed ?? hashSeed(it.id);
+  if (!fresh) { syncF(it); return k; }
   if (FURN[k].fixed || !it.w) { it.w = f.w; it.d = f.d; it.h = f.h; }
   const s0 = FURN[k].slots[0]?.[0]; if (s0 && it.color && it.color !== c.color) it.m[s0] = { ...it.m[s0], color: it.color };
   if (FURN[k].lamp || k === 'tv') it.elev = 0;

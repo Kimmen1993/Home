@@ -1,8 +1,8 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794425574';
-import { footShape } from './furnbridge.js?v=1794425574';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794425574';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794426087';
+import { footShape } from './furnbridge.js?v=1794426087';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794426087';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -130,6 +130,7 @@ export function createPlan(canvas, ui) {
       ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
       label(Math.hypot(p.x - last.x, p.y - last.y).toFixed(2).replace('.', ',') + ' m', (s0.x + s1.x) / 2, (s0.y + s1.y) / 2 - 14); }
     if (ghost) drawGhost();
+    if (guides) drawGuides();
     // hörn på markerat rum
     const sr = S.sel?.type === 'room' && h.rooms.find(r => r.id === S.sel.id);
     if (sr && S.tool === 'select') sr.pts.forEach((q, i) => { const s1 = ts(q), q2 = sr.pts[(i + 1) % sr.pts.length], m = ts({ x: (q.x + q2.x) / 2, y: (q.y + q2.y) / 2 });
@@ -232,6 +233,49 @@ export function createPlan(canvas, ui) {
       ctx.fillStyle = '#ff7a2f'; ctx.beginPath(); ctx.arc(0, hy, 9, 0, 7); ctx.fill(); ctx.rotate(-it.rot * Math.PI / 180); ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const hp = { x: -Math.sin(-it.rot * Math.PI / 180) * hy, y: Math.cos(-it.rot * Math.PI / 180) * hy }; ctx.fillText('⟳', hp.x, hp.y + 1); ctx.textBaseline = 'alphabetic'; ctx.restore(); }
   }
+  // ---------- hjälplinjer när man drar en möbel: linjera med andra möbler + avstånd till väggar och möbler ----------
+  let guides = null;
+  const ext = it => { const r = it.rot * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)); return { ex: c * it.w / 2 + s * it.d / 2, ey: s * it.w / 2 + c * it.d / 2 }; };
+  const solid = (o, it) => o !== it && o.type !== 'skena' && !ITEMS[o.type].ceil && !ITEMS[o.type].area && !['matta', 'altan', 'gang', 'pool', 'uteyta'].includes(o.type)
+    && !(o.grp && o.grp === it.id) && !(it.grp && (o.id === it.grp || o.grp === it.grp)) && (o.elev || 0) < 1.2;
+  function alignSnap(h, it, q) {
+    const T = .06, E = ext(it), lines = []; let bx = null, by = null;
+    for (const o of h.items) { if (!solid(o, it)) continue; const F = ext(o);
+      for (const [a, b] of [[q.x, o.x], [q.x - E.ex, o.x - F.ex], [q.x + E.ex, o.x + F.ex], [q.x - E.ex, o.x + F.ex], [q.x + E.ex, o.x - F.ex]]) { const d = b - a; if (Math.abs(d) < T && (!bx || Math.abs(d) < Math.abs(bx.d))) bx = { d, x: b, o }; }
+      for (const [a, b] of [[q.y, o.y], [q.y - E.ey, o.y - F.ey], [q.y + E.ey, o.y + F.ey], [q.y - E.ey, o.y + F.ey], [q.y + E.ey, o.y - F.ey]]) { const d = b - a; if (Math.abs(d) < T && (!by || Math.abs(d) < Math.abs(by.d))) by = { d, y: b, o }; } }
+    if (bx) { q.x += bx.d; lines.push({ x: bx.x, a: Math.min(q.y - E.ey, bx.o.y - ext(bx.o).ey), b: Math.max(q.y + E.ey, bx.o.y + ext(bx.o).ey) }); }
+    if (by) { q.y += by.d; lines.push({ y: by.y, a: Math.min(q.x - E.ex, by.o.x - ext(by.o).ex), b: Math.max(q.x + E.ex, by.o.x + ext(by.o).ex) }); }
+    return lines;
+  }
+  function measure(h, it) {
+    const E = ext(it), dims = [];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const ox = it.x + dx * E.ex, oy = it.y + dy * E.ey; let best = 6, hit = null;
+      for (const w of h.walls) { const sx = w.b.x - w.a.x, sy = w.b.y - w.a.y, den = dx * sy - dy * sx; if (Math.abs(den) < 1e-9) continue;
+        const t = ((w.a.x - ox) * sy - (w.a.y - oy) * sx) / den, u = ((w.a.x - ox) * dy - (w.a.y - oy) * dx) / den;
+        if (u < 0 || u > 1) continue; const L = Math.hypot(sx, sy), tt = t - (w.t || .1) / 2 / Math.max(Math.abs(den) / L, .25);
+        if (t > -.02 && tt < best) { best = Math.max(0, tt); hit = 'vägg'; } }
+      for (const o of h.items) { if (!solid(o, it)) continue; const F = ext(o);
+        const along = dx ? Math.abs(oy - o.y) < F.ey + E.ey * .6 : Math.abs(ox - o.x) < F.ex + E.ex * .6; if (!along) continue;
+        const tt = dx > 0 ? o.x - F.ex - ox : dx < 0 ? ox - (o.x + F.ex) : dy > 0 ? o.y - F.ey - oy : oy - (o.y + F.ey);
+        if (tt > -.01 && tt < best) { best = Math.max(0, tt); hit = 'möbel'; } }
+      if (hit && best > .01) dims.push({ ox, oy, dx, dy, d: best, hit }); }
+    return dims;
+  }
+  function drawGuides() {
+    ctx.save(); ctx.lineWidth = 1.5;
+    for (const l of guides.lines) { ctx.strokeStyle = '#ff7a2f'; ctx.setLineDash([6, 4]); ctx.beginPath();
+      if (l.x !== undefined) { const a = ts({ x: l.x, y: l.a - .3 }), b = ts({ x: l.x, y: l.b + .3 }); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+      else { const a = ts({ x: l.a - .3, y: l.y }), b = ts({ x: l.b + .3, y: l.y }); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); } ctx.stroke(); }
+    ctx.setLineDash([]);
+    for (const g of guides.dims) { const a = ts({ x: g.ox, y: g.oy }), b = ts({ x: g.ox + g.dx * g.d, y: g.oy + g.dy * g.d }), tight = g.d < .6, col = tight ? '#ffb02e' : '#cfe3ff';
+      ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+      const px = -g.dy * 5, py = g.dx * 5; for (const p of [a, b]) { ctx.moveTo(p.x - px, p.y - py); ctx.lineTo(p.x + px, p.y + py); } ctx.stroke();
+      const t = `${tight ? '⚠ ' : ''}${Math.round(g.d * 100)} cm`, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      ctx.font = 'bold 12px system-ui'; const tw2 = ctx.measureText(t).width + 10; ctx.fillStyle = tight ? 'rgba(60,35,0,.92)' : 'rgba(10,25,45,.9)';
+      roundRect(mx - tw2 / 2, my - 10, tw2, 20, 6); ctx.fill(); ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, mx, my + 1); ctx.textBaseline = 'alphabetic'; }
+    ctx.restore();
+  }
   function drawGhost() {
     const h = home();
     if (ghost.item) drawItem(ghost.item, false, .55);
@@ -295,7 +339,8 @@ export function createPlan(canvas, ui) {
       const it = drag.item; const st = free ? .001 : .05; let q = { x: Math.round((p.x - drag.dx) / st) * st, y: Math.round((p.y - drag.dy) / st) * st };
       if (ITEMS[it.type].snap && !e.altKey) { const sw = snapToWall(h, it, q); if (sw) { q = sw; it.rot = sw.rot; } }
       if (it.type === 'skena') { const dx = q.x - it.x, dy = q.y - it.y; it.pts = it.pts.map(pt => ({ x: Math.round((pt.x + dx) * 1000) / 1000, y: Math.round((pt.y + dy) * 1000) / 1000 })); it.x = q.x; it.y = q.y; drag.moved = true; emit('full', 'drag'); return; }
-      it.x = q.x; it.y = q.y; drag.moved = true; emit('item', it.id); return;
+      const lines = free || (ITEMS[it.type].snap && !e.altKey && snapToWall(h, it, q)) ? [] : alignSnap(h, it, q);
+      it.x = Math.round(q.x * 1000) / 1000; it.y = Math.round(q.y * 1000) / 1000; guides = { lines, dims: measure(h, it) }; drag.moved = true; emit('item', it.id); return;
     }
     if (drag?.opening) { const o = drag.opening, w = h.walls.find(w => w.id === o.wall); const pr = proj(p, w.a, w.b);
       o.t = Math.round(Math.min(Math.max(pr.t, o.w / 2), pr.L - o.w / 2) / (free ? .001 : .05)) * (free ? .001 : .05); emit('full', 'drag'); return; }
@@ -313,7 +358,7 @@ export function createPlan(canvas, ui) {
     if (chain || S.tool === 'wall' || S.tool === 'divider' || S.tool === 'track' || calib) draw();
   });
   canvas.addEventListener('pointerup', () => {
-    const h = home();
+    const h = home(); if (guides) { guides = null; requestAnimationFrame(draw); }
     if (rect) { const x0 = Math.min(rect.a.x, rect.b.x), y0 = Math.min(rect.a.y, rect.b.y), w = Math.abs(rect.b.x - rect.a.x), d = Math.abs(rect.b.y - rect.a.y);
       rect = null;
       if (w >= .5 && d >= .5) { commit(); const r = addRoom(h, x0, y0, w, d, 'Rum ' + (h.rooms.length + 1)); splitWalls(h); rebuildRooms(h); S.sel = h.rooms.some(x => x.id === r.id) ? { type: 'room', id: r.id } : null; emit('full'); ui.toolDone?.(); }
