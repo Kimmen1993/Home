@@ -59,6 +59,13 @@ for (const [n, w, sits, extra, kw] of [['Rossi 1,5-sits', 1.38, 1, {}, ''], ['Ro
 // ILVA Dahl matstol (helklädd karmstol 60×61×80, sitthöjd 49)
 const DAHL_CHOICES = [['Austin Antelope (gråbrun)', '#8a7763'], ['Grön', '#3d4636']].map(([name, hex]) => ({ name, hex, m: { sits: { mat: 'tyg', color: hex }, stomme: { mat: 'tyg', color: hex } } }));
 list.push(B('ILVA Dahl matstol', 'stol', .6, .61, .8, { stil: 'karm', sitth: .49, armH: .66 }, DAHL_CHOICES[0].m, 'karmstol'));
+// MIO Väderö ställbar säng (90×200 per säng, 65 cm hög med 18 cm ben) + fristående gavel 181/91 × 121 × 10 cm
+const VADERO_CHOICES = [['Barrel', 'mullvad', '#8f7d69'], ['Barrel', 'ljusbeige', '#a29892'], ['Barrel', 'ljusgrå', '#a49b96'], ['Verita', 'mullvad', '#504338'], ['Verita', 'ljusbeige', '#c8bbb1'],
+  ['Verita', 'ljusgrå', '#8b857b'], ['Maloy', 'grå', '#8d8780'], ['Maloy', 'beige', '#9f9383'], ['Maloy', 'antracit', '#232728']].map(([q, n, hex]) => { const c = lift(hex, 1.15);
+  return { name: `${q} ${n}`, group: `Tyg ${q}`, hex: c, m: { gavel: { mat: 'tyg', color: c } } }; });
+for (const s of [180, 90]) for (const [g, gn] of [['pikerad', 'pikerad'], ['stoppad', 'slät'], ['ribbad', 'ribbad']])
+  list.push(B(`MIO Väderö ställbar ${s === 180 ? 'dubbelsäng 180 (2×90)' : 'enkelsäng 90'}, gavel ${gn}`, 'sang', 0, 0, 0,
+    { storlek: s, typ: 'stallbar', gavel: g, gavelH: 1.21, gavelT: .1, overkast: false, kuddar: 1 }, { ...VADERO_CHOICES[2].m, ben: { mat: 'krom', color: null } }, 'vadero ställbar'));
 // BESTÅ tv-bänk
 for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
   list.push(B('BESTÅ TV-bänk', 'tvbank', w, .42, .48, { front: 'luckor', frontstil: 'slat', handtag: 'inga', ben: 'ben' }, { stomme: { mat: fin[f][0], color: fin[f][1] }, front: { mat: fin[f][0], color: fin[f][1] } }, `${f} besta`));
@@ -66,7 +73,7 @@ for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
 list.push(B('METOD kök', 'kok', 0, 0, 0, { mods: [{ t: 'kyl', w: .6 }, { t: 'lador', w: .6 }, { t: 'disk', w: .8 }, { t: 'diskmaskin', w: .6 }, { t: 'spis', w: .6 }, { t: 'lador', w: .6 }] }, {}, 'kok kök'));
 
 export const PRESETS = list.map(p => ({ ...p,
-  label: `${p.name} ${p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn/g, '')}`.replace(/\s+/g, ' ').trim(),
+  label: `${p.name} ${/^(MIO|ILVA) /.test(p.name) ? '' : p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn|vadero ställbar/g, '')}`.replace(/\s+/g, ' ').trim(),
   dims: p.size.w ? `${Math.round(p.size.w * 100)}×${Math.round((p.o.d2 || p.size.d) * 100)}×${Math.round(p.size.h * 100)} cm` : '' }))
   .map(p => { if (!p.size.w) delete p.size; return p; });
 
@@ -98,8 +105,9 @@ export const FAMILIES = {
   'IKEA BESTÅ':  { label: 'Färg', choices: finish(['vit', 'svartbrun', 'ek'], ['stomme', 'front']) },
   'MIO Rossi':   { label: 'Klädsel', choices: ROSSI_CHOICES, fixed: [['Ben', 'Wengébetsat trä, 4,5 cm']] },
   'ILVA Dahl':   { label: 'Klädsel', choices: DAHL_CHOICES },
+  'MIO Väderö':  { label: 'Tyg på säng och gavel', choices: VADERO_CHOICES, fixed: [['Ben', 'Krom, 18 cm'], ['Bäddmadrass', 'Väderö, 8 cm']] },
 };
-const FAM_OF = n => n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
+const FAM_OF = n => n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('MIO Väderö') ? 'MIO Väderö' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
   : ['BILLY', 'KALLAX', 'PAX', 'MALM'].includes(n) ? 'IKEA ' + n : null;
 for (const p of PRESETS) { p.family = FAM_OF(p.name); if (p.family) p.variant = p.label.replace(/\b(vit|svartbrun|ek|bjork|svart)\b/g, '').replace(/\s+/g, ' ').trim(); }
 // familjens storlekar/modeller (en per variant)

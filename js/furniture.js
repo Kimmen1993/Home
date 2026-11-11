@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794407677';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794408306';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -310,17 +310,31 @@ function oven(cx, y, z, w, h, steel, glass, micro) {
 
 // ---------- SÄNG ----------
 function bed(it, o, M) {
-  const W = it.w, D = it.d, mw = o.storlek / 100, ml = 2.0, cont = o.typ === 'kontinental';
-  const legH = cont ? .1 : .14, headT = o.gavel === 'ingen' ? 0 : .08, mz = -D / 2 + headT + ml / 2 + (cont ? 0 : .03);
+  const W = it.w, D = it.d, mw = o.storlek / 100, ml = 2.0, cont = o.typ === 'kontinental', stall = o.typ === 'stallbar';
+  const legH = stall ? .18 : cont ? .1 : .14, headT = o.gavel === 'ingen' ? 0 : o.gavelT || .08, mz = -D / 2 + headT + ml / 2 + (cont || stall ? 0 : .03);
   let mt;
-  if (cont) { box(mw, .3, ml, M.gavel, 0, legH, mz, .02, .004); box(mw - .01, .2, ml - .01, makeMat('tyg', '#e9e8e4'), 0, legH + .3, mz, .05, .01); box(mw - .02, .07, ml - .02, makeMat('tyg', '#f3f2ee'), 0, legH + .5, mz, .03, .008); mt = legH + .57; }
+  if (stall) {   // ställbar: en eller två 90-sängar, underdel + motordel + bäddmadrass (totalt 65 cm med ben)
+    const n = mw >= 1.4 ? 2 : 1, bw = mw / n, top = makeMat('tyg', '#f2f1ed');
+    for (let i = 0; i < n; i++) { const x = -mw / 2 + (i + .5) * bw;
+      box(bw - .006, .19, ml, M.gavel, x, legH, mz, .02, .004);
+      box(bw - .006, .19, ml - .004, M.gavel, x, legH + .195, mz, .02, .004);
+      box(bw - .02, .08, ml - .02, top, x, legH + .39, mz, .03, .012);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) cyl(.016, .011, legH, M.ben, x + sx * (bw / 2 - .07), 0, mz + sz * (ml / 2 - .08), 16); }
+    mt = legH + .47;
+  } else if (cont) { box(mw, .3, ml, M.gavel, 0, legH, mz, .02, .004); box(mw - .01, .2, ml - .01, makeMat('tyg', '#e9e8e4'), 0, legH + .3, mz, .05, .01); box(mw - .02, .07, ml - .02, makeMat('tyg', '#f3f2ee'), 0, legH + .5, mz, .03, .008); mt = legH + .57; }
   else { box(W, .24, D - headT, M.ram, 0, legH, headT / 2, .008); box(mw - .01, .2, ml - .01, makeMat('tyg', '#ecebe7'), 0, legH + .17, mz, .05, .01); mt = legH + .37; }
   // ben
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = sx * (W / 2 - .06), z = sz * (D / 2 - .08) + (sz < 0 ? headT : 0);
+  if (!stall) for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = sx * (W / 2 - .06), z = sz * (D / 2 - .08) + (sz < 0 ? headT : 0);
     if (o.ben === 'metall') box(.02, legH, .02, M.ben, x, 0, z); else cyl(.03, .02, legH, M.ben, x, 0, z, 16); }
   // gavel
   const gh = o.gavelH || 1.1;
-  if (o.gavel === 'stoppad') box(W + .02, gh - .08, headT, M.gavel, 0, .08, -D / 2 + headT / 2, .03, .015);
+  if (['stoppad', 'pikerad', 'ribbad'].includes(o.gavel)) { const gw = W + .01, gz = -D / 2 + headT / 2, fz = -D / 2 + headT;
+    box(gw, gh - .08, headT, M.gavel, 0, .08, gz, .03, .015);
+    if (stall) for (const s of [-1, 1]) cyl(.014, .014, .09, M.ben, s * (gw / 2 - .12), 0, gz, 12);   // fristående gavel på egna ben
+    if (o.gavel === 'pikerad') { const cols = Math.max(2, Math.round(gw / .3)), sp = gw / cols;   // knappar i förskjutna rader
+      for (let r = 0; r < 3; r++) { const y = gh - .2 - r * .13, off = r % 2 ? 0 : sp / 2;
+        for (let x = -gw / 2 + off + (r % 2 ? sp : 0); x < gw / 2 - .1; x += sp) if (Math.abs(x) < gw / 2 - .1) sphere(.012, M.gavel, x, y, fz + .004); } }
+    if (o.gavel === 'ribbad') { const n = Math.round(gw / .11); for (let i = 1; i < n; i++) box(.006, gh - .2, .004, dark(), -gw / 2 + i * gw / n, .16, fz + .001); } }
   if (o.gavel === 'tra') box(W + .02, gh - .08, .035, M.ram, 0, .08, -D / 2 + .02, .004);
   if (o.gavel === 'spjal') { const n = Math.round(W / .09); for (let i = 0; i < n; i++) box(.05, gh - .1, .03, M.ram, -W / 2 + (i + .5) * W / n, .1, -D / 2 + .02, .004); box(W + .02, .05, .04, M.ram, 0, gh - .05, -D / 2 + .02, .004); }
   // sängkläder
@@ -614,13 +628,13 @@ export const FURN = {
     build: kitchen, sync: (it, o) => { it.w = +o.mods.reduce((s, m) => s + m.w, 0).toFixed(3) || .6; it.h = o.toppH || 2.2; } },
   sang: { name: 'Säng', icon: '🛏️', cat: 'sov', w: 1.66, d: 2.12, h: 1.1, fixed: 1,
     opts: [{ k: 'storlek', t: 'sel', label: 'Bredd (madrass)', v: 160, o: [[90, '90'], [120, '120'], [140, '140'], [160, '160'], [180, '180'], [210, '210']] },
-      { k: 'typ', t: 'sel', label: 'Typ', v: 'ram', o: [['ram', 'Sängram'], ['kontinental', 'Kontinental']] },
-      { k: 'gavel', t: 'sel', label: 'Sänggavel', v: 'stoppad', o: [['stoppad', 'Stoppad'], ['tra', 'Trä'], ['spjal', 'Spjäl'], ['ingen', 'Ingen']] },
+      { k: 'typ', t: 'sel', label: 'Typ', v: 'ram', o: [['ram', 'Sängram'], ['kontinental', 'Kontinental'], ['stallbar', 'Ställbar']] },
+      { k: 'gavel', t: 'sel', label: 'Sänggavel', v: 'stoppad', o: [['stoppad', 'Stoppad'], ['pikerad', 'Pikerad'], ['ribbad', 'Ribbad'], ['tra', 'Trä'], ['spjal', 'Spjäl'], ['ingen', 'Ingen']] },
       { k: 'gavelH', t: 'num', label: 'Gavelhöjd', v: 1.1, min: .8, max: 1.5, step: .05, unit: 'm', if: o => o.gavel !== 'ingen' },
       { k: 'ben', t: 'sel', label: 'Ben', v: 'tra', o: [['tra', 'Trä'], ['metall', 'Metall']] },
       { k: 'kuddar', t: 'num', label: 'Kuddar per sida', v: 2, min: 1, max: 3, step: 1 }, { k: 'overkast', t: 'bool', label: 'Överkast', v: true }],
     slots: [['kladsel', 'Sängkläder', 'textil', 'linne', '#e8e4dc'], ['overkast', 'Överkast', 'textil', 'tyg', '#9aa29a'], ['gavel', 'Gavel', 'textil', 'tyg', '#7d837a'], ['ram', 'Ram', 'stomme', 'ek'], ['ben', 'Ben', 'ben', 'ek']],
-    build: bed, sync: (it, o) => { it.w = o.storlek / 100 + (o.typ === 'ram' ? .06 : 0); it.d = 2.04 + (o.gavel === 'ingen' ? 0 : .08); it.h = o.gavel === 'ingen' ? .6 : o.gavelH; } },
+    build: bed, sync: (it, o) => { it.w = o.storlek / 100 + (o.typ === 'ram' ? .06 : 0); it.d = 2.04 + (o.gavel === 'ingen' ? 0 : o.gavelT || .08); it.h = o.gavel === 'ingen' ? .6 : o.gavelH; } },
   garderob: { name: 'Garderob', icon: '🚪', cat: 'sov', w: 1.5, d: .6, h: 2.36, dims: { w: [.4, 4], d: [.35, .7], h: [1.8, 2.6] },
     opts: [{ k: 'typ', t: 'sel', label: 'Dörrar', v: 'gangjarn', o: [['gangjarn', 'Vanliga'], ['skjut', 'Skjutdörrar']] }, { k: 'dorrar', t: 'num', label: 'Antal dörrar', v: 3, min: 1, max: 8, step: 1 },
       { k: 'frontstil', t: 'sel', label: 'Front', v: 'slat', o: FRONT_STYLES.filter(f => f[0] !== 'greppfri') }, { k: 'handtag', t: 'sel', label: 'Handtag', v: 'list', o: HANDLES }, { k: 'spegel', t: 'bool', label: 'Spegeldörr', v: false }],
