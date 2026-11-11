@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794422450';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794423078';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -565,7 +565,7 @@ export function elfaTemplate(t, w, o) {
   return P.sort((a, b) => a.dn - b.dn);
 }
 export const ELFA_W = [[.451, '45'], [.607, '60'], [.902, '90']];
-export const elfaWidths = o => ELFA_SYS[elfaSys(o)].ws.map(w => [w, String(Math.round(w * 100))]);
+export const elfaWidths = o => ELFA_SYS[elfaSys(o)].ws.map(w => [w, String(Math.round(w * 100 / 5) * 5)]);
 // geometri som både 3D och ritningen använder: sektionernas kanter (x från enhetens vänstra kant) m.m.
 export function elfaGeo(o) {
   const s = elfaSys(o), H = elfaH(o), L = elfaL(o), lada = s === 'lada';

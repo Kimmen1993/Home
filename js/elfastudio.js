@@ -1,8 +1,8 @@
 // Elfa-verkstan: 1) välj vägg, system och färg  2) bygg väggen i stort format (dra in delar)  3) sätt in i rummet.
 // Används av demon (och sen huvudappen). Allt räknas i meter; ritningen i cm.
-import { ELFA_SYS, ELFA_PARTS, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794422450';
-import { FAMILIES } from './presets.js?v=1794422450';
-import { swatch } from './materials.js?v=1794422450';
+import { ELFA_SYS, ELFA_PARTS, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794423078';
+import { FAMILIES } from './presets.js?v=1794423078';
+import { swatch } from './materials.js?v=1794423078';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -68,11 +68,17 @@ const CSS = `
 .es-note{font-size:12px;color:#8f9a8b;margin-top:6px;line-height:1.4}
 .es-big{font-size:15px}
 input.es-rng{width:100%}
+.es-svg .sec{cursor:grab}.es-svg .trk{fill:rgba(255,122,47,0);cursor:ns-resize}.es-svg .trk:hover,.es-svg .trk.on{fill:rgba(255,122,47,.45)}
+.es-svg .hdl{cursor:ew-resize}.es-svg .hdl rect{fill:#ff7a2f}.es-svg .hdl:hover rect{fill:#ff9a5c}
+.es-tips{font-size:13px;color:#cfd6cb;line-height:1.9;background:#0f130f;border-radius:10px;padding:8px 10px}
+.es-sel{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 10px}.es-sel i{font-style:normal;font-size:44px}.es-sel b{font-size:16px}.es-sel span{color:#8f9a8b;font-size:13px}
+.es-wide{display:grid !important;grid-template-columns:1fr 1fr 1fr}.es-wide button{font-size:18px;padding:10px}
+.es-more{background:none;border:0;color:#8f9a8b;cursor:pointer;padding:12px 0 4px;font-size:13px}
 @media (max-width:900px){.es-body.s1,.es-body.s2,.es-body.s3{grid-template-columns:1fr;overflow:auto}.es-pal{flex-direction:row;flex-wrap:wrap}.es-pal button{width:74px}.es-svg{min-height:55vh}}
 `;
 
 // ---------- ritning framifrån (används också som liten förhandsbild i panelen) ----------
-export function elevationSvg(o, m, { wall = null, off = 0, roomH = 2.5, sel = null, ghost = null, cls = 'es-svg', interactive = false } = {}) {
+export function elevationSvg(o, m, { wall = null, off = 0, roomH = 2.5, sel = null, ghost = null, cls = 'es-svg', interactive = false, guide = [], drag = null } = {}) {
   const g = elfaGeo(o), { s, H, L, yB, xs, W } = g, len = wall ? wall.len : W, RH = wall ? roomH : Math.max(H + .05, 1);
   const X = v => +(v * 100).toFixed(1), Y = v => +((RH - v) * 100).toFixed(1), X0 = wall ? off : 0;
   const metal = m?.stomme?.color || '#f2f2f0', wood = m?.decor?.color || '#d9bf98', rod = '#c9cbcd';
@@ -115,6 +121,11 @@ export function elevationSvg(o, m, { wall = null, off = 0, roomH = 2.5, sel = nu
   // spöke medan man drar
   if (ghost) { const h = Math.max(ghost.u, .03); out += `<rect x="${ux(ghost.xa)}" y="${Y(ghost.y)}" width="${X(ghost.w)}" height="${X(h)}" fill="${ghost.ok ? 'rgba(255,122,47,.35)' : 'rgba(255,90,74,.35)'}" stroke="${ghost.ok ? '#ff7a2f' : '#ff5a4a'}" stroke-width="2" stroke-dasharray="5 4" rx="2"/>
     <text x="${ux(ghost.xa + ghost.w + .02)}" y="${Y(ghost.y) + 10}" fill="#ff7a2f" font-size="12">${cm(ghost.y)} cm</text>`; }
+  // handtag: bärlisten (höjd) och kanterna (fler/färre sektioner) + hjälplinjer
+  if (interactive) {
+    if (g.track || s === 'hylla') out += `<rect class="trk ${drag === 'trk' ? 'on' : ''}" data-trk="1" x="${ux(-.02)}" y="${Y(H + .045)}" width="${X(W + .04)}" height="9" rx="3"/><text x="${ux(W + .04)}" y="${Y(H) + 4}" fill="#ff7a2f" font-size="12">↕ ${cm(H)} cm</text>`;
+    const cy = yB + (H - yB) / 2; for (const [sd, x] of [['l', -.06], ['r', W + .06]]) out += `<g class="hdl" data-hdl="${sd}"><rect x="${ux(x) - 7}" y="${Y(cy) - 22}" width="14" height="44" rx="7"/><text x="${ux(x)}" y="${Y(cy) + 4}" fill="#1a0d05" font-size="12" font-weight="700" text-anchor="middle">⇔</text></g>`;
+    for (const gx of guide) out += `<line x1="${X(gx)}" x2="${X(gx)}" y1="0" y2="${X(RH)}" stroke="#ff7a2f" stroke-width="1.5" stroke-dasharray="6 5"/>`; }
   // breddknappar + mått
   if (interactive) { o.mods.forEach((md, i) => { const cx = (xs[i] + xs[i + 1] + .025) / 2; out += `<g class="chip ${sel && sel.sec === i ? 'on' : ''}" data-chip="${i}"><rect x="${ux(cx) - 22}" y="${X(RH) + 14}" width="44" height="20" rx="6"/><text x="${ux(cx)}" y="${X(RH) + 28}" fill="#e9ede6" font-size="12" text-anchor="middle">${nm(md.w)} cm</text></g>`; });
     out += `<text x="${ux(W / 2)}" y="${X(RH) + 52}" fill="#8f9a8b" font-size="12" text-anchor="middle">↔ ${cm(W)} cm${wall ? ` · ${cm(off)} cm från vänster hörn · ${cm(Math.max(0, len - off - W))} cm kvar till höger` : ''}</text>`; }
@@ -137,6 +148,8 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   // ny eller flyttad hit från rummet
   S.off = item ? (startOff ?? item.o.off ?? 0) : Math.max(0, (W().len - geo().W) / 2); fit();
   const resync = () => { const it = { o: S.o, w: 0, d: 0, h: 0 }; FURNSYNC(it); fit(); };
+  // sektioner man inte rört byggs om efter mallen när ramen ändras (höjd, grenar) – ändrade sektioner behåller sina delar
+  const refresh = () => { for (const md of S.o.mods) if (!md.edited) md.parts = elfaTemplate(md.t, md.w, S.o); resync(); };
   const choicesFor = g => fam.choices.filter(c => c.group === g && (!c.when || c.when(S.o)));
   // välj en giltig färg om systemet byts
   const fixColors = () => { for (const g of ['Metall', 'Trä']) { const cs = choicesFor(g); if (!cs.length) continue; const k = Object.keys(cs[0].m)[0], cur = S.m[k];
@@ -186,23 +199,21 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     const unit = sys() === 'frist' ? `<h4>HÖJD</h4><div class="es-seg">${SY().hts.map(h => `<button data-hojd="${h}" class="${Math.abs(S.o.hojd - h) < .002 ? 'on' : ''}">${cm(h)} cm</button>`).join('')}</div>`
       : sys() === 'lada' ? `<h4>RAMENS HÖJD</h4><div class="es-seg">${SY().hts.map(h => `<button data-ram="${h}" class="${Math.abs(S.o.ram - h) < .002 ? 'on' : ''}">${cm(h)} cm</button>`).join('')}</div>
         <div class="es-tog ${S.o.hjul ? 'on' : ''}" data-tog="hjul"><span>Hjul</span><i></i></div><div class="es-tog ${S.o.toppskiva !== false ? 'on' : ''}" data-tog="toppskiva"><span>Toppskiva</span><i></i></div>`
-      : `<h4>${sys() === 'hylla' ? 'VÄGGLISTENS ÖVERKANT' : 'BÄRLISTENS HÖJD'}</h4><input class="es-rng" type="range" data-skena min="${sys() === 'hylla' ? .5 : 1.2}" max="${(roomH - .015).toFixed(3)}" step=".01" value="${S.o.skenaH}"><div class="es-note"><b>${cm(S.o.skenaH)} cm</b> från golvet${sys() === 'hylla' ? '' : ' (minst 1,5 cm under taket)'}</div>
-        <h4>${sys() === 'hylla' ? 'VÄGGLISTER' : 'GRENAR'}</h4><div class="es-seg">${SY().len.map(l => `<button data-gren="${l}" class="${Math.abs(S.o.gren - l) < .002 ? 'on' : ''}" ${l > S.o.skenaH - .03 ? 'disabled' : ''}>${cm(l)} cm</button>`).join('')}</div>`;
+      : `<h4>${sys() === 'hylla' ? 'VÄGGLISTER' : 'GRENAR'}</h4><div class="es-seg">${SY().len.map(l => `<button data-gren="${l}" class="${Math.abs(S.o.gren - l) < .002 ? 'on' : ''}" ${l > S.o.skenaH - .03 ? 'disabled' : ''}>${cm(l)} cm</button>`).join('')}</div>`;
     return `<div class="es-card"><h4>DRA IN</h4><div class="es-pal">${parts.map(k => { const ok = elfaFits({ t: k }, md.w, S.o);
         return `<button data-pal="${k}" class="${ok ? '' : 'off'}" title="${ok ? 'Dra in på väggen, eller klicka för att lägga i vald sektion' : 'Finns inte i ' + nm(md.w) + ' cm bredd'}">${ELFA_PARTS[k].icon}<span>${ELFA_PARTS[k].name}</span></button>`; }).join('')}</div></div>
       <div class="es-cv"><div class="es-hd"><span>Vägg ${esc(W().name)} · ${cm(W().len)} cm · tak ${cm(roomH)} cm</span><span>Dra delar hit · klicka för att välja · Delete tar bort</span></div>
-        ${elevationSvg(S.o, S.m, { wall: W(), off: S.off, roomH, sel: S.sel, interactive: true, ghost: S.drag?.ghost })}</div>
+        ${elevationSvg(S.o, S.m, { wall: W(), off: S.off, roomH, sel: S.sel, interactive: true, ghost: S.drag?.ghost, guide: S.drag?.guide || [], drag: S.drag?.kind })}</div>
       <div class="es-card">
-        ${P ? `<h4>VALD DEL</h4><div class="es-row es-big"><span>${ELFA_PARTS[P.t].icon} ${ELFA_PARTS[P.t].name}</span><b>${cm(g.H - P.dn)} cm</b></div>
-          <div class="es-seg"><button data-mv="-1">▲ Upp</button><button data-mv="1">▼ Ner</button><button data-del>🗑 Ta bort</button></div>` : ''}
-        <h4>SEKTION ${S.sel.sec + 1}</h4>
-        <div class="es-seg">${elfaWidths(S.o).map(([w, l]) => `<button data-w="${w}" class="${Math.abs(md.w - w) < .002 ? 'on' : ''}">${l} cm</button>`).join('')}</div>
-        <div class="es-seg" style="margin-top:6px"><button data-smv="-1">◀</button><button data-smv="1">▶</button><button data-sdel>🗑 Sektion</button><button data-sadd>＋ Sektion</button></div>
-        <h4>FYLL SEKTIONEN</h4><div class="es-seg">${elfaModsFor(S.o).map(k => `<button data-tpl="${k}">${ELFA_MODS[k].icon} ${ELFA_MODS[k].name}</button>`).join('')}</div>
-        <h4>PLACERING PÅ VÄGGEN</h4><input class="es-rng" type="range" data-off min="0" max="${Math.max(0, W().len - g.W).toFixed(3)}" step=".01" value="${S.off}">
-        <div class="es-seg"><button data-pos="0">⇤ Vänster</button><button data-pos=".5">⇔ Mitten</button><button data-pos="1">Höger ⇥</button></div>
-        ${unit}
-        <div class="es-tog ${S.o.klader !== false ? 'on' : ''}" data-tog="klader"><span>Visa kläder & skor</span><i></i></div>
+        ${P ? `<div class="es-sel"><i>${ELFA_PARTS[P.t].icon}</i><b>${ELFA_PARTS[P.t].name}</b><span>${cm(g.H - P.dn)} cm från golvet</span></div>
+          <div class="es-seg es-wide"><button data-mv="-1" title="Upp">▲</button><button data-mv="1" title="Ner">▼</button><button data-del title="Ta bort">🗑</button></div>
+          <div class="es-note">Dra den i bilden, även till en annan sektion.</div>`
+        : `<h4>SEKTION ${S.sel.sec + 1}</h4><div class="es-seg">${elfaWidths(S.o).map(([w, l]) => `<button data-w="${w}" class="${Math.abs(md.w - w) < .002 ? 'on' : ''}">${l} cm</button>`).join('')}</div>
+          <h4>FYLL MED</h4><div class="es-seg">${elfaModsFor(S.o).map(k => `<button data-tpl="${k}">${ELFA_MODS[k].icon} ${ELFA_MODS[k].name}</button>`).join('')}</div>
+          <div class="es-seg" style="margin-top:10px"><button data-sdel>🗑 Ta bort sektionen</button></div>`}
+        <h4>SÅ HÄR</h4><div class="es-tips">✋ Dra skåpet i sidled<br>${g.track || sys() === 'hylla' ? '↕ Dra i den orange listen för höjden<br>' : ''}⇔ Dra i kanterna för fler sektioner<br>🧲 Dra in delar från vänster</div>
+        <button class="es-more" data-more>⚙ Fler inställningar ${S.more ? '▴' : '▾'}</button>
+        ${S.more ? `${unit}<div class="es-tog ${S.o.klader !== false ? 'on' : ''}" data-tog="klader"><span>Visa kläder & skor</span><i></i></div>` : ''}
       </div>`;
   }
   // ---- steg 3 ----
@@ -241,31 +252,56 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     return { sec: i, dn, ok, fits: elfaFits(p, md.w, S.o), xa: g.xs[i] + .025, w: g.xs[i + 1] - g.xs[i] - .025, y: g.H - dn, u };
   }
   const redrawSvg = () => { const host = ov.querySelector('.es-cv'); if (!host) return; const old = host.querySelector('svg'); const tmp = document.createElement('div');
-    tmp.innerHTML = elevationSvg(S.o, S.m, { wall: W(), off: S.off, roomH, sel: S.sel, interactive: true, ghost: S.drag?.ghost }); old.replaceWith(tmp.firstChild); };
+    tmp.innerHTML = elevationSvg(S.o, S.m, { wall: W(), off: S.off, roomH, sel: S.sel, interactive: true, ghost: S.drag?.ghost, guide: S.drag?.guide || [], drag: S.drag?.kind }); old.replaceWith(tmp.firstChild); };
   ov.addEventListener('pointerdown', e => {
     const pal = e.target.closest('[data-pal]'), pt = e.target.closest('.pt');
     if (pal) { S.drag = { kind: 'new', t: pal.dataset.pal, x: e.clientX, y: e.clientY, moved: false }; e.preventDefault(); return; }
-    if (pt && S.step === 2) { const i = +pt.dataset.sec, j = +pt.dataset.part; S.sel = { sec: i, part: j }; S.drag = { kind: 'move', i, j, x: e.clientX, y: e.clientY, moved: false }; draw(); e.preventDefault(); }
+    if (S.step !== 2) return;
+    if (pt) { const i = +pt.dataset.sec, j = +pt.dataset.part; S.sel = { sec: i, part: j }; S.drag = { kind: 'move', i, j, x: e.clientX, y: e.clientY, moved: false }; draw(); e.preventDefault(); return; }
+    const trk = e.target.closest('[data-trk]'), hdl = e.target.closest('[data-hdl]'), sec = e.target.closest('.sec'), q = svgPt(e);
+    if (trk) { S.drag = { kind: 'trk', x: e.clientX, y: e.clientY, moved: false }; e.preventDefault(); return; }
+    if (hdl) { S.drag = { kind: 'hdl', side: hdl.dataset.hdl, x: e.clientX, y: e.clientY, moved: false }; e.preventDefault(); return; }
+    if (sec && q) { S.drag = { kind: 'unit', sec: +sec.dataset.sec, ax0: q.x + S.off, off0: S.off, x: e.clientX, y: e.clientY, moved: false }; e.preventDefault(); }
   });
+  // skåpet snäpper mot hörnen, mitten och fönsterkanterna
+  function snapOff(off) { const len = W().len, w = geo().W, T = .05, L = [[0, 0], [(len - w) / 2, len / 2]], R = [[len - w, len]];
+    for (const [a, ww] of W().win || []) { L.push([a, a], [a + ww, a + ww]); R.push([a - w, a], [a + ww - w, a + ww]); }
+    let best = null; for (const [o2, gx] of [...L, ...R]) { const dd = Math.abs(o2 - off); if (dd < T && (!best || dd < best[2])) best = [o2, gx, dd]; }
+    off = Math.max(0, Math.min(len - w, best ? best[0] : off)); return [off, best ? [best[1]] : []]; }
+  const addSec = (atStart, w0) => { const nb = atStart ? S.o.mods[0] : S.o.mods[S.o.mods.length - 1], md = { t: nb.t, w: w0 }; md.parts = elfaTemplate(md.t, w0, S.o);
+    if (atStart) { S.o.mods.unshift(md); S.sel.sec++; } else S.o.mods.push(md); resync(); };
   window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
   function onMove(e) {
     const d = S.drag; if (!d) return; if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return; d.moved = true;
+    if (d.kind === 'unit') { const q = svgPt(e); if (!q) return; [S.off, d.guide] = snapOff(d.off0 + (q.x + S.off) - d.ax0); redrawSvg(); return; }
+    if (d.kind === 'trk') { const q = svgPt(e); if (!q) return; const mn = sys() === 'hylla' ? S.o.gren + .05 : 1.0; S.o.skenaH = Math.max(mn, Math.min(roomH - .015, Math.round(q.y * 100) / 100)); refresh(); redrawSvg(); return; }
+    if (d.kind === 'hdl') { const q = svgPt(e); if (!q) return; const abs = q.x + S.off, ws = SY().ws, w0 = ws[Math.min(1, ws.length - 1)], len = W().len;
+      if (d.side === 'r') { const tgt = abs - S.off;
+        while (geo().W + w0 * .6 < tgt && S.off + geo().W + w0 <= len + .001) addSec(false, w0);
+        while (S.o.mods.length > 1 && geo().W - S.o.mods[S.o.mods.length - 1].w * .6 > tgt) { S.o.mods.pop(); resync(); } }
+      else { const right = S.off + geo().W, tgt = right - abs;
+        while (geo().W + w0 * .6 < tgt && right - geo().W - w0 >= -.001) { addSec(true, w0); S.off = right - geo().W; }
+        while (S.o.mods.length > 1 && geo().W - S.o.mods[0].w * .6 > tgt) { S.o.mods.shift(); S.sel.sec = Math.max(0, S.sel.sec - 1); resync(); S.off = right - geo().W; } }
+      S.sel.sec = Math.min(S.sel.sec, S.o.mods.length - 1); S.sel.part = null; redrawSvg(); return; }
     const t = d.kind === 'new' ? d.t : S.o.mods[d.i].parts[d.j].t; d.ghost = ghostFor(t, e, d.kind === 'move' ? S.o.mods[d.i].parts[d.j] : null);
     if (d.ghost && d.ghost.sec < 0) d.ghost = null; redrawSvg();
   }
   function onUp() {
     const d = S.drag; S.drag = null; if (!d) return;
+    if (['unit', 'trk', 'hdl'].includes(d.kind)) { if (d.moved) { S.noClick = true; setTimeout(() => S.noClick = false, 50); draw(); } return; }
     if (d.kind === 'new' && !d.moved) { const md = S.o.mods[S.sel.sec]; if (!elfaFits({ t: d.t }, md.w, S.o)) { say(`${ELFA_PARTS[d.t].name} finns inte i ${nm(md.w)} cm bredd`); return; }
-      const p = elfaAdd(md, d.t, S.o); S.sel.part = md.parts.indexOf(p); draw(); return; }
+      const p = elfaAdd(md, d.t, S.o); md.edited = true; S.sel.part = md.parts.indexOf(p); draw(); return; }
     if (!d.moved) return;
     const gh = d.ghost; if (!gh) { draw(); return; }
     if (!gh.fits) { say(`Finns inte i ${nm(S.o.mods[gh.sec].w)} cm bredd`); draw(); return; }
-    if (d.kind === 'new') { const md = S.o.mods[gh.sec], p = elfaAdd(md, d.t, S.o, gh.dn); S.sel = { sec: gh.sec, part: md.parts.indexOf(p) }; }
-    else { const from = S.o.mods[d.i], p = from.parts[d.j]; from.parts.splice(d.j, 1); p.dn = gh.dn; const to = S.o.mods[gh.sec]; to.parts.push(p); to.parts.sort((a, b) => a.dn - b.dn); S.sel = { sec: gh.sec, part: to.parts.indexOf(p) }; }
+    if (d.kind === 'new') { const md = S.o.mods[gh.sec], p = elfaAdd(md, d.t, S.o, gh.dn); md.edited = true; S.sel = { sec: gh.sec, part: md.parts.indexOf(p) }; }
+    else { const from = S.o.mods[d.i], p = from.parts[d.j]; from.parts.splice(d.j, 1); p.dn = gh.dn; const to = S.o.mods[gh.sec]; from.edited = to.edited = true; to.parts.push(p); to.parts.sort((a, b) => a.dn - b.dn); S.sel = { sec: gh.sec, part: to.parts.indexOf(p) }; }
     if (!gh.ok) say('Krockar med en annan del – flytta den eller ta bort'); draw();
   }
   ov.addEventListener('click', e => {
+    if (S.noClick) return;
     const b = e.target.closest('button,[data-wall],[data-sec],[data-chip],[data-tog]'); if (!b) return; const d = b.dataset;
+    if ('more' in d) { S.more = !S.more; return draw(); }
     if ('close' in d) return close();
     if (d.step) { S.step = +d.step; S.sel.part = null; return draw(); }
     if ('done' in d) { cleanup(); onDone({ o: S.o, m: S.m, wall: S.wall, off: S.off, doors: S.doors }); return; }
@@ -278,7 +314,7 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     if (d.sec !== undefined && !d.part && !e.target.closest('.pt')) { S.sel = { sec: +d.sec, part: null }; return draw(); }
     const md = S.o.mods[S.sel.sec];
     if (d.w) { md.w = +d.w; resync(); return draw(); }
-    if (d.tpl) { md.t = d.tpl; md.parts = elfaTemplate(d.tpl, md.w, S.o); S.sel.part = null; return draw(); }
+    if (d.tpl) { md.t = d.tpl; md.edited = false; md.parts = elfaTemplate(d.tpl, md.w, S.o); S.sel.part = null; return draw(); }
     if (d.smv) { const j = S.sel.sec + +d.smv; if (j >= 0 && j < S.o.mods.length) { [S.o.mods[S.sel.sec], S.o.mods[j]] = [S.o.mods[j], S.o.mods[S.sel.sec]]; S.sel = { sec: j, part: null }; } return draw(); }
     if ('sdel' in d) { if (S.o.mods.length > 1) { S.o.mods.splice(S.sel.sec, 1); S.sel = { sec: Math.max(0, S.sel.sec - 1), part: null }; resync(); } else say('Minst en sektion'); return draw(); }
     if ('sadd' in d) { const w = SY().ws[Math.min(1, SY().ws.length - 1)], room = W().len - geo().W; if (room < w - .01) { say('Det får inte plats fler sektioner på väggen'); return; }
@@ -288,16 +324,16 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     if ('del' in d) return delPart();
     if (d.hojd) { S.o.hojd = +d.hojd; regen(); return draw(); }
     if (d.ram) { S.o.ram = +d.ram; regen(); return draw(); }
-    if (d.gren) { S.o.gren = +d.gren; resync(); return draw(); }
+    if (d.gren) { S.o.gren = +d.gren; refresh(); return draw(); }
   });
   // nya mått på ramen: fyll om sektionerna som inte ändrats för hand (enklast: mallarna igen)
-  const regen = () => { resync(); for (const md of S.o.mods) md.parts = elfaTemplate(md.t, md.w, S.o); S.sel.part = null; };
+  const regen = () => { resync(); refresh(); S.sel.part = null; };
   ov.addEventListener('input', e => { const t = e.target;
     if ('off' in t.dataset) { S.off = +t.value; redrawSvg(); }
     if ('skena' in t.dataset) { S.o.skenaH = +t.value; resync(); t.nextElementSibling.querySelector('b').textContent = cm(S.o.skenaH) + ' cm'; redrawSvg(); } });
   ov.addEventListener('change', e => { if ('skena' in e.target.dataset || 'off' in e.target.dataset) draw(); });
-  function movePart(dir) { const md = S.o.mods[S.sel.sec], p = md.parts[S.sel.part]; if (!p) return; p.dn = elfaSnap(S.o, p.dn + dir * SY().pitch, p); md.parts.sort((a, b) => a.dn - b.dn); S.sel.part = md.parts.indexOf(p); draw(); }
-  function delPart() { const md = S.o.mods[S.sel.sec]; if (S.sel.part === null) return; md.parts.splice(S.sel.part, 1); S.sel.part = null; draw(); }
+  function movePart(dir) { const md = S.o.mods[S.sel.sec], p = md.parts[S.sel.part]; if (!p) return; md.edited = true; p.dn = elfaSnap(S.o, p.dn + dir * SY().pitch, p); md.parts.sort((a, b) => a.dn - b.dn); S.sel.part = md.parts.indexOf(p); draw(); }
+  function delPart() { const md = S.o.mods[S.sel.sec]; if (S.sel.part === null) return; md.edited = true; md.parts.splice(S.sel.part, 1); S.sel.part = null; draw(); }
   const onKey = e => { if (S.step !== 2 || e.target.tagName === 'INPUT') return;
     if (e.key === 'Delete' || e.key === 'Backspace') { delPart(); e.preventDefault(); }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { movePart(e.key === 'ArrowUp' ? -1 : 1); e.preventDefault(); }
@@ -309,5 +345,5 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   return { close };
 }
 // sync utan att importera hela FURN-objektet i onödan
-import { FURN } from './furniture.js?v=1794422450';
+import { FURN } from './furniture.js?v=1794423078';
 const FURNSYNC = it => FURN.elfa.sync(it, it.o);
