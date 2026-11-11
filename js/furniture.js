@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794409004';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794419957';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -386,24 +387,153 @@ function curtain(it, o, M) {
   }
 }
 
+// riktig spegel (speglar rummet). mat = spegelmaterialet, dess färg tonar spegelbilden (klar, grå, brons)
+function mirror(w, h, x, y, z, mat) {
+  const k = Math.min(1, 1024 / Math.max(w, h)), m = new Reflector(new THREE.PlaneGeometry(w, h), { color: new THREE.Color(mat.userData.mirror).multiplyScalar(.92), textureWidth: Math.round(w * k * 1.5), textureHeight: Math.round(h * k * 1.5) });
+  m.position.set(x, y + h / 2, z); m.userData.noAO = 1; m.userData.reflector = 1; G.add(m); return m;
+}
+// ---------- SKJUTDÖRRAR (som Elfa: tvåspårig överskena 100 mm, låg golvskena, dörrarna överlappar en profil) ----------
+const DOOR_FIELDS = { plain: 1, duo: 2, trio: 3, quattro: 4, penta: 5 };
+// en skjutdörr: stående profiler i sidorna (de är handtagen), tvärprofiler, fält med fyllning
+function slideDoor(o, M, w, h, x, y, z) {
+  const st = o.profilstil || 'artic', pw = st === 'vista' ? .022 : .034, t = .032, rail = .03, P = M.profil;
+  const k = DOOR_FIELDS[o.modell] || 1;
+  for (const s of [-1, 1]) box(pw, h, t, P, x + s * (w / 2 - pw / 2), y, z, st === 'vista' ? .009 : .002);
+  box(w - 2 * pw, rail, t * .6, P, x, y, z); box(w - 2 * pw, rail * .7, t * .6, P, x, y + h - rail * .7, z);
+  const gap = .012, fh = (h - rail * 1.7 - (k - 1) * gap) / k;
+  for (let j = 0; j < k; j++) { const fy = y + rail + j * (fh + gap), two = k > 1 && (k === 4 ? j === 1 || j === 2 : j % 2 === 1);
+    const fm = two && !o.samma ? M.fyll2 : M.fyll1; box(w - 2 * pw + .004, fh, .008, fm, x, fy, z);
+    if (fm.userData.mirror) mirror(w - 2 * pw, fh, x, fy, z + .0045, fm);
+    if (j < k - 1) box(w - 2 * pw, gap, t * .5, P, x, fy + fh, z); }
+}
+function slideSet(o, M, W, H, n, zc, yb = 0) {
+  const ov = .034, dw = (W + (n - 1) * ov) / n, railH = .045, y0 = yb + .012, dh = H - yb - railH - .012 + .02, P = (M[0] || M).profil;
+  box(W, railH, .1, P, 0, H - railH, zc, .002);
+  box(W, .008, .085, P, 0, yb, zc);
+  for (let i = 0; i < n; i++) { let x = -W / 2 + dw / 2 + i * (dw - ov);
+    if (i === 0) x += (o.oppen || 0) * (dw - ov);           // första dörren skjuts in bakom nästa
+    slideDoor(o, M[i] || M, dw, dh, x, y0, zc + (i % 2 ? .022 : -.022)); }
+}
+function slideDoors(it, o, M) { slideSet(o, M, it.w, it.h, o.dorrar || 2, 0); }
+
 // ---------- GARDEROB ----------
 function wardrobe(it, o, M) {
   const W = it.w, D = it.d, H = it.h, pl = .08, n = o.dorrar || Math.max(1, Math.round(W / .5));
   box(W, pl, D - .06, M.stomme, 0, 0, -.03);
-  box(W, H - pl, D - .02, M.stomme, 0, pl, -.01, .002);
-  const fz = D / 2 - .02, mirror = new THREE.MeshPhysicalMaterial({ color: '#ffffff', metalness: 1, roughness: .02 });
-  if (o.typ === 'skjut') {
-    const n2 = Math.max(2, Math.min(4, n)), dw = W / n2 + .02;
-    box(W, .04, .07, M.stomme, 0, H - .04, fz - .025, .003);
-    for (let i = 0; i < n2; i++) { const zz = fz - .04 + (i % 2) * .03, x = -W / 2 + dw / 2 + i * (W - dw) / (n2 - 1);
-      const mat = o.spegel && i % 2 === 1 ? mirror : M.front; front(o.spegel && i % 2 === 1 ? 'slat' : o.frontstil, mat, dw, H - pl - .07, x, pl + .01, zz, M.handtag);
-      box(.012, H - pl - .3, .006, M.handtag, x + (i < n2 / 2 ? 1 : -1) * (dw / 2 - .03), pl + .15, zz + .02, .002); }
+  const fz = D / 2 - .02, mm = makeMat('spegel', '#e9eef0');
+  if (o.typ === 'skjut') {   // ihålig stomme med hatthylla och klädstång bakom skjutdörrarna
+    const t = .018, zb = -D / 2, inD = D - .11;
+    for (const s of [-1, 1]) box(t, H - pl, D - .01, M.stomme, s * (W / 2 - t / 2), pl, -.005);
+    box(W, t, D - .01, M.stomme, 0, H - t, -.005); box(W - 2 * t, t, inD, M.stomme, 0, pl, zb + inD / 2);
+    box(W - 2 * t, H - pl - t, .006, M.stomme, 0, pl, zb + .003);
+    const sy = H - .34; box(W - 2 * t, t, inD - .02, M.stomme, 0, sy, zb + inD / 2);
+    const rod = cyl(.0125, .0125, W - 2 * t, M.handtag, 0, 0, 0, 16); rod.rotation.z = Math.PI / 2; rod.position.set(0, sy - .07, zb + inD * .5);
+    if (o.klader !== false) garments(-W / 2 + t, W / 2 - t, sy - .07, 1.0, zb + inD * .5, inD - .02, rnd(it.seed || 3), sy - .07 - pl - .05);
+    const n2 = Math.max(2, Math.min(4, n)), Ms = [];
+    for (let i = 0; i < n2; i++) Ms.push({ profil: M.handtag, fyll1: o.spegel && i % 2 === 1 ? mm : M.front, fyll2: M.front });
+    slideSet({ modell: o.frontstil === 'ram' ? 'trio' : 'plain', profilstil: 'artic', samma: true, oppen: o.oppen }, Ms, W, H, n2, fz - .03, pl);
     return;
   }
+  box(W, H - pl, D - .02, M.stomme, 0, pl, -.01, .002);
   for (let i = 0; i < n; i++) { const dw = W / n, x = -W / 2 + dw / 2 + i * dw, hinge = i % 2 ? 1 : -1;
-    if (o.spegel && i === Math.floor(n / 2)) { front('slat', M.front, dw, H - pl, x, pl, fz); box(dw - .1, H - pl - .3, .004, mirror, x, pl + .15, fz + .021, .002);
+    if (o.spegel && i === Math.floor(n / 2)) { front('slat', M.front, dw, H - pl, x, pl, fz); box(dw - .1, H - pl - .3, .004, mm, x, pl + .15, fz + .021, .002); mirror(dw - .1, H - pl - .3, x, pl + .15, fz + .0232, mm);
       handle(o.handtag, M.handtag, x - hinge * (dw / 2 - .05), pl + 1.0, fz + .02, true, .3); }
     else door(o, M, dw, H - pl, x, pl, fz, hinge, 'mid'); }
+}
+
+// ---------- KLÄDER (på galgar, vikta, skor) ----------
+const CLOTHC = ['#e9e6df', '#2d3a4f', '#8a9aa8', '#1f1f22', '#c8b393', '#6d2f2c', '#f4f1ea', '#46553f', '#a7a29a', '#3c3a38', '#b8c4cf', '#7b5b45', '#d8cfc0', '#54606e'];
+const cloth = r => makeMat(r() < .6 ? 'tyg' : 'linne', CLOTHC[(r() * CLOTHC.length) | 0]);
+// plagg på galge: smala axlar som sluttar ut mot ärmarna, lite vidare nertill
+function garment(t, l, wd, mat, x, y, z) {
+  const g = new THREE.BoxGeometry(t, l, wd, 1, 8, 4), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const v = p.getY(i) / l + .5, sh = v > .86 ? 1 - (v - .86) / .14 * .55 : 1, fl = 1 + (1 - v) * .06;
+    p.setZ(i, p.getZ(i) * sh * fl); p.setX(i, p.getX(i) * (v > .9 ? .7 : 1)); }
+  g.computeVertexNormals(); return add(g, mat, x, y + l / 2, z, true);
+}
+function garments(xa, xb, rodY, len, zc, dep, r, room = 2) {
+  const hm = makeMat('ek', '#b48a5c'); let x = xa + .03;
+  while (x < xb - .03) { const t = .012 + r() * .035, l = Math.min(room, len * (.7 + r() * .3)), wd = Math.min(dep, .4 + r() * .07);
+    box(.006, .02, wd * .92, hm, x + t / 2, rodY - .035, zc, .003);                      // galge
+    garment(t, l, wd, cloth(r), x + t / 2, rodY - .03 - l, zc);
+    x += t + .006 + r() * .025; }
+}
+function piles(xa, xb, y, zb, dep, r) {
+  let x = xa + .02;
+  while (x < xb - .25) { const w = .26 + r() * .06, d = Math.min(dep - .04, .26), k = 2 + ((r() * 5) | 0);
+    for (let j = 0; j < k; j++) box(w - r() * .02, .035, d - r() * .02, cloth(r), x + w / 2, y + j * .036, zb + .02 + d / 2, .01);
+    x += w + .03 + r() * .06; }
+}
+
+// ---------- ELFA Classic: Click-in, toppupphängt ----------
+// Allt hänger på bärlisten (32 mm hög, det enda som skruvas i väggen). Grenar 25×23 mm i längderna 988/1532/2140/2300 mm,
+// cc 451/607/902 mm. Konsoler 320/420/500 mm för trådhyllor 305/405/494 djupa. Lådor (trådbackar) 427/580 breda, 85/185/285 höga.
+export const ELFA_MODS = {
+  hang:   { name: 'Långt häng', icon: '🧥', w: .607 },
+  dubbel: { name: 'Dubbelhäng', icon: '👕', w: .607 },
+  lador:  { name: 'Lådor + kort häng', icon: '🗄️', w: .607, ws: [.451, .607] },
+  hyllor: { name: 'Hyllor', icon: '▤', w: .607 },
+  skor:   { name: 'Skohyllor', icon: '👟', w: .607 },
+};
+const ELFA_W = [[.451, '45 cm'], [.607, '60 cm'], [.902, '90 cm']];
+const meshCache = new WeakMap();
+const meshOf = m => { let c = meshCache.get(m); if (!c) { c = m.clone(); c.transparent = true; c.opacity = .4; c.depthWrite = false; c.side = THREE.DoubleSide; meshCache.set(m, c); } return c; };
+function wireShelf(xa, xb, y, zb, D, mat, fascia) {
+  const g = [], w = xb - xa, n = Math.round(w / .025), p = (bw, bh, bd, x, yy, z) => g.push(new THREE.BoxGeometry(bw, bh, bd).translate(x, yy + bh / 2, z));
+  for (let i = 0; i <= n; i++) p(.0035, .0035, D - .01, xa + i * w / n, y - .0035, zb + D / 2 - .005);
+  for (const f of [.02, .5]) p(w, .004, .004, (xa + xb) / 2, y - .0075, zb + D * f);
+  p(w, .004, .005, (xa + xb) / 2, y - .014, zb + D - .003); p(w, .004, .005, (xa + xb) / 2, y - .002, zb + D - .003);
+  for (let i = 0; i <= n; i += 2) p(.003, .012, .003, xa + i * w / n, y - .013, zb + D - .003);
+  add(mergeGeometries(g), mat, 0, 0, 0);
+  if (fascia) box(w, .032, .034, fascia, (xa + xb) / 2, y - .025, zb + D + .017, .003);
+}
+function bracket(x, y, zb, D, mat) { box(.013, .03, D - .02, mat, x, y - .045, zb + (D - .02) / 2, .002); }
+function meshDrawer(xa, xb, y, h, zb, D, M, decor) {
+  const w = Math.min(xb - xa - .01, .58), cx = (xa + xb) / 2, d = Math.min(D, .427), mm = meshOf(M.stomme), z1 = zb + .01;
+  box(w, .003, d, mm, cx, y, z1 + d / 2); for (const s of [-1, 1]) box(.003, h, d, mm, cx + s * w / 2, y, z1 + d / 2);
+  box(w, h, .003, mm, cx, y, z1); box(w, h, .003, mm, cx, y, z1 + d);
+  const g = []; for (const [yy, zz] of [[y + h, z1], [y + h, z1 + d]]) g.push(new THREE.BoxGeometry(w + .02, .005, .005).translate(cx, yy, zz));
+  for (const s of [-1, 1]) g.push(new THREE.BoxGeometry(.012, .005, d).translate(cx + s * (w / 2 + .006), y + h, z1 + d / 2));
+  add(mergeGeometries(g), M.stomme, 0, 0, 0);
+  if (decor) box(w + .02, h + .015, .018, M.decor, cx, y - .005, z1 + d + .01, .003);
+  else box(.09, .012, .012, M.stomme, cx, y + h - .03, z1 + d + .006, .004);           // greppet
+}
+function angledShelf(xa, xb, y, zb, M, r, shoes) {   // vinklad skohylla 598×348, framkant upp
+  const w = xb - xa - .01, cx = (xa + xb) / 2, g = sub(cx, y, zb + .03); g.rotation.x = .26;
+  into(g, () => { box(w, .003, .33, M.stomme, 0, 0, .165); box(w, .04, .004, M.stomme, 0, 0, .33);
+    for (const s of [-1, 1]) box(.004, .07, .33, M.stomme, s * w / 2, -.03, .165);
+    if (shoes) { let x = -w / 2 + .03; while (x < w / 2 - .2) { const c = cloth(r); for (const k of [0, 1]) box(.085, .075, .26, c, x + .045 + k * .095, .004, .17, .03);
+      x += .22 + r() * .04; } } });
+}
+function elfa(it, o, M) {
+  const H = it.h, D = o.djup || .405, zb = -it.d / 2, mods = o.mods || [], r = rnd(it.seed || 5), kl = o.klader !== false;
+  const L = Math.min(o.gren || 2.14, H - .04), yB = H - .02 - L, yT = H - .035, dec = o.decor ? M.decor : null;
+  box(it.w, .032, .01, M.stomme, 0, H - .032, zb + .005, .002);                           // bärlisten
+  let x = -it.w / 2 + .004; const xs = [x];
+  for (const m of mods) xs.push(x += m.w);
+  for (const sx of xs) box(.025, L, .023, M.stomme, sx + .0125, yB, zb + .021, .002);       // grenar
+  const zs = zb + .033, zr = zs + Math.min(D, .405) * .55;
+  const rodAt = (xa, xb, y) => { const c = cyl(.0125, .0125, xb - xa - .01, M.stang, 0, 0, 0, 16); c.rotation.z = Math.PI / 2; c.position.set((xa + xb) / 2, y, zr);
+    for (const ex of [xa + .02, xb - .02]) box(.012, .077 - .02, .02, M.stomme, ex, y, zr, .003); };
+  const shelf = (xa, xb, y, sx0, sx1) => { bracket(sx0, y, zs, D, M.stomme); bracket(sx1, y, zs, D, M.stomme); wireShelf(xa - .008, xb + .008, y, zs, D, M.stomme, dec); };
+  mods.forEach((m, i) => {
+    const s0 = xs[i] + .0125, s1 = xs[i + 1] + .0125, xa = s0 + .0125, xb = s1 - .0125, room = y => y - yB - .02;
+    shelf(xa, xb, yT, s0, s1);
+    if (m.t === 'hang') { rodAt(xa, xb, yT - .075); if (kl) garments(xa, xb, yT - .075, 1.15, zr, .5, r, room(yT - .075)); }
+    else if (m.t === 'dubbel') { const r1 = yT - .075, y2 = Math.max(yB + .9, r1 - .95);
+      rodAt(xa, xb, r1); if (kl) garments(xa, xb, r1, .85, zr, .48, r, r1 - y2 - .1);
+      if (y2 < r1 - .5) { shelf(xa, xb, y2, s0, s1); if (kl) piles(xa, xb, y2, zs, D, r);
+        if (y2 - .075 - yB > .6) { rodAt(xa, xb, y2 - .075); if (kl) garments(xa, xb, y2 - .075, .85, zr, .48, r, room(y2 - .075)); } } }
+    else if (m.t === 'lador') {
+      const big = xb - xa > .5, hs = [.185, .185, .185, .085]; let y = yB + .03;
+      if (xb - xa > .7) { for (let y2 = yT - .35; y2 > yB + .05; y2 -= .35) { shelf(xa, xb, y2, s0, s1); if (kl) piles(xa, xb, y2, zs, D, r); } return; }
+      for (const h of hs) { if (y + h > yT - .3) break; meshDrawer(xa, xb, y, h, zs, D, M, dec); bracket(s0, y + h + .045, zs, D, M.stomme); bracket(s1, y + h + .045, zs, D, M.stomme); y += h + .035; }
+      const yD = y + .03; shelf(xa, xb, yD, s0, s1); if (kl) piles(xa, xb, yD, zs, D, r);
+      if (yT - yD > .75) { rodAt(xa, xb, yT - .075); if (kl) garments(xa, xb, yT - .075, .8, zr, .48, r, yT - .075 - yD - .12); void big; } }
+    else if (m.t === 'hyllor') { for (let y = yT - .32; y > yB + .08; y -= .32) { shelf(xa, xb, y, s0, s1); if (kl) piles(xa, xb, y, zs, D, r); } if (kl) piles(xa, xb, yT, zs, D, r); }
+    else if (m.t === 'skor') { for (let y = yB + .1, k = 0; y < Math.min(yT - .5, yB + 1.3); y += .23, k++) angledShelf(xa, xb, y, zs, M, r, kl);
+      const ym = Math.min(yT - .45, yB + 1.45); if (ym > yB + .3 && yT - ym > .3) shelf(xa, xb, ym, s0, s1); }
+  });
 }
 
 // ---------- BOKHYLLA ----------
@@ -683,9 +813,26 @@ export const FURN = {
       { k: 'stangH', t: 'num', label: 'Stångens höjd', v: 2.45, min: 1.8, max: 3.2, step: .01, unit: 'm' },
       { k: 'oppen', t: 'bool', label: 'Fördragen åt sidorna', v: true }, { k: 'stang', t: 'bool', label: 'Gardinstång', v: true }],
     slots: [['tyg', 'Tyg', 'textil', 'sammet', '#6f6a62'], ['stang', 'Stång', 'metall', 'svartmetall']], build: curtain, sync: (it, o) => { it.h = o.stangH; } },
+  elfa: { name: 'Elfa-inredning', icon: '🧥', cat: 'sov', w: 1.25, d: .45, h: 2.2, fixed: 1,
+    opts: [{ k: 'mods', t: 'mods', label: 'Sektioner (vänster → höger)', v: [{ t: 'hang', w: .607 }, { t: 'lador', w: .607 }], mods: ELFA_MODS, widths: ELFA_W, add: [['hang', '＋ Häng'], ['lador', '＋ Lådor'], ['hyllor', '＋ Hyllor']] },
+      { k: 'djup', t: 'sel', label: 'Hyllornas djup', v: .405, o: [[.305, '30 cm'], [.405, '40 cm'], [.494, '50 cm']] },
+      { k: 'gren', t: 'sel', label: 'Grenarnas längd', v: 2.14, o: [[.988, '99 cm'], [1.532, '153 cm'], [2.14, '214 cm'], [2.3, '230 cm']] },
+      { k: 'skenaH', t: 'num', label: 'Bärlistens höjd', v: 2.2, min: 1.2, max: 2.7, step: .01, unit: 'm' },
+      { k: 'decor', t: 'bool', label: 'Décor (trädetaljer på hyllor och lådor)', v: false }, { k: 'klader', t: 'bool', label: 'Visa kläder & skor', v: true }],
+    slots: [['stomme', 'Bärlist, grenar, hyllor & lådor', 'metall', 'pulver', '#f2f2f0'], ['stang', 'Klädstång', 'metall', 'rostfritt'], ['decor', 'Décor-detaljer', 'tra', 'ljusek']],
+    build: elfa, sync: (it, o) => { it.w = +(o.mods.reduce((s, m) => s + m.w, 0) + .033).toFixed(3); it.h = o.skenaH;
+      it.d = +Math.max(o.djup + .035, o.mods.some(m => m.t !== 'hyllor' && m.t !== 'skor') ? .45 : 0).toFixed(3); } },
+  skjutdorr: { name: 'Skjutdörrar', icon: '🚪', cat: 'sov', w: 1.8, d: .1, h: 2.4, dims: { w: [.8, 5], h: [1.8, 2.7] },
+    opts: [{ k: 'dorrar', t: 'num', label: 'Antal dörrar', v: 2, min: 2, max: 5, step: 1 },
+      { k: 'modell', t: 'sel', label: 'Indelning', v: 'plain', o: [['plain', 'Hel'], ['duo', '2 fält'], ['trio', '3 fält'], ['quattro', '4 fält'], ['penta', '5 fält']] },
+      { k: 'profilstil', t: 'sel', label: 'Profil', v: 'artic', o: [['artic', 'Rak'], ['vista', 'Smal, rundad']] },
+      { k: 'samma', t: 'bool', label: 'Alla fält med samma fyllning', v: true, if: o => o.modell !== 'plain' },
+      { k: 'oppen', t: 'num', label: 'Skjut upp första dörren', v: 0, min: 0, max: 1, step: .05, unit: '%' }],
+    slots: [['profil', 'Profil', 'metall', 'pulver', '#c9cbcd'], ['fyll1', 'Fyllning', 'front', 'matt', '#efece6'], ['fyll2', 'Fyllning 2', 'front', 'spegel']], build: slideDoors },
   garderob: { name: 'Garderob', icon: '🚪', cat: 'sov', w: 1.5, d: .6, h: 2.36, dims: { w: [.4, 4], d: [.35, .7], h: [1.8, 2.6] },
     opts: [{ k: 'typ', t: 'sel', label: 'Dörrar', v: 'gangjarn', o: [['gangjarn', 'Vanliga'], ['skjut', 'Skjutdörrar']] }, { k: 'dorrar', t: 'num', label: 'Antal dörrar', v: 3, min: 1, max: 8, step: 1 },
-      { k: 'frontstil', t: 'sel', label: 'Front', v: 'slat', o: FRONT_STYLES.filter(f => f[0] !== 'greppfri') }, { k: 'handtag', t: 'sel', label: 'Handtag', v: 'list', o: HANDLES }, { k: 'spegel', t: 'bool', label: 'Spegeldörr', v: false }],
+      { k: 'frontstil', t: 'sel', label: 'Front', v: 'slat', o: FRONT_STYLES.filter(f => f[0] !== 'greppfri') }, { k: 'handtag', t: 'sel', label: 'Handtag', v: 'list', o: HANDLES, if: o => o.typ !== 'skjut' }, { k: 'spegel', t: 'bool', label: 'Spegeldörr', v: false },
+      { k: 'oppen', t: 'num', label: 'Skjut upp första dörren', v: 0, min: 0, max: 1, step: .05, unit: '%', if: o => o.typ === 'skjut' }, { k: 'klader', t: 'bool', label: 'Visa kläder', v: true, if: o => o.typ === 'skjut' }],
     slots: [['front', 'Front', 'front', 'matt', '#efece6'], ['stomme', 'Stomme', 'front', 'matt', '#efece6'], ['handtag', 'Handtag', 'metall', 'svartmetall']], build: wardrobe },
   bokhylla: { name: 'Bokhylla', icon: '📚', cat: 'vardag', w: 1.6, d: .32, h: 2.0, dims: { w: [.4, 4], d: [.2, .45], h: [.6, 2.6] },
     opts: [{ k: 'sektioner', t: 'num', label: 'Sektioner', v: 2, min: 1, max: 6, step: 1 }, { k: 'hyllor', t: 'num', label: 'Hyllplan', v: 5, min: 2, max: 8, step: 1 },

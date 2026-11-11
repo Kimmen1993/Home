@@ -7,10 +7,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794409004';
-import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794409004';
-import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794409004';
-import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794409004';
+import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794419957';
+import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794419957';
+import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794419957';
+import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794419957';
 
 const $ = s => document.querySelector(s);
 const host = $('#stage');
@@ -137,7 +137,7 @@ function onTopElev(it, list = st.items) {
   return best;
 }
 function build(it) {
-  const old = groups.get(it.id); if (old) { scene.remove(old); old.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  const old = groups.get(it.id); if (old) { scene.remove(old); old.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.isReflector) o.dispose(); }); }
   if (FURN[it.type].ceil) it.ceilH = RH;
   const g = buildFurniture(it); g.position.set(it.x, it.elev || 0, it.z); g.rotation.y = it.rot; g.userData.id = it.id;
   g.traverse(o => { o.userData.id = it.id; });
@@ -230,18 +230,21 @@ function colorWidget(key, hex, pal) {
     <div class="in"><input type="text" data-ral="${key}" placeholder="Skriv RAL-kod, t.ex. 7016" value="${r ? esc(r.code + ' ' + r.name) : ''}"><input type="color" data-col="${key}" value="${hex || '#cccccc'}"></div>
     <div class="sugg" data-sugg="${key}"></div><div class="now">${r ? '✓ ' + esc(r.code) + ' · ' + esc(r.name) : hex ? 'Egen färg ' + hex.toUpperCase() : 'Materialets egen färg'}</div></div>`;
 }
+const fmtNum = (op, v) => op.unit === 'm' ? Math.round(v * 100) + ' cm' : op.unit === '%' ? Math.round(v * 100) + ' %' : v;
+const modsOp = () => FURN[sel.type].opts.find(x => x.t === 'mods'), modsOf = () => modsOp().mods || KMODS;
 function optField(op, it) {
   const v = it.o[op.k];
   if (op.t === 'sel') return `<div class="f"><label>${op.label}</label><div class="opt">${op.o.map(([val, l]) => `<button data-o="${op.k}" data-v="${esc(JSON.stringify(val))}" class="${v === val ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
   if (op.t === 'num') { if (op.info) return `<div class="info">🪑 Får plats: <b>${v}</b> personer (60 cm bordskant per person)</div>`;
-    return `<div class="f"><label>${op.label}<b>${op.unit ? (op.unit === 'm' ? Math.round(v * 100) + ' cm' : v) : v}</b></label><input type="range" data-o="${op.k}" data-num="1" min="${op.min}" max="${op.max}" step="${op.step}" value="${v}"></div>`; }
+    return `<div class="f"><label>${op.label}<b>${fmtNum(op, v)}</b></label><input type="range" data-o="${op.k}" data-num="1" min="${op.min}" max="${op.max}" step="${op.step}" value="${v}"></div>`; }
   if (op.t === 'bool') return `<div class="row" data-o="${op.k}" data-v="${!v}"><div class="l"><span>${op.label}</span></div><div class="sw ${v ? 'on' : ''}"></div></div>`;
   if (op.t === 'color') return `<div class="f"><label>${op.label}</label>${colorWidget('o:' + op.k, v, op.pal)}</div>`;
-  if (op.t === 'mods') return `<div class="f"><label>${op.label}<b>${Math.round(it.w * 100)} cm</b></label><div class="mods">${v.map((m, i) => `<div class="mod">
-      <select data-mod="${i}" data-mk="t">${Object.entries(KMODS).map(([k, K]) => `<option value="${k}" ${k === m.t ? 'selected' : ''}>${K.icon} ${K.name}</option>`).join('')}</select>
-      <select data-mod="${i}" data-mk="w">${KWIDTHS.map(w => `<option value="${w}" ${Math.abs(w - m.w) < .001 ? 'selected' : ''}>${Math.round(w * 100)} cm</option>`).join('')}</select>
+  if (op.t === 'mods') { const MD = op.mods || KMODS, WS = op.widths || KWIDTHS.map(w => [w, Math.round(w * 100) + ' cm']);
+    return `<div class="f"><label>${op.label}<b>${Math.round(it.w * 100)} cm</b></label><div class="mods">${v.map((m, i) => `<div class="mod">
+      <select data-mod="${i}" data-mk="t">${Object.entries(MD).map(([k, K]) => `<option value="${k}" ${k === m.t ? 'selected' : ''}>${K.icon} ${K.name}</option>`).join('')}</select>
+      <select data-mod="${i}" data-mk="w">${WS.filter(([w]) => !MD[m.t]?.ws || MD[m.t].ws.includes(w)).map(([w, l]) => `<option value="${w}" ${Math.abs(w - m.w) < .001 ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <button data-modmove="${i}" title="Flytta åt vänster">◀</button><button data-moddel="${i}" title="Ta bort">✕</button></div>`).join('')}</div>
-      <div class="btns"><button class="btn" data-modadd="lador">＋ Lådor</button><button class="btn" data-modadd="lucka">＋ Skåp</button><button class="btn" data-modadd="hogskap">＋ Högskåp</button></div></div>`;
+      <div class="btns">${(op.add || [['lador', '＋ Lådor'], ['lucka', '＋ Skåp'], ['hogskap', '＋ Högskåp']]).map(([k, l]) => `<button class="btn" data-modadd="${k}">${l}</button>`).join('')}</div></div>`; }
   return '';
 }
 function panel() {
@@ -255,8 +258,9 @@ function panel() {
   const it = sel, F = FURN[it.type], dims = F.dims || {};
   const fam = it.family && FAMILIES[it.family];
   if (fam) {   // fast produkt: bara riktiga storlekar och färger
-    const vars = variantsOf(it.family), k0 = Object.keys(fam.choices[0].m)[0], cur = it.m[k0];
-    const groups = [...new Set(fam.choices.map(c => c.group || ''))];
+    const vars = variantsOf(it.family), okC = c => !c.only || c.only.test(it.name || '');
+    const groups = [...new Set(fam.choices.map(c => c.group || ''))].filter(g => !fam.groupIf?.[g] || fam.groupIf[g](it.o));
+    const keyOf = g => Object.keys(fam.choices.find(c => (c.group || '') === g).m)[0];
     P.innerHTML = `<h2>${F.icon} ${esc(it.family)}</h2>
       <div class="info">📦 Riktig produkt. Här finns bara de storlekar och färger som går att köpa.</div>
       <div class="btns"><button class="btn" data-act="rotL">⟲ 90°</button><button class="btn" data-act="rotR">⟳ 90°</button><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑</button></div>
@@ -266,8 +270,8 @@ function panel() {
       ${(fam.dims || []).map(k => `<div class="f"><label>${{ w: 'Bredd', d: 'Djup', h: 'Höjd' }[k]}<b>${Math.round(it[k] * 100)} cm</b></label><input type="range" data-dim="${k}" min="${dims[k][0]}" max="${dims[k][1]}" step=".01" value="${it[k]}"></div>`).join('')}
       ${F.opts.filter(op => fam.opts?.includes(op.k) && (!op.if || op.if(it.o))).map(op => optField(op, it)).join('')}
       <h3>${fam.label.toUpperCase()}</h3>
-      ${groups.map(g => `<div class="slot">${g ? `<h4>${esc(g)}</h4>` : ''}<div class="fam">${fam.choices.map((c, i) => (c.group || '') !== g ? '' :
-        `<button data-choice="${i}" class="${cur && cur.mat === c.m[k0].mat && cur.color === c.m[k0].color ? 'on' : ''}" title="${esc(c.name)}"><img src="${swatch(c.m[k0].mat, c.m[k0].color)}"><span>${esc(g && c.name.startsWith(g.split(' ')[0] + ' ') ? c.name.slice(g.split(' ')[0].length + 1) : c.name)}</span></button>`).join('')}</div></div>`).join('')}
+      ${groups.map(g => { const k0 = keyOf(g), cur = it.m[k0]; return `<div class="slot">${g ? `<h4>${esc(g)}</h4>` : ''}<div class="fam">${fam.choices.map((c, i) => (c.group || '') !== g || !okC(c) ? '' :
+        `<button data-choice="${i}" class="${cur && cur.mat === c.m[k0].mat && cur.color === c.m[k0].color ? 'on' : ''}" title="${esc(c.name)}"><img src="${swatch(c.m[k0].mat, c.m[k0].color)}"><span>${esc(g && c.name.startsWith(g.split(' ')[0] + ' ') ? c.name.slice(g.split(' ')[0].length + 1) : c.name)}</span></button>`).join('')}</div></div>`; }).join('')}
       ${(fam.fixed || []).map(([a, b]) => `<div class="f"><label>${a}<b>${esc(b)}</b></label></div>`).join('')}
       <button class="small" data-act="unlock">✏️ Gör om till egen möbel (fria mått och färger)</button>`;
     return;
@@ -309,8 +313,8 @@ P.addEventListener('click', e => {
   if (b.dataset.choice) { const c = FAMILIES[sel.family].choices[+b.dataset.choice]; for (const [k, v] of Object.entries(c.m)) sel.m[k] = { ...v }; changed(); return; }
   if (b.dataset.o) { const op = FURN[sel.type].opts.find(x => x.k === b.dataset.o); sel.o[op.k] = op.t === 'bool' ? !sel.o[op.k] : JSON.parse(b.dataset.v); changed(); }
   if (b.dataset.mat) { sel.m[b.dataset.mat] = { mat: b.dataset.id, color: null }; changed(); }
-  if (b.dataset.modadd) { sel.o.mods.push({ t: b.dataset.modadd, w: .6 }); changed(); }
-  if (b.dataset.moddel) { sel.o.mods.splice(+b.dataset.moddel, 1); if (!sel.o.mods.length) sel.o.mods.push({ t: 'lucka', w: .6 }); changed(); }
+  if (b.dataset.modadd) { sel.o.mods.push({ t: b.dataset.modadd, w: modsOf()[b.dataset.modadd].w }); changed(); }
+  if (b.dataset.moddel) { sel.o.mods.splice(+b.dataset.moddel, 1); if (!sel.o.mods.length) { const [k, K] = Object.entries(modsOf())[0]; sel.o.mods.push({ t: k, w: K.w }); } changed(); }
   if (b.dataset.modmove) { const i = +b.dataset.modmove; if (i > 0) { const m = sel.o.mods; [m[i - 1], m[i]] = [m[i], m[i - 1]]; changed(); } }
   const a = b.dataset.act;
   if (a === 'unlock') { delete sel.family; sel.preset = null; changed(); return; }
@@ -322,7 +326,7 @@ P.addEventListener('input', e => {
   if (t.dataset.dim) { sel[t.dataset.dim] = +t.value; t.previousElementSibling.querySelector('b').textContent = Math.round(t.value * 100) + ' cm'; changed(false); }
   if (t.dataset.rot) { sel.rot = +t.value * Math.PI / 180; t.previousElementSibling.querySelector('b').textContent = t.value + '°'; clampSnap(sel); place(sel); save(); }
   if (t.dataset.o && t.dataset.num) { const op = FURN[sel.type].opts.find(x => x.k === t.dataset.o); sel.o[op.k] = +t.value;
-    t.previousElementSibling.querySelector('b').textContent = op.unit === 'm' ? Math.round(t.value * 100) + ' cm' : t.value; changed(false); }
+    t.previousElementSibling.querySelector('b').textContent = fmtNum(op, +t.value); changed(false); }
   if (t.type === 'color' && t.dataset.col) { clearTimeout(t._t); t._t = setTimeout(() => setColor(t.dataset.col, t.value), 60); }
   if (t.dataset.ral) { const key = t.dataset.ral, box = P.querySelector(`[data-sugg="${CSS.escape(key)}"]`), q = t.value;
     const exact = ralFind(q.replace(/[^\d]/g, '').slice(0, 4)); const list = ralSearch(q);
@@ -331,7 +335,7 @@ P.addEventListener('input', e => {
 });
 P.addEventListener('change', e => {
   const t = e.target; if (!sel) return;
-  if (t.dataset.mod !== undefined) { const m = sel.o.mods[+t.dataset.mod]; if (t.dataset.mk === 't') { m.t = t.value; m.w = KMODS[t.value].w; } else m.w = +t.value; changed(); }
+  if (t.dataset.mod !== undefined) { const m = sel.o.mods[+t.dataset.mod]; if (t.dataset.mk === 't') { const K = modsOf()[t.value]; m.t = t.value; if (!K.ws || !K.ws.includes(m.w)) m.w = K.w; } else m.w = +t.value; changed(); }
   if (t.dataset.dim || t.dataset.num) panel();
   if (t.dataset.variant) { const v = variantsOf(sel.family).find(x => x.variant === t.value); if (v && v.type === sel.type) {
     sel.o = JSON.parse(JSON.stringify({ ...sel.o, ...v.o })); sel.preset = v.variant; sel.name = v.name; syncFurniture(sel); if (v.size) Object.assign(sel, v.size); changed(); } }

@@ -1,5 +1,5 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794409004';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794419957';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';

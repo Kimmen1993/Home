@@ -30,6 +30,9 @@ export const MATS = {
   glas:      { name: 'Glas',           group: 'glas',   kind: 'glass',   color: '#f4f8f8' },
   rokglas:   { name: 'Rökfärgat glas', group: 'glas',   kind: 'glass',   color: '#5b5650' },
   opalglas:  { name: 'Opalglas',       group: 'glas',   kind: 'opal',    color: '#f6f3ec' },
+  frostat:   { name: 'Frostat glas',   group: 'glas',   kind: 'frosted', color: '#eef1ef' },
+  spegel:    { name: 'Spegel',         group: 'glas',   kind: 'mirror',  color: '#e9eef0' },
+  pulver:    { name: 'Pulverlackerad metall', group: 'metall', kind: 'powder', color: '#f2f2f0' },
   keramik:   { name: 'Keramik/porslin', group: 'sten',  kind: 'ceramic', color: '#f5f4f0' },
   kakel:     { name: 'Kakel (tunnelbana)', group: 'sten', kind: 'tiles', color: '#f4f3ef' },
   kakelkv:   { name: 'Kakel 10×10',    group: 'sten',   kind: 'tilesq', color: '#e9ece8' },
@@ -42,10 +45,10 @@ export const MATS = {
 export const GROUPS = {
   textil: ['tyg', 'linne', 'sammet', 'boucle', 'lader'],
   tra: ['ek', 'ljusek', 'valnot', 'bjork', 'furu', 'svartask'],
-  front: ['matt', 'lack', 'laminat', 'ek', 'ljusek', 'valnot', 'svartask'],
+  front: ['matt', 'lack', 'laminat', 'ek', 'ljusek', 'valnot', 'svartask', 'spegel', 'frostat'],
   stomme: ['ek', 'ljusek', 'valnot', 'bjork', 'furu', 'svartask', 'matt', 'lack'],
   ben: ['ek', 'valnot', 'svartask', 'svartmetall', 'massing', 'krom', 'rostfritt'],
-  metall: ['svartmetall', 'massing', 'krom', 'rostfritt', 'koppar'],
+  metall: ['svartmetall', 'massing', 'krom', 'rostfritt', 'koppar', 'pulver'],
   skiva: ['ek', 'ljusek', 'valnot', 'svartask', 'marmor', 'granit', 'terrazzo', 'betong', 'laminat', 'rostfritt', 'glas', 'rokglas'],
   bank: ['laminat', 'ek', 'valnot', 'marmor', 'granit', 'terrazzo', 'betong', 'rostfritt'],
   stank: ['kakel', 'kakelkv', 'keramik', 'marmor', 'granit', 'terrazzo', 'glas', 'rostfritt', 'matt'],
@@ -151,7 +154,7 @@ export function swatch(id, color) {
   g.fillStyle = color || m.color; g.fillRect(0, 0, 64, 64); g.globalCompositeOperation = 'multiply'; g.drawImage(d, 0, 0, 160, 160, 0, 0, 64, 64);
   g.globalCompositeOperation = 'source-over';
   const sh = g.createLinearGradient(0, 0, 64, 64), k = m.kind;
-  const gloss = ['lacquer', 'chrome', 'brass', 'marble', 'ceramic', 'glass', 'leather', 'brushed', 'velvet'].includes(k);
+  const gloss = ['mirror', 'lacquer', 'chrome', 'brass', 'marble', 'ceramic', 'glass', 'leather', 'brushed', 'velvet'].includes(k);
   sh.addColorStop(0, `rgba(255,255,255,${gloss ? .45 : .12})`); sh.addColorStop(.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.25)');
   g.fillStyle = sh; g.fillRect(0, 0, 64, 64); return c.toDataURL();
 }
@@ -162,7 +165,7 @@ export function makeMat(id, color) {
   if (matCache.has(key)) return matCache.get(key);
   const k = m.kind, c = new THREE.Color(color), P = { color: c, roughness: .8, metalness: 0 };
   const det = detail(k), rep = 1 / (TILE[k] || 1);
-  const useTex = !['paint', 'lacquer', 'laminate', 'chrome', 'glass', 'opal', 'ceramic'].includes(k);
+  const useTex = !['paint', 'lacquer', 'laminate', 'chrome', 'glass', 'opal', 'ceramic', 'mirror', 'frosted', 'powder'].includes(k);
   if (useTex) { P.map = det.map.clone(); P.map.repeat.set(rep, rep); P.map.needsUpdate = true;
     if (det.bump) { P.bumpMap = det.bump.clone(); P.bumpMap.repeat.set(rep, rep); P.bumpMap.needsUpdate = true; }
     if (det.rough) { P.roughnessMap = det.rough.clone(); P.roughnessMap.repeat.set(rep, rep); P.roughnessMap.needsUpdate = true; } }
@@ -189,6 +192,9 @@ export function makeMat(id, color) {
     brass: { metalness: 1, roughness: .3 },
     glass: { roughness: .04, transmission: 1, thickness: .01, ior: 1.5, transparent: true, opacity: 1 },
     opal: { roughness: .35, transmission: .6, thickness: .02, transparent: true },
+    mirror: { metalness: 1, roughness: .02 },
+    frosted: { roughness: .55, clearcoat: .7, clearcoatRoughness: .04 },
+    powder: { roughness: .42, metalness: .3, clearcoat: .25, clearcoatRoughness: .4 },
     ceramic: { roughness: .1, clearcoat: .8, clearcoatRoughness: .05 },
     tiles: { roughness: .2, clearcoat: .6, clearcoatRoughness: .1 },
     tilesq: { roughness: .2, clearcoat: .6, clearcoatRoughness: .1 },
@@ -199,6 +205,7 @@ export function makeMat(id, color) {
   }[k] || {});
   const mat = new THREE.MeshPhysicalMaterial(P);
   if (k === 'glass') { mat.side = THREE.DoubleSide; }
+  if (k === 'mirror') mat.userData.mirror = color;   // möblerna lägger en riktig spegelyta framför
   matCache.set(key, mat); return mat;
 }
 
