@@ -88,20 +88,29 @@ list.push(B('METOD kök', 'kok', 0, 0, 0, { mods: [{ t: 'kyl', w: .6 }, { t: 'la
 
 // Elfa Classic, Click-in toppupphängt (Elfas prislista): sektioner cc 451/607/902, grenar 988/1532/2140/2300 mm, hyllor 305/405/494 djupa.
 // Startpaketen (1242 och 1862 × 445 × 2140) är måttade för Elfas skjutdörrar. Systemet finns i vit, platina och grafit; Décor-trä i vit och grå.
-const ELFA_SYS = [['Vit', 'pulver', '#f2f2f0'], ['Platina', 'pulver', '#bdbab3'], ['Grafit', 'pulver', '#3a3b3d']].map(([n, mat, hex]) => ({ name: n, hex, group: 'System', m: { stomme: { mat, color: hex } } }));
-const ELFA_DEC = [['Décor vit', '#e6ddd0'], ['Décor grå', '#8d8781']].map(([n, hex]) => ({ name: n, hex, group: 'Décor (trä)', m: { decor: { mat: 'ek', color: hex } } }));
+// Färger per system: Classic vit/platina/grafit (fristående bara vit, lådsystem vit/grafit), Décor+ matt vit/matt grå metall + trä i vit, grå, natur björk.
+const ES = (n, hex, when, mat = 'pulver') => ({ name: n, hex, group: 'Metall', when, m: { stomme: { mat, color: hex } } });
+const isS = (...a) => o => a.includes(o.system || 'topp');
+const ELFA_COL = [ES('Vit', '#f2f2f0', isS('topp', 'frist', 'hylla', 'lada')), ES('Platina', '#bdbab3', isS('topp', 'hylla')), ES('Grafit', '#3a3b3d', isS('topp', 'hylla', 'lada')),
+  ES('Matt vit', '#eeeeea', isS('decor')), ES('Matt grå', '#4d4d4b', isS('decor')),
+  ...[['Décor vit', '#e6ddd0', 'topp'], ['Décor grå', '#8d8781', 'topp'], ['Vit', '#ece6dc', 'decor'], ['Grå', '#8a847d', 'decor'], ['Natur björk', '#d9bf98', 'decor']]
+    .map(([n, hex, sy]) => ({ name: n, hex, group: 'Trä', when: isS(sy), m: { decor: { mat: sy === 'decor' && n.includes('björk') ? 'bjork' : 'ek', color: hex } } }))];
 const S6 = .607, S9 = .902, S4 = .451;
-for (const [n, mods, djup, gren, h] of [
-  ['startpaket 124 (2 sektioner)', [['hang', S6], ['hang', S6]], .405, 2.14, 2.17],
-  ['startpaket 186 (3 sektioner)', [['hang', S6], ['hang', S6], ['hang', S6]], .405, 2.14, 2.17],
-  ['klädkammare 4 sektioner', [['dubbel', S6], ['lador', S6], ['hang', S6], ['hyllor', S6]], .405, 2.14, 2.2],
-  ['klädkammare 5 sektioner', [['hang', S6], ['dubbel', S6], ['lador', S6], ['skor', S6], ['dubbel', S6]], .405, 2.14, 2.2],
-  ['klädkammare hörna 90+60+90', [['dubbel', S9], ['lador', S6], ['hyllor', S9]], .405, 2.14, 2.2],
-  ['hall 30 djup', [['hang', S9], ['skor', S6]], .305, 1.532, 2.0],
-  ['förråd hyllor 50 djup', [['hyllor', S9], ['hyllor', S9]], .494, 2.14, 2.2],
-  ['smal 45 med lådor', [['lador', S4]], .405, 2.14, 2.2]])
-  list.push(B(`Elfa Classic ${n}`, 'elfa', 0, 0, 0, { mods: mods.map(([t, w]) => ({ t, w })), djup, gren, skenaH: h, decor: false, klader: true },
-    { ...ELFA_SYS[0].m, decor: ELFA_DEC[0].m.decor, stang: { mat: 'rostfritt', color: '#cfd1d3' } }, 'elfa garderobsinredning kladkammare'));
+for (const [n, system, mods, djup, gren, h, extra = {}] of [
+  ['Classic startpaket 124 (2 sektioner)', 'topp', [['hang', S6], ['hang', S6]], .405, 2.14, 2.17],
+  ['Classic startpaket 186 (3 sektioner)', 'topp', [['hang', S6], ['hang', S6], ['hang', S6]], .405, 2.14, 2.17],
+  ['Classic klädkammare 4 sektioner', 'topp', [['dubbel', S6], ['lador', S6], ['hang', S6], ['hyllor', S6]], .405, 2.14, 2.2],
+  ['Classic klädkammare 5 sektioner', 'topp', [['hang', S6], ['dubbel', S6], ['lador', S6], ['skor', S6], ['dubbel', S6]], .405, 2.14, 2.2],
+  ['Classic hall 30 djup', 'topp', [['hang', S9], ['skor', S6]], .305, 1.532, 2.0],
+  ['Classic förråd hyllor 50 djup', 'topp', [['hyllor', S9], ['hyllor', S9]], .494, 2.14, 2.2],
+  ['Décor+ klädkammare 3 sektioner', 'decor', [['dubbel', S6], ['lador', S6], ['hang', S6]], .405, 2.14, 2.2],
+  ['Classic fristående 3 sektioner', 'frist', [['hang', S6], ['lador', S6], ['dubbel', S6]], .405, 0, 0, { hojd: 2.2 }],
+  ['Classic fristående låg 2 sektioner', 'frist', [['hyllor', S6], ['hyllor', S6]], .405, 0, 0, { hojd: 1.11 }],
+  ['hyllsystem bokhylla 3 sektioner', 'hylla', [['hyllor', S9], ['hyllor', S9], ['hyllor', S9]], .25, 1.98, 2.1],
+  ['lådsystem 3 lådhurtsar', 'lada', [['mix', .45], ['sma', .45], ['mix', .45]], .535, 0, 0, { ram: .74 }]])
+  list.push(B(`Elfa ${n}`, 'elfa', 0, 0, 0, { system, mods: mods.map(([t, w]) => ({ t, w })), djup, gren: gren || 2.14, skenaH: h || 2.2, decor: false, klader: true, ...extra },
+    { stomme: ELFA_COL.find(c => c.when({ system })).m.stomme, decor: ELFA_COL.find(c => c.group === 'Trä' && c.when({ system: system === 'decor' ? 'decor' : 'topp' })).m.decor, stang: { mat: 'rostfritt', color: '#cfd1d3' } },
+    'elfa garderobsinredning kladkammare'));
 // Elfa skjutdörrar (måttbeställda, upp till 2700 mm höga). Profil: Silver, Sanded White, Sanded Black. Artic och Vista har lite olika fyllningar.
 const DF = (n, mat, hex, only) => ({ name: n, hex, group: 'Fyllning', only, m: { fyll1: { mat, color: hex } } });
 const ART = /Artic/, VIS = /Vista/;
@@ -156,13 +165,12 @@ export const FAMILIES = {
   'Hemtex Mali': { label: 'Färg', choices: MALI, opts: ['oppen', 'stangH'], dims: ['w'], fixed: [['Tyg', 'Sammet, 100 % polyester'], ['Upphängning', 'Multiband']] },
   'Rustikunik matbord': { label: 'Träslag & kulör', choices: RK_EK, opts: ['utdragen'], fixed: [['Skiva', 'Massiv ek, 4 cm'], ['Höjd', '74 cm']] },
   'Rustikunik soffbord': { label: 'Träslag & kulör', choices: RK_EK, fixed: [['Skiva', 'Massiv ek, 4 cm']] },
-  'Elfa Classic': { label: 'Färg', choices: [...ELFA_SYS, ...ELFA_DEC], groupIf: { 'Décor (trä)': o => o.decor }, opts: ['mods', 'djup', 'gren', 'skenaH', 'decor', 'klader'],
-    fixed: [['Klädstång', 'Silver, Ø 25 mm'], ['Montering', 'Bärlisten skruvas i väggen, resten hängs på']] },
+  'Elfa': { label: 'Färg', choices: ELFA_COL, groupIf: { 'Trä': o => o.system === 'decor' || (o.system === 'topp' && o.decor) }, opts: ['mods', 'klader'] },
   'Elfa skjutdörrar': { label: 'Profil & fyllning', choices: ELFA_DOOR, groupIf: { 'Fyllning 2': o => o.modell !== 'plain' && !o.samma }, dims: ['w', 'h'], opts: ['dorrar', 'samma', 'oppen'],
     fixed: [['Måttbeställd', 'Bredd och höjd efter din öppning, upp till 270 cm'], ['Skenor', 'Tvåspårig överskena 10 cm + golvskena']] },
   'MIO Väderö':  { label: 'Tyg på säng och gavel', choices: VADERO_CHOICES, fixed: [['Ben', 'Krom, 18 cm'], ['Bäddmadrass', 'Väderö, 8 cm']] },
 };
-const FAM_OF = n => n.startsWith('Elfa Classic') ? 'Elfa Classic' : n.startsWith('Elfa skjut') ? 'Elfa skjutdörrar' : n.startsWith('Hemtex Mali') ? 'Hemtex Mali' : n.startsWith('Rustikunik runt') ? 'Rustikunik matbord' : n.startsWith('Rustikunik rekt') ? 'Rustikunik soffbord' : n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('MIO Väderö') ? 'MIO Väderö' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
+const FAM_OF = n => n.startsWith('Elfa skjut') ? 'Elfa skjutdörrar' : n.startsWith('Elfa ') ? 'Elfa' : n.startsWith('Hemtex Mali') ? 'Hemtex Mali' : n.startsWith('Rustikunik runt') ? 'Rustikunik matbord' : n.startsWith('Rustikunik rekt') ? 'Rustikunik soffbord' : n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('MIO Väderö') ? 'MIO Väderö' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
   : ['BILLY', 'KALLAX', 'PAX', 'MALM'].includes(n) ? 'IKEA ' + n : null;
 for (const p of PRESETS) { p.family = FAM_OF(p.name); if (p.family) p.variant = p.label.replace(/\b(vit|svartbrun|ek|bjork|svart)\b/g, '').replace(/\s+/g, ' ').trim(); }
 // familjens storlekar/modeller (en per variant)
