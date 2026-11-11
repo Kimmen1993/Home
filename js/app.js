@@ -1,20 +1,20 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794438173';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794438173';
-import { createPlan } from './plan2d.js?v=1794438173';
-import { createView } from './view3d.js?v=1794438173';
-import { createHA } from './ha.js?v=1794438173';
-import { detectPlan } from './autoplan.js?v=1794438173';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794438173';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794438173';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794438173';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794438173';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794438173';
-import { checkHome } from './check.js?v=1794438173';
-import { openTakStudio, takList } from './tak.js?v=1794438173';
-import { openByggStudio } from './byggstudio.js?v=1794438173';
-import { byggList } from './bygg.js?v=1794438173';
-import { openElfaStudio } from './elfastudio.js?v=1794438173';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794439882';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794439882';
+import { createPlan } from './plan2d.js?v=1794439882';
+import { createView } from './view3d.js?v=1794439882';
+import { createHA } from './ha.js?v=1794439882';
+import { detectPlan } from './autoplan.js?v=1794439882';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794439882';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794439882';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794439882';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794439882';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794439882';
+import { checkHome } from './check.js?v=1794439882';
+import { openTakStudio, takList } from './tak.js?v=1794439882';
+import { openByggStudio } from './byggstudio.js?v=1794439882';
+import { byggList } from './bygg.js?v=1794439882';
+import { openElfaStudio } from './elfastudio.js?v=1794439882';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -24,7 +24,7 @@ window.toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.
 load();
 const ui = { trackDone(t) { const n = panelsForWindows(home(), t); window.toast(n ? `🛤️ Skena klar – ${n} gardiner hängdes vid fönstren` : '🛤️ Skena klar – lägg till gardiner i panelen'); }, toast: window.toast, ptSel() { renderRight(); }, rotated(it) { const r = right.querySelector('[data-rot]'), b = right.querySelector('[data-f=rot]'); if (r) r.value = Math.round(it.rot); if (b) b.value = Math.round(it.rot); }, toolDone() { if (!S.placing && (S.tool === 'add' || S.tool === 'room')) S.tool = 'select'; renderToolbar(); renderRight(); hint(); } };
 const plan = createPlan($('#plan'), ui);
-const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone, levelChanged() { renderAll(); emit('full'); } });
+const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone, levelChanged() { renderAll(); emit('full'); }, viewChanged: st => renderVtools(st) });
 const ha = createHA({ onState: haState, onStatus: (s, msg) => { renderSide(); if (msg) window.toast(msg); if (s === 'on') { window.toast('Ansluten till Home Assistant ✔'); renderRight(); } } });
 let catTab = 'oppningar';
 
@@ -443,16 +443,25 @@ right.addEventListener('click', e => { const b = e.target.closest('[data-sres]')
 // ---------- Elfa-verkstan med rummets riktiga väggar ----------
 // rummets väggar sedda inifrån: från vänster till höger hörn, inre väggytan, med fönster och dörrar
 function roomWalls(h, r) {
-  const P = r.pts, n = P.length;
-  return P.map((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+  // Exakt inre väggyta: för varje kant i rummet letas den parallella väggen upp och dess inre yta räknas ut (oavsett om rummets
+  // linje ligger i väggens mitt eller på dess yta, och oavsett väggtjocklek). Hörnen blir skärningen mellan två inre ytor.
+  const P = r.pts, n = P.length, solid = h.walls.filter(w => !w.virtual && wallLen(w) > .01);
+  const E = P.map((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
     let nx = -uy, ny = ux; if (!inPoly({ x: (a.x + b.x) / 2 + nx * .05, y: (a.y + b.y) / 2 + ny * .05 }, P)) { nx = -nx; ny = -ny; }
-    const near = (p, w) => { const wl = wallLen(w), wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl, t = (p.x - w.a.x) * wx + (p.y - w.a.y) * wy; return Math.abs((p.x - w.a.x) * wy - (p.y - w.a.y) * wx) < .08 && t > -.08 && t < wl + .08; };
-    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, wall = h.walls.find(w => near(mid, w)), T = wall?.t || .1, half = T / 2;
-    const rx = ny, ry = -nx, s0 = ux * rx + uy * ry > 0 ? a : b, len = Math.max(.2, L - T);
-    const x1 = s0.x + nx * half + rx * half, y1 = s0.y + ny * half + ry * half, win = [], doors = [];
-    for (const o of h.openings) { const w = h.walls.find(x => x.id === o.wall); if (!w || !(near(w.a, { a, b }) || near(w.b, { a, b }) || w === wall)) continue;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; let wall = null, off = 0, best = .45;
+    for (const w of solid) { const wl = wallLen(w), wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl; if (Math.abs(wx * uy - wy * ux) > .03) continue;
+      const t = (mx - w.a.x) * wx + (my - w.a.y) * wy; if (t < -.05 || t > wl + .05) continue;
+      const dc = (w.a.x - mx) * nx + (w.a.y - my) * ny;   // väggens mittlinje: + = inne i rummet
+      if (Math.abs(dc) < best) { best = Math.abs(dc); wall = w; off = dc + (w.t || .1) / 2; } }
+    return { a, b, ux, uy, nx, ny, wall, off: wall ? Math.max(0, off) : 0 }; });
+  const cross = (e1, e2) => { const p1 = { x: e1.a.x + e1.nx * e1.off, y: e1.a.y + e1.ny * e1.off }, p2 = { x: e2.a.x + e2.nx * e2.off, y: e2.a.y + e2.ny * e2.off }, den = e1.ux * e2.uy - e1.uy * e2.ux;
+    if (Math.abs(den) < 1e-6) return p2; const t = ((p2.x - p1.x) * e2.uy - (p2.y - p1.y) * e2.ux) / den; return { x: p1.x + e1.ux * t, y: p1.y + e1.uy * t }; };
+  return E.map((e, i) => { const c0 = cross(E[(i - 1 + n) % n], e), c1 = cross(e, E[(i + 1) % n]), { nx, ny, wall } = e;
+    const rx = ny, ry = -nx, [s0, s1] = e.ux * rx + e.uy * ry > 0 ? [c0, c1] : [c1, c0], len = Math.max(.2, Math.hypot(s1.x - s0.x, s1.y - s0.y));
+    const x1 = s0.x, y1 = s0.y, win = [], doors = [];
+    for (const o of h.openings) { const w = h.walls.find(x => x.id === o.wall); if (!w) continue;
       const wl = wallLen(w), cx = w.a.x + (w.b.x - w.a.x) / wl * o.t, cy = w.a.y + (w.b.y - w.a.y) / wl * o.t, along = (cx - x1) * rx + (cy - y1) * ry;
-      if (Math.abs((cx - x1) * nx + (cy - y1) * ny) > .3 || along < -o.w / 2 || along > len + o.w / 2) continue;
+      if (Math.abs((cx - x1) * nx + (cy - y1) * ny) > .35 || along < -o.w / 2 || along > len + o.w / 2) continue;
       if (o.kind === 'window') win.push([along - o.w / 2, o.w, o.sill || 0, o.h]); else doors.push([along - o.w / 2, o.w, o.h]); }
     // möbler som står mot väggen (visas som skuggor i verkstäderna så man inte bygger på dem)
     const items = h.items.filter(it => !ITEMS[it.type]?.ceil && !['matta', 'skena', 'platsbyggt', 'elfa'].includes(it.type) && !it.grp).map(it => {
@@ -462,7 +471,7 @@ function roomWalls(h, r) {
     return { name: 'ABCDEFGHIJKL'[i], len, nx, nz: ny, rx, rz: ry, x1, z1: y1, x2: x1 + rx * len, z2: y1 + ry * len, win, doors, items }; });
 }
 function placeOnWall(it, W, off, out = 0) { it.rot = ((-Math.atan2(W.nx, W.nz) * 180 / Math.PI) % 360 + 360) % 360;
-  const a = off + it.w / 2, n = out + it.d / 2; it.x = Math.round((W.x1 + W.rx * a + W.nx * n) * 1000) / 1000; it.y = Math.round((W.z1 + W.rz * a + W.nz * n) * 1000) / 1000; }
+  const a = off + it.w / 2, n = out + it.d / 2; it.x = Math.round((W.x1 + W.rx * a + W.nx * n) * 1e5) / 1e5; it.y = Math.round((W.z1 + W.rz * a + W.nz * n) * 1e5) / 1e5; }
 // takverkstan: sänkt tak i ett rum (rummets omskrivna rektangel; plan-koordinater från övre vänstra hörnet)
 function roomBox(h, r) {
   const xs = r.pts.map(p => p.x), ys = r.pts.map(p => p.y), x0 = Math.min(...xs), y0 = Math.min(...ys), W = Math.max(...xs) - x0, D = Math.max(...ys) - y0;
@@ -855,6 +864,32 @@ requestAnimationFrame(() => { plan.resize(); plan.fit(); });
 window.addEventListener('resize', () => plan.resize());
 new ResizeObserver(() => plan.resize()).observe($('#pane2d'));
 if (S.ha.url && S.ha.token) ha.connect(S.ha.url, S.ha.token);
+// ---------- visningsverktyg i 3D (snitt, dölj, isolera, genomskinligt, mät, vyer) ----------
+var vt = null;
+function renderVtools(st) {
+  if (!vt) return; st = st || view.tools.state();
+  const views = home().views || [];
+  vt.innerHTML = `<button data-vt="cut" class="${st.cut ? 'on' : ''}" title="Snittlåda – dra i de orange handtagen för att skära bort tak, väggar eller halva huset">✂️<small>Snitt</small></button>
+    <button data-vt="hide" title="Dölj det valda (H) · högerklicka i 3D för fler val">👁<small>Dölj</small></button>
+    <button data-vt="iso" class="${st.iso ? 'on' : ''}" title="Visa bara det valda (I)">🎯<small>Isolera</small></button>
+    ${st.hidden || st.iso ? `<button data-vt="all" class="on" title="Visa allt igen (Shift+H)">🔄<small>Visa allt${st.hidden ? ' (' + st.hidden + ')' : ''}</small></button>` : ''}
+    <button data-vt="xray" class="${st.xray ? 'on' : ''}" title="Genomskinliga väggar">🫥<small>Genomskin</small></button>
+    <button data-vt="measure" class="${st.measure ? 'on' : ''}" title="Mät – klicka på två punkter">📐<small>Mät</small></button>
+    <button data-vt="views" class="${vt._open ? 'on' : ''}" title="Sparade vyer">🎥<small>Vyer</small></button>
+    ${vt._open ? `<div class="vmenu">${views.map((v, i) => `<div class="vrow"><button data-vgo="${i}">🎥 ${esc(v.name)}</button><button data-vdel="${i}" title="Ta bort">✕</button></div>`).join('') || '<div class="note" style="padding:6px">Inga sparade vyer än</div>'}
+      <button data-vsave>＋ Spara den här vyn</button></div>` : ''}`;
+}
+vt = document.createElement('div'); vt.className = 'vtools'; $('#pane3d').appendChild(vt); renderVtools();
+vt.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const d = b.dataset, T = view.tools;
+  if (d.vt === 'cut') T.cut(); if (d.vt === 'xray') T.xray(); if (d.vt === 'measure') { T.measure(); window.toast(view.tools.state().measure ? '📐 Klicka på två punkter i 3D' : 'Mätning av'); }
+  if (d.vt === 'hide' || d.vt === 'iso') { if (!S.sel) return window.toast('Välj något först – eller högerklicka direkt i 3D'); d.vt === 'hide' ? T.hideSel(S.sel) : T.isoSel(S.sel); if (d.vt === 'hide') { S.sel = null; emit('sel'); } }
+  if (d.vt === 'all') T.showAll();
+  if (d.vt === 'views') { vt._open = !vt._open; renderVtools(); }
+  if ('vsave' in d) { const n = prompt('Namn på vyn', `Vy ${(home().views || []).length + 1}`); if (!n) return; commit(); home().views = [...(home().views || []), { name: n.trim(), ...T.getView() }]; save(); renderVtools(); }
+  if (d.vgo !== undefined) T.goView(home().views[+d.vgo]);
+  if (d.vdel !== undefined) { commit(); home().views.splice(+d.vdel, 1); save(); renderVtools(); } });
+window.addEventListener('keydown', e => { if (e.target.matches('input,textarea') || document.querySelector('.es-ov') || e.metaKey || e.ctrlKey) return; const k = e.key.toLowerCase();
+  if (k === 'h' && e.shiftKey) view.tools.showAll(); else if (k === 'h' && S.sel) { view.tools.hideSel(S.sel); S.sel = null; emit('sel'); } else if (k === 'i' && S.sel) view.tools.isoSel(S.sel); });
 window.__hemma = { S, home, emit, plan, view };
 window.addEventListener('pagehide', flushSave);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });

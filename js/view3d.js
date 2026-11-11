@@ -7,16 +7,16 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794438173';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794438173';
-import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794438173';
-import { insideSign } from './plan2d.js?v=1794438173';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794439882';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794439882';
+import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794439882';
+import { insideSign } from './plan2d.js?v=1794439882';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;   // skuggorna räknas om bara när något ändras
   host.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(36, 1, 0.1, 400);
@@ -134,10 +134,49 @@ export function createView(host, api) {
     else { g.globalAlpha = .55; g.fillRect(0, 0, 32, 64); g.fillRect(0, 0, 64, 32); g.globalAlpha = 1; }
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; texCache.set(k, t); return t; }
   let screenTex = null;
-  function tvScreen() { if (screenTex) return screenTex; const c = document.createElement('canvas'); c.width = 256; c.height = 144; const g = c.getContext('2d');
-    const gr = g.createLinearGradient(0, 0, 256, 144); gr.addColorStop(0, '#1d4e89'); gr.addColorStop(.5, '#e86a33'); gr.addColorStop(1, '#2a1a4a'); g.fillStyle = gr; g.fillRect(0, 0, 256, 144);
-    g.fillStyle = 'rgba(255,255,255,.85)'; g.font = 'bold 22px system-ui'; g.fillText('▶  Fredagsfilm', 18, 124);
-    screenTex = new THREE.CanvasTexture(c); screenTex.colorSpace = THREE.SRGBColorSpace; return screenTex; }
+  // levande tv-bild: fyra kanaler som byter var 12:e sekund (ritas ca 15 gånger i sekunden när någon tv är på)
+  let tvCan = null, tvG = null, tvLast = 0;
+  function tvScreen() { if (screenTex) return screenTex; tvCan = document.createElement('canvas'); tvCan.width = 512; tvCan.height = 288; tvG = tvCan.getContext('2d');
+    drawTV(0); screenTex = new THREE.CanvasTexture(tvCan); screenTex.colorSpace = THREE.SRGBColorSpace; return screenTex; }
+  function drawTV(t) {
+    const g = tvG, W = 512, H = 288, ch = Math.floor(t / 12) % 4, lt = t % 12; g.save();
+    if (ch === 0) { // solnedgång över sjön
+      let gr = g.createLinearGradient(0, 0, 0, 170); gr.addColorStop(0, '#2b2257'); gr.addColorStop(.55, '#d9576b'); gr.addColorStop(1, '#ffb366'); g.fillStyle = gr; g.fillRect(0, 0, W, 170);
+      g.fillStyle = '#ffd9a0'; g.beginPath(); g.arc(300, 150 - lt * .8, 34, 0, 7); g.fill();
+      g.fillStyle = '#3a2440'; g.beginPath(); g.moveTo(0, 170); for (let x = 0; x <= W; x += 32) g.lineTo(x, 120 + Math.sin(x * .02) * 22 + Math.sin(x * .05) * 8); g.lineTo(W, 170); g.fill();
+      gr = g.createLinearGradient(0, 170, 0, H); gr.addColorStop(0, '#c4566a'); gr.addColorStop(1, '#241a3d'); g.fillStyle = gr; g.fillRect(0, 170, W, H - 170);
+      g.fillStyle = 'rgba(255,214,150,.75)'; for (let i = 0; i < 14; i++) { const y = 176 + i * 8, w2 = 60 - i * 3 + Math.sin(t * 3 + i) * 8; g.fillRect(300 - w2 / 2, y, w2, 2); }
+      g.strokeStyle = '#1b1028'; g.lineWidth = 2.2; for (let i = 0; i < 5; i++) { const bx = (t * 22 + i * 47) % (W + 80) - 40, by = 70 + i * 9 + Math.sin(t * 2 + i) * 4, f = Math.sin(t * 9 + i) * 5;
+        g.beginPath(); g.moveTo(bx - 9, by - f); g.quadraticCurveTo(bx - 4, by - 4, bx, by); g.quadraticCurveTo(bx + 4, by - 4, bx + 9, by - f); g.stroke(); } }
+    else if (ch === 1) { // norrsken
+      g.fillStyle = '#05091c'; g.fillRect(0, 0, W, H); g.fillStyle = '#fff'; for (let i = 0; i < 70; i++) g.fillRect((i * 97) % W, (i * 53) % 160, 1.5, 1.5);
+      g.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < 3; k++) { const col = ['rgba(60,255,170,', 'rgba(80,200,255,', 'rgba(170,90,255,'][k]; for (let x = 0; x < W; x += 3) { const y = 70 + k * 18 + Math.sin(x * .012 + t * .7 + k) * 28 + Math.sin(x * .031 - t * .4) * 12;
+        const gr = g.createLinearGradient(0, y - 70, 0, y + 6); gr.addColorStop(0, col + '0)'); gr.addColorStop(1, col + '.28)'); g.fillStyle = gr; g.fillRect(x, y - 70, 3, 76); } }
+      g.globalCompositeOperation = 'source-over'; g.fillStyle = '#e8eef5'; g.fillRect(0, 230, W, 58);
+      g.fillStyle = '#0d1a14'; for (let i = 0; i < 26; i++) { const x = i * 21 + (i % 3) * 5, h = 40 + (i * 37) % 35; g.beginPath(); g.moveTo(x, 236); g.lineTo(x + 9, 236 - h); g.lineTo(x + 18, 236); g.fill(); } }
+    else if (ch === 2) { // fotboll
+      g.fillStyle = '#2f8a3b'; g.fillRect(0, 0, W, H); for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#2a7d35' : '#33933f'; g.fillRect(i * 64, 0, 64, H); }
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2.5; g.strokeRect(20, 30, W - 40, H - 50); g.beginPath(); g.moveTo(W / 2, 30); g.lineTo(W / 2, H - 20); g.stroke(); g.beginPath(); g.arc(W / 2, H / 2 + 5, 38, 0, 7); g.stroke();
+      const bx = W / 2 + Math.sin(t * .9) * 170, by = H / 2 + Math.sin(t * 1.7) * 70;
+      for (let i = 0; i < 10; i++) { const team = i < 5, px = bx + Math.sin(t * .8 + i * 1.7) * (60 + i * 9) + (team ? -30 : 30), py = by + Math.cos(t * 1.1 + i * 2.1) * (40 + i * 5);
+        g.fillStyle = team ? '#fecc02' : '#d1232a'; g.beginPath(); g.arc(px, py, 6, 0, 7); g.fill(); g.fillStyle = team ? '#006aa7' : '#fff'; g.fillRect(px - 4, py + 4, 8, 4); }
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(bx, by, 4, 0, 7); g.fill();
+      g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(16, 8, 150, 26); g.fillStyle = '#fff'; g.font = 'bold 16px system-ui'; g.fillText(`SVE 2 – 1 NOR  ${String(67 + Math.floor(t / 4) % 20).padStart(2, '0')}'`, 24, 27); }
+    else { // undervattensvärld
+      const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#2bb6d6'); gr.addColorStop(1, '#06305a'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(255,255,255,.08)'; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(60 + i * 90 + Math.sin(t + i) * 20, 0); g.lineTo(100 + i * 90, 0); g.lineTo(40 + i * 90, H); g.lineTo(i * 90, H); g.fill(); }
+      g.fillStyle = '#d9b77e'; g.fillRect(0, 260, W, 28); g.fillStyle = '#2f7a4a'; for (let i = 0; i < 9; i++) { const x = 20 + i * 58; g.beginPath(); g.moveTo(x, 262); g.quadraticCurveTo(x + Math.sin(t * 1.5 + i) * 14, 220, x + 4, 180 + (i % 3) * 15); g.lineTo(x + 8, 262); g.fill(); }
+      const cols = ['#ff8a3d', '#ffd23d', '#ff5ea8', '#5ef0ff', '#ffffff'];
+      for (let i = 0; i < 8; i++) { const dir = i % 2 ? 1 : -1, x = ((t * (24 + i * 6) * dir + i * 83) % (W + 60) + W + 60) % (W + 60) - 30, y = 50 + i * 24 + Math.sin(t * 2 + i) * 8;
+        g.fillStyle = cols[i % 5]; g.beginPath(); g.ellipse(x, y, 14, 7, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(x - dir * 12, y); g.lineTo(x - dir * 22, y - 7); g.lineTo(x - dir * 22, y + 7); g.fill();
+        g.fillStyle = '#111'; g.beginPath(); g.arc(x + dir * 7, y - 2, 1.6, 0, 7); g.fill(); }
+      g.strokeStyle = 'rgba(255,255,255,.6)'; for (let i = 0; i < 12; i++) { const x = (i * 43) % W, y = H - ((t * 30 + i * 27) % H); g.beginPath(); g.arc(x + Math.sin(t * 3 + i) * 3, y, 2 + i % 3, 0, 7); g.stroke(); } }
+    // kanalskylt de första sekunderna
+    if (lt < 3) { g.globalAlpha = Math.min(1, 3 - lt); g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(14, H - 44, 200, 30); g.fillStyle = '#fff'; g.font = 'bold 15px system-ui';
+      g.fillText(['▶ Natur · Solnedgång', '▶ Natur · Norrsken', '⚽ Sport · Landskamp', '🐠 Djupt hav'][ch], 24, H - 24); g.globalAlpha = 1; }
+    g.restore();
+  }
   const shade = (hex, f) => '#' + new THREE.Color(hex).multiplyScalar(f).getHexString();
 
   // ---------- hjälpare ----------
@@ -580,7 +619,16 @@ export function createView(host, api) {
     const sc = sun.shadow.camera; sc.left = sc.bottom = -size * .9; sc.right = sc.top = size * .9; sc.near = 1; sc.far = size * 4; sc.updateProjectionMatrix();
     if (focus) { const xs = focus.pts.map(p => p.x), ys = focus.pts.map(p => p.y); focusB = { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2, size: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 3), z: act.z || 0 }; } else focusB = null;
     const sig = raw.id + ':' + (pts.length > 0) + ':' + (focus ? focus.id : '') + ':' + act.id; if (!built || sig !== lastSig) fitCam(); built = true; lastSig = sig;
-    applyStates(true); setLighting(); highlight();
+    applyStates(true); setLighting(); highlight(); applyVis();
+    lamps = []; world.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== sun) { lamps.push(o); o.castShadow = false; o.shadow.mapSize.set(512, 512); o.shadow.bias = -.004; o.shadow.normalBias = .03; o.shadow.radius = 4; o.shadow.camera.near = .05; } });
+    assignShadows(true);
+  }
+  // lampor lyser inte genom väggar: de tända lamporna närmast det man tittar på får riktiga skuggor (max 6 – grafikkortet har ett tak)
+  let lamps = [], lastT = new THREE.Vector3(1e9, 0, 0), shadowDirty = true; const MAXSH = 6, wp = new THREE.Vector3();
+  function assignShadows(force) {
+    if (!force && lastT.distanceTo(controls.target) < 1) return; lastT.copy(controls.target);
+    const sorted = lamps.map(L => { L.getWorldPosition(wp); return [L, (L.intensity > .01 ? 0 : 1e6) + wp.distanceTo(controls.target)]; }).sort((a, b) => a[1] - b[1]);
+    sorted.forEach(([L], i) => { L.castShadow = i < MAXSH; }); shadowDirty = true;
   }
   let bounds = { cx: 6, cy: 5, size: 12 }, focusB = null;
   const area = r => { let s = 0; r.pts.forEach((a, i) => { const b = r.pts[(i + 1) % r.pts.length]; s += a.x * b.y - b.x * a.y; }); return Math.abs(s / 2); };
@@ -606,6 +654,7 @@ export function createView(host, api) {
   function animate(dt) {
     const k = Math.min(1, dt * 5), now = performance.now() / 1000;
     for (const id in refs.items) { const r = refs.items[id]; if (r.target === undefined) continue;
+      if ((r.curtains || r.tracks) && Math.abs(r.target - r.cur) > .002) shadowDirty = true;
       r.cur += (r.target - r.cur) * k; const v = r.cur, dev = ITEMS[r.it.type].dev;
       if (r.light) r.light.intensity = v * (r.power || 10) * (dev === 'tv' ? 1 : 1);
       if (r.flights) r.flights.forEach(L => L.intensity = v * (L.userData.power || 1) * (L.isSpotLight ? 40 : 7));
@@ -618,6 +667,7 @@ export function createView(host, api) {
       if (r.cones) { const p = v > .5 ? 1 + Math.abs(Math.sin(now * 9)) * .12 : 1; r.cones.forEach(c => c.scale.set(p, 1, p)); }
     }
     for (const id in refs.openings) { const r = refs.openings[id];
+      if (Math.abs((r.tOpen ?? 0) - (r.open ?? 0)) > .002 || Math.abs((r.tBlind ?? 0) - (r.blind ?? 0)) > .002) shadowDirty = true;
       r.open += ((r.tOpen ?? 0) - (r.open ?? 0)) * k; r.blind += ((r.tBlind ?? 0) - (r.blind ?? 0)) * k;
       if (r.pivot) r.pivot.rotation.y = r.sign * r.open * Math.PI * .5;
       if (r.sashes) r.sashes.forEach(s => s.g.rotation[s.axis] = s.sign * r.open * s.max);
@@ -645,6 +695,74 @@ export function createView(host, api) {
   function pickAt(e) { rayAt(e); const hits = ray.intersectObjects(world.children, true);
     for (const h of hits) { let o = h.object, vis = true; while (o) { if (!o.visible) { vis = false; break; } o = o.parent; } if (!vis) continue;
       const p = h.object.userData.pick; if (p) return { ...p, point: h.point }; } return null; }
+  // ---------- visningsverktyg (som Navisworks): snittlåda, dölj/isolera, genomskinliga väggar, mät, sparade vyer ----------
+  const helpers = new THREE.Scene(); renderer.autoClear = true;
+  const V = { hide: new Set(), iso: null, xray: false, cut: null, measure: null, mpts: [], drag: null };
+  const keyOf = p => p ? p.type + ':' + p.id : null;
+  const xrayMat = new THREE.MeshStandardMaterial({ color: 0xdfe6ee, transparent: true, opacity: .16, depthWrite: false, roughness: .6 });
+  function applyVis() {
+    world.traverse(o => { const p = o.userData.pick; if (!o.isMesh || !p || p.type === 'ground') return; const k = keyOf(p);
+      if (o.userData.vis0 === undefined) o.userData.vis0 = o.visible;
+      // en dold eller (vid isolering) annan sak syns inte; rum (golv) syns alltid vid isolering så man ser var man är
+      o.visible = o.userData.vis0 && !V.hide.has(k) && (!V.iso || k === V.iso || p.type === 'room');
+      if (p.type === 'wall') { if (V.xray) { if (!o.userData.mat0) o.userData.mat0 = o.material; o.material = xrayMat; o.castShadow = false; } else if (o.userData.mat0) { o.material = o.userData.mat0; o.userData.mat0 = null; o.castShadow = true; } } });
+    renderer.clippingPlanes = V.cut ? cutPlanes() : [];
+    if (!V.drag) cutShadows();
+    drawHelpers(); api.viewChanged?.(viewState());
+  }
+  // det som snittas bort (t.ex. taket) ska inte kasta skugga in i rummet
+  const bb = new THREE.Box3();
+  function cutShadows() { world.traverse(o => { if (!o.isMesh) return; if (o.userData.cs0 === undefined) o.userData.cs0 = o.castShadow;
+    if (!V.cut) { o.castShadow = o.userData.cs0; return; } bb.setFromObject(o); const { min, max } = V.cut;
+    o.castShadow = o.userData.cs0 && bb.max.y <= max.y + .01 && bb.min.x >= min.x - .01 && bb.max.x <= max.x + .01 && bb.min.z >= min.z - .01 && bb.max.z <= max.z + .01; }); }
+  const viewState = () => ({ hidden: V.hide.size, iso: !!V.iso, xray: V.xray, cut: !!V.cut, measure: !!V.measure });
+  // snittlådan: sex plan + handtag på varje sida
+  const cutPlanes = () => { const { min, max } = V.cut; return [new THREE.Plane(new THREE.Vector3(1, 0, 0), -min.x), new THREE.Plane(new THREE.Vector3(-1, 0, 0), max.x), new THREE.Plane(new THREE.Vector3(0, 1, 0), -min.y),
+    new THREE.Plane(new THREE.Vector3(0, -1, 0), max.y), new THREE.Plane(new THREE.Vector3(0, 0, 1), -min.z), new THREE.Plane(new THREE.Vector3(0, 0, -1), max.z)]; };
+  const AX = [['x', -1], ['x', 1], ['y', -1], ['y', 1], ['z', -1], ['z', 1]];
+  const hMat = new THREE.MeshBasicMaterial({ color: 0xff7a2f, depthTest: false }), hMatOn = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
+  function drawHelpers() {
+    helpers.clear();
+    if (V.cut) { const { min, max } = V.cut, c = new THREE.Vector3().addVectors(min, max).multiplyScalar(.5), sz = new THREE.Vector3().subVectors(max, min);
+      const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sz.x, sz.y, sz.z)), new THREE.LineBasicMaterial({ color: 0xff7a2f, depthTest: false, transparent: true, opacity: .8 }));
+      box.position.copy(c); helpers.add(box);
+      const r = Math.max(.12, Math.min(.35, cam.position.distanceTo(c) * .018));
+      AX.forEach(([a, sg], i) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12), V.drag?.i === i ? hMatOn : hMat); m.position.copy(c); m.position[a] = sg < 0 ? min[a] : max[a]; m.userData.h = i; m.renderOrder = 10; helpers.add(m); }); }
+    if (V.mpts.length) { const mm = new THREE.MeshBasicMaterial({ color: 0xffd27a, depthTest: false });
+      for (const p of V.mpts) { const d = new THREE.Mesh(new THREE.SphereGeometry(.05, 14, 10), mm); d.position.copy(p); helpers.add(d); }
+      if (V.mpts.length === 2) helpers.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(V.mpts), new THREE.LineBasicMaterial({ color: 0xffd27a, depthTest: false }))); }
+  }
+  function startCut() { const lz = home().__level.z || 0, H = (home().ceiling || 2.5) + .4, { cx, cy, size } = bounds, hs = size / 2 + .5;
+    V.cut = { min: new THREE.Vector3(cx - hs, lz - .3, cy - hs), max: new THREE.Vector3(cx + hs, lz + H, cy + hs) }; applyVis(); }
+  const hPick = e => { rayAt(e); const hs = ray.intersectObjects(helpers.children.filter(o => o.userData.h !== undefined)); return hs[0]?.object.userData.h; };
+  // mätning: avstånd mellan två punkter + etikett som följer med kameran
+  const mLabel = document.createElement('div'); mLabel.className = 'mlabel'; mLabel.hidden = true; host.appendChild(mLabel);
+  function placeLabel() { if (V.mpts.length !== 2) { mLabel.hidden = true; return; } const [a, b] = V.mpts, m = a.clone().add(b).multiplyScalar(.5).project(cam);
+    if (m.z > 1) { mLabel.hidden = true; return; } const r = renderer.domElement.getBoundingClientRect(); mLabel.hidden = false; mLabel.style.left = ((m.x + 1) / 2 * r.width) + 'px'; mLabel.style.top = ((1 - m.y) / 2 * r.height) + 'px';
+    const d = a.distanceTo(b), dy = Math.abs(a.y - b.y), dxz = Math.hypot(a.x - b.x, a.z - b.z); mLabel.innerHTML = `<b>${Math.round(d * 100)} cm</b>${dy > .02 && dxz > .02 ? `<small>↔ ${Math.round(dxz * 100)} · ↕ ${Math.round(dy * 100)}</small>` : ''}`; }
+  // högerklick-meny
+  const ctx = document.createElement('div'); ctx.className = 'ctxmenu'; ctx.hidden = true; host.appendChild(ctx);
+  renderer.domElement.addEventListener('contextmenu', e => { const p = pickAt(e); e.preventDefault(); if (!p || p.type === 'ground') { ctx.hidden = true; return; } const r = host.getBoundingClientRect(), k = keyOf(p);
+    const name = p.type === 'wall' ? 'väggen' : p.type === 'room' ? 'golvet' : p.type === 'opening' ? 'dörren/fönstret' : 'den här';
+    ctx.innerHTML = `<button data-c="hide">👁 Dölj ${name}</button><button data-c="iso">🎯 Visa bara ${name}</button>${V.hide.size || V.iso ? '<button data-c="all">🔄 Visa allt igen</button>' : ''}<button data-c="cut">✂️ ${V.cut ? 'Stäng snittet' : 'Snitta här'}</button>`;
+    ctx.style.left = (e.clientX - r.left) + 'px'; ctx.style.top = (e.clientY - r.top) + 'px'; ctx.hidden = false; ctx._k = k; ctx._p = p; });
+  ctx.addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; const c = b.dataset.c; ctx.hidden = true;
+    if (c === 'hide') V.hide.add(ctx._k); if (c === 'iso') V.iso = ctx._k; if (c === 'all') { V.hide.clear(); V.iso = null; }
+    if (c === 'cut') { if (V.cut) V.cut = null; else { startCut(); const pt = ctx._p.point; if (pt) { V.cut.max.y = Math.max(V.cut.min.y + .5, pt.y + .05); } } } applyVis(); });
+  window.addEventListener('pointerdown', e => { if (!ctx.contains(e.target)) ctx.hidden = true; }, true);
+  renderer.domElement.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    if (V.cut) { const i = hPick(e); if (i !== undefined) { const [a] = AX[i]; V.drag = { i, a }; controls.enabled = false; e.stopImmediatePropagation(); drawHelpers(); return; } }
+    if (V.measure) { const p = pickAt(e); if (p?.point) { if (V.mpts.length >= 2) V.mpts = []; V.mpts.push(p.point.clone()); drawHelpers(); placeLabel(); } e.stopImmediatePropagation(); return; }
+  });
+  renderer.domElement.addEventListener('pointermove', e => {
+    if (!V.drag) return; e.stopImmediatePropagation(); rayAt(e); const { i, a } = V.drag, [, sg] = AX[i], { min, max } = V.cut;
+    // närmaste punkt på handtagets axel
+    const c = new THREE.Vector3().addVectors(min, max).multiplyScalar(.5), dir = new THREE.Vector3(a === 'x' ? 1 : 0, a === 'y' ? 1 : 0, a === 'z' ? 1 : 0);
+    const w0 = new THREE.Vector3().subVectors(ray.ray.origin, c), b = ray.ray.direction.dot(dir), d = ray.ray.direction.dot(w0), e2 = dir.dot(w0), den = 1 - b * b; if (den < 1e-4) return;
+    const t = (e2 - b * d) / den, v = c[a] + t;
+    if (sg < 0) min[a] = Math.min(v, max[a] - .2); else max[a] = Math.max(v, min[a] + .2); applyVis(); });
+  window.addEventListener('pointerup', () => { if (V.drag) { V.drag = null; controls.enabled = true; applyVis(); } });
   renderer.domElement.addEventListener('pointerdown', e => {
     if (e.button !== 0) return; down = { x: e.clientX, y: e.clientY }; drag = null;
     if (S.mode !== 'bygg' || S.placing) return;
@@ -691,15 +809,32 @@ export function createView(host, api) {
     const now = performance.now(), dt = (now - last) / 1000; last = now;
     if (!host.offsetParent) return;
     if (need) build();
-    animate(dt); controls.update(); if (selBox) selBox.update(); composer.render();
+    animate(dt); controls.update(); if (selBox) selBox.update(); assignShadows(false);
+    if (screenTex && now - tvLast > 66 && Object.values(refs.items).some(r => r.screen && r.cur > .05)) { tvLast = now; drawTV(now / 1000); screenTex.needsUpdate = true; }
+    if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+    composer.render();
+    if (helpers.children.length) { const cp = renderer.clippingPlanes; renderer.clippingPlanes = []; renderer.autoClear = false; renderer.clearDepth(); renderer.render(helpers, cam); renderer.autoClear = true; renderer.clippingPlanes = cp; }
+    if (V.mpts.length === 2) placeLabel();
   });
 
   return {
     cam, controls,
+    tools: {
+      cut() { if (V.cut) V.cut = null; else startCut(); applyVis(); },
+      hideSel(sel) { if (sel) { V.hide.add(sel.type + ':' + sel.id); applyVis(); } },
+      isoSel(sel) { if (sel) { V.iso = sel.type + ':' + sel.id; applyVis(); } },
+      showAll() { V.hide.clear(); V.iso = null; applyVis(); },
+      xray() { V.xray = !V.xray; applyVis(); },
+      measure() { V.measure = !V.measure; V.mpts = []; drawHelpers(); placeLabel(); api.viewChanged?.(viewState()); },
+      getView() { return { pos: cam.position.toArray().map(v => +v.toFixed(3)), target: controls.target.toArray().map(v => +v.toFixed(3)) }; },
+      goView(v) { const p0 = cam.position.clone(), t0 = controls.target.clone(), p1 = new THREE.Vector3(...v.pos), t1 = new THREE.Vector3(...v.target), t = performance.now();
+        const step = () => { const k = Math.min(1, (performance.now() - t) / 700), e = k * k * (3 - 2 * k); cam.position.lerpVectors(p0, p1, e); controls.target.lerpVectors(t0, t1, e); controls.update(); if (k < 1) requestAnimationFrame(step); }; step(); },
+      state: viewState,
+    },
     build() { need = true; },
     buildNow: build,
-    syncItem(id) { const r = refs.items[id]; if (!r) return; const it = r.it; if (furnKey(it)) { const e = onTopElev(it, home().items); if (e !== null) it.elev = e; } r.group.position.set(it.x, it.elev || 0, it.y); r.group.rotation.y = -it.rot * Math.PI / 180; },
-    states() { applyStates(false); },
+    syncItem(id) { const r = refs.items[id]; if (!r) return; const it = r.it; shadowDirty = true; if (furnKey(it)) { const e = onTopElev(it, home().items); if (e !== null) it.elev = e; } r.group.position.set(it.x, it.elev || 0, it.y); r.group.rotation.y = -it.rot * Math.PI / 180; },
+    states() { applyStates(false); setTimeout(() => assignShadows(true), 400); },
     highlight, fitCam, setLighting, resize,
     eye(room) { // stå i rummet i ögonhöjd
       const xs = room.pts.map(p => p.x), ys = room.pts.map(p => p.y), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
