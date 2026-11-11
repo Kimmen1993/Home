@@ -7,10 +7,10 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794439882';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794439882';
-import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794439882';
-import { insideSign } from './plan2d.js?v=1794439882';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794440427';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794440427';
+import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794440427';
+import { insideSign } from './plan2d.js?v=1794440427';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -752,16 +752,19 @@ export function createView(host, api) {
   window.addEventListener('pointerdown', e => { if (!ctx.contains(e.target)) ctx.hidden = true; }, true);
   renderer.domElement.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
-    if (V.cut) { const i = hPick(e); if (i !== undefined) { const [a] = AX[i]; V.drag = { i, a }; controls.enabled = false; e.stopImmediatePropagation(); drawHelpers(); return; } }
+    if (V.cut) { const i = hPick(e); if (i !== undefined) { const [a, sg] = AX[i], { min, max } = V.cut, P0 = new THREE.Vector3().addVectors(min, max).multiplyScalar(.5); P0[a] = sg < 0 ? min[a] : max[a];
+      // hur många pixlar en meter längs handtagets axel blir på skärmen – så handtaget följer musen jämnt oavsett vinkel
+      const r = renderer.domElement.getBoundingClientRect(), sp = v => { const q = v.clone().project(cam); return [(q.x + 1) / 2 * r.width, (1 - q.y) / 2 * r.height]; };
+      const s0 = sp(P0), d = new THREE.Vector3(a === 'x' ? 1 : 0, a === 'y' ? 1 : 0, a === 'z' ? 1 : 0), s1 = sp(P0.clone().add(d)), ax = [s1[0] - s0[0], s1[1] - s0[1]];
+      V.drag = { i, a, v0: P0[a], sx: e.clientX, sy: e.clientY, ax, len2: ax[0] * ax[0] + ax[1] * ax[1] }; controls.enabled = false; e.stopImmediatePropagation(); drawHelpers(); return; } }
     if (V.measure) { const p = pickAt(e); if (p?.point) { if (V.mpts.length >= 2) V.mpts = []; V.mpts.push(p.point.clone()); drawHelpers(); placeLabel(); } e.stopImmediatePropagation(); return; }
   });
   renderer.domElement.addEventListener('pointermove', e => {
-    if (!V.drag) return; e.stopImmediatePropagation(); rayAt(e); const { i, a } = V.drag, [, sg] = AX[i], { min, max } = V.cut;
-    // närmaste punkt på handtagets axel
-    const c = new THREE.Vector3().addVectors(min, max).multiplyScalar(.5), dir = new THREE.Vector3(a === 'x' ? 1 : 0, a === 'y' ? 1 : 0, a === 'z' ? 1 : 0);
-    const w0 = new THREE.Vector3().subVectors(ray.ray.origin, c), b = ray.ray.direction.dot(dir), d = ray.ray.direction.dot(w0), e2 = dir.dot(w0), den = 1 - b * b; if (den < 1e-4) return;
-    const t = (e2 - b * d) / den, v = c[a] + t;
-    if (sg < 0) min[a] = Math.min(v, max[a] - .2); else max[a] = Math.max(v, min[a] + .2); applyVis(); });
+    if (!V.drag) return; e.stopImmediatePropagation(); const g = V.drag, [, sg] = AX[g.i], { min, max } = V.cut, mx = e.clientX - g.sx, my = e.clientY - g.sy;
+    let along = g.len2 > 400 ? (mx * g.ax[0] + my * g.ax[1]) / g.len2 : -my / Math.max(20, Math.sqrt(g.len2)) * .5;
+    const v = Math.round((g.v0 + along) * 100) / 100;
+    if (sg < 0) min[g.a] = Math.min(v, max[g.a] - .2); else max[g.a] = Math.max(v, min[g.a] + .2);
+    api.toast?.(g.a === 'y' ? `✂️ Snitt på ${Math.round(((sg < 0 ? min.y : max.y) - (home().__level.z || 0)) * 100)} cm höjd` : '✂️ Snittet flyttas'); applyVis(); });
   window.addEventListener('pointerup', () => { if (V.drag) { V.drag = null; controls.enabled = true; applyVis(); } });
   renderer.domElement.addEventListener('pointerdown', e => {
     if (e.button !== 0) return; down = { x: e.clientX, y: e.clientY }; drag = null;
@@ -821,6 +824,7 @@ export function createView(host, api) {
     cam, controls,
     tools: {
       cut() { if (V.cut) V.cut = null; else startCut(); applyVis(); },
+      cutAt(h) { if (!V.cut) startCut(); const z = home().__level.z || 0; V.cut.max.y = z + h; applyVis(); },
       hideSel(sel) { if (sel) { V.hide.add(sel.type + ':' + sel.id); applyVis(); } },
       isoSel(sel) { if (sel) { V.iso = sel.type + ':' + sel.id; applyVis(); } },
       showAll() { V.hide.clear(); V.iso = null; applyVis(); },
