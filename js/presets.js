@@ -1,4 +1,4 @@
-// Snabbval: kända möbler med deras riktiga mått, t.ex. "billy 80" eller "kallax 4x4".
+// Snabbval: kända möbler (IKEA, MIO, ILVA) med deras riktiga mått, t.ex. "billy 80" eller "kallax 4x4".
 // Måtten är hämtade från de vanligaste varianterna; färgerna är ungefärliga.
 const W = '#f1efe9', SVB = '#2b2420', EK = 'ljusek', BJ = 'bjork';
 const fin = { vit: ['matt', W], svartbrun: ['matt', SVB], ek: [EK, null], bjork: [BJ, null], svart: ['matt', '#1c1c1c'], gra: ['matt', '#8e8f8b'] };
@@ -37,6 +37,17 @@ list.push(B('EKTORP 3-sits', 'soffa', 2.18, .88, .88, { form: 'rak', sits: 3, ar
 list.push(B('SÖDERHAMN 3-sits', 'soffa', 1.98, .99, .83, { form: 'rak', sits: 3, armar: 'smala', rygg: 'kuddar', ben: 'metall', benH: .06 }, {}, 'soderhamn'));
 list.push(B('KLIPPAN 2-sits', 'soffa', 1.8, .88, .66, { form: 'rak', sits: 2, armar: 'breda', rygg: 'fast', ben: 'dolda', armH: .58, sitth: .42 }, {}, ''));
 list.push(B('STRANDMON fåtölj', 'fatolj', .82, .96, 1.01, { vinge: true, armar: 'rundade', rygg: 'fast', ben: 'tra', benH: .12 }, {}, 'öronlapp oronlapp'));
+// MIO Rossi (låg, djup modulsoffa: djup 112, höjd 86, sitthöjd 44, armstöd 16 cm, fyrkantiga ben 4,5 cm)
+const ROSSI = { armar: 'raka', armH: .62, rygg: 'kuddar', sitth: .44, ben: 'kloss', benH: .045, kuddar: 2 };
+const rossiM = { kladsel: { mat: 'tyg', color: '#e6e0d4' }, kuddar: { mat: 'tyg', color: '#d8cfbf' }, ben: { mat: 'matt', color: '#2a2622' } };
+for (const [n, w, sits, extra, kw] of [['Rossi 1,5-sits', 1.38, 1, {}, ''], ['Rossi 2-sits', 1.58, 1, {}, ''], ['Rossi 3-sits', 2.42, 2, {}, ''], ['Rossi 3-sits hel dyna', 2.42, 1, {}, ''],
+  ['Rossi 4-sits', 2.82, 2, {}, ''], ['Rossi 2-sits med schäslong XL vänster', 2.84, 2, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 2-sits med schäslong XL höger', 2.84, 2, { form: 'schH', d2: 1.9 }, 'divan'],
+  ['Rossi 2-sits med schäslong vänster', 2.64, 2, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 2-sits med schäslong höger', 2.64, 2, { form: 'schH', d2: 1.9 }, 'divan'],
+  ['Rossi 3-sits med schäslong XL vänster', 3.68, 3, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 3-sits med schäslong XL höger', 3.68, 3, { form: 'schH', d2: 1.9 }, 'divan'],
+  ['Rossi hörnsoffa vänster', 2.32, 1, { form: 'hornV', d2: 2.32 }, 'horn'], ['Rossi hörnsoffa höger', 2.32, 1, { form: 'hornH', d2: 2.32 }, 'horn']])
+  list.push(B('MIO ' + n, 'soffa', w, 1.12, .86, { ...ROSSI, sits, form: 'rak', ...extra }, rossiM, kw));
+// ILVA Dahl matstol (helklädd karmstol 60×61×80, sitthöjd 49)
+list.push(B('ILVA Dahl matstol', 'stol', .6, .61, .8, { stil: 'karm', sitth: .49, armH: .66 }, { sits: { mat: 'tyg', color: '#8f7e6b' }, stomme: { mat: 'matt', color: '#8f7e6b' } }, 'karmstol'));
 // BESTÅ tv-bänk
 for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
   list.push(B('BESTÅ TV-bänk', 'tvbank', w, .42, .48, { front: 'luckor', frontstil: 'slat', handtag: 'inga', ben: 'ben' }, { stomme: { mat: fin[f][0], color: fin[f][1] }, front: { mat: fin[f][0], color: fin[f][1] } }, `${f} besta`));
@@ -44,8 +55,8 @@ for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
 list.push(B('METOD kök', 'kok', 0, 0, 0, { mods: [{ t: 'kyl', w: .6 }, { t: 'lador', w: .6 }, { t: 'disk', w: .8 }, { t: 'diskmaskin', w: .6 }, { t: 'spis', w: .6 }, { t: 'lador', w: .6 }] }, {}, 'kok kök'));
 
 export const PRESETS = list.map(p => ({ ...p,
-  label: `${p.name} ${p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök/g, '')}`.replace(/\s+/g, ' ').trim(),
-  dims: p.size.w ? `${Math.round(p.size.w * 100)}×${Math.round(p.size.d * 100)}×${Math.round(p.size.h * 100)} cm` : '' }))
+  label: `${p.name} ${p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn/g, '')}`.replace(/\s+/g, ' ').trim(),
+  dims: p.size.w ? `${Math.round(p.size.w * 100)}×${Math.round((p.o.d2 || p.size.d) * 100)}×${Math.round(p.size.h * 100)} cm` : '' }))
   .map(p => { if (!p.size.w) delete p.size; return p; });
 
 const norm = s => s.toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g, 'o').replace(/×/g, 'x');
@@ -57,7 +68,7 @@ export function findPreset(q) {
     for (const w of words) { if (/^\d+x\d+$/.test(w)) { if (text.includes(w)) sc += 8; else sc -= 2; continue; } if (/^\d+$/.test(w)) continue; if (text.includes(w)) sc += 2; else ok = false; }
     if (!ok) continue;
     const pd = p.size ? [p.size.w, p.size.d, p.size.h].map(v => Math.round(v * 100)) : [p.o.storlek, 200];
-    for (const n of nums) { if (pd.includes(n)) sc += 3; else if (pd.some(v => Math.abs(v - n) <= 3)) sc += 2; else if (p.kw.includes(n + 'x') || p.kw.includes('x' + n)) sc += 2; else sc -= 1; }
+    for (const n of nums) { if (n < 10 && text.includes(n + '-sits')) sc += 4; else if (pd.includes(n)) sc += 3; else if (pd.some(v => Math.abs(v - n) <= 3)) sc += 2; else if (p.kw.includes(n + 'x') || p.kw.includes('x' + n)) sc += 2; else sc -= 1; }
     scored.push([sc, p]); }
   return scored.sort((a, b) => b[0] - a[0]).slice(0, 8).map(x => x[1]);
 }

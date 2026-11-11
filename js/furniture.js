@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794393531';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794403239';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -75,16 +75,17 @@ function drawer(o, M, w, h, x, y, z) {
 }
 
 // ---------- SOFFA / FÅTÖLJ ----------
+const ARMW = { smala: .1, raka: .16, breda: .2, rundade: .18, inga: 0 };
 function sofa(it, o, M) {
   const W = it.w, D = it.d, H = it.h, n = o.sits;
   const legH = o.ben === 'dolda' ? .03 : o.benH;
-  const armW = { smala: .1, breda: .2, rundade: .18, inga: 0 }[o.armar] ?? .14;
+  const armW = ARMW[o.armar] ?? .14;
   const armH = Math.min(H - .1, o.armH || .62), cushT = .15, seatTop = o.sitth || .44;
   const baseY = legH, baseH = Math.max(.1, seatTop - cushT - legH), backT = o.rygg === 'kuddar' ? .16 : .2;
   const side = o.form?.endsWith('H') ? 1 : -1, ext = o.form?.startsWith('sch') ? 'sch' : o.form?.startsWith('horn') ? 'horn' : null;
   const L = Math.max(D + .4, o.d2 || 1.6);
   const g = sub(); if (side === 1) g.scale.x = -1;   // höger = spegelvänd vänster
-  const armR = { smala: .02, breda: .04, rundade: armW * .48, inga: 0 }[o.armar] ?? .03;
+  const armR = { smala: .02, breda: .04, raka: .03, rundade: armW * .48, inga: 0 }[o.armar] ?? .03;
   into(g, () => {
     const cw = (W - 2 * armW) / n;                       // sittbredd
     const x0 = ext === 'horn' ? -W / 2 + backT : -W / 2 + armW, x1 = W / 2 - armW;
@@ -137,7 +138,7 @@ function sofa(it, o, M) {
     if (W > 2.2) legs.push([0, -D / 2 + .07], [0, D / 2 - .07]);
     if (o.ben === 'dolda') { box(W - .1, legH, D - .1, dark(), 0, 0, 0); if (ext) box(ext === 'sch' ? armW + cw - .1 : D - .1, legH, L - D, dark(), -W / 2 + (ext === 'sch' ? armW + cw : D) / 2, 0, D / 2 + (L - D) / 2 - .05); }
     else if (o.ben === 'medar') for (const s of [-1, 1]) { const x = s * (W / 2 - armW / 2 - .01); box(.02, .02, D - .08, M.ben, x, 0, 0, .005); box(.02, legH, .02, M.ben, x, 0, -D / 2 + .06); box(.02, legH, .02, M.ben, x, 0, D / 2 - .06); }
-    else for (const [x, z] of legs) { if (o.ben === 'metall') box(.018, legH, .018, M.ben, x, 0, z); else cyl(.024, .016, legH, M.ben, x, 0, z, 16); }
+    else for (const [x, z] of legs) { if (o.ben === 'metall') box(.018, legH, .018, M.ben, x, 0, z); else if (o.ben === 'kloss') box(.05, legH, .05, M.ben, x, 0, z, .004); else cyl(.024, .016, legH, M.ben, x, 0, z, 16); }
   });
 }
 
@@ -172,7 +173,8 @@ function table(it, o, M) {
 
 // ---------- STOL ----------
 function chair(it, o, M) {
-  const W = it.w, D = it.d, H = it.h, sh = .46;
+  const W = it.w, D = it.d, H = it.h, sh = o.sitth || .46;
+  if (o.stil === 'karm') return tubChair(W, D, H, sh, o, M);
   if (o.stil === 'skal') {
     const s = box(W, .045, D - .06, M.sits, 0, sh - .045, .02, .02); const b = box(W - .02, .4, .04, M.sits, 0, 0, 0, .02);
     b.rotation.x = -.18; b.position.set(0, sh + .2, -D / 2 + .07);
@@ -191,6 +193,34 @@ function chair(it, o, M) {
     const top = box(W - .06, .07, .022, M.stomme, 0, 0, 0, .006); top.rotation.x = -.1; top.position.set(0, H - .07, -D / 2 + .06);
     for (let i = 0; i < 3; i++) { const p = cyl(.008, .008, H - sh - .1, M.stomme, 0, 0, 0, 10); p.position.set((i - 1) * (W - .1) / 4, sh + (H - sh - .1) / 2, -D / 2 + .045); p.rotation.x = -.08; }
   }
+}
+
+// helklädd karmstol: ryggen går i en båge över i armstöden, sidorna ner till golvet
+function tubChair(W, D, H, sh, o, M) {
+  const t = .075, r = W / 2, cz = -D / 2 + r, armH = Math.min(H - .08, o.armH || .66), fz = D / 2;
+  const sh2 = new THREE.Shape();
+  const seg = (x, z0, z1) => { for (let i = 1; i <= 8; i++) sh2.lineTo(x, z0 + (z1 - z0) * i / 8); };   // fler punkter så armens lutning blir mjuk
+  sh2.moveTo(-r, fz); seg(-r, fz, cz); sh2.absarc(0, cz, r, Math.PI, 0, false); seg(r, cz, fz);
+  sh2.lineTo(r - t, fz); seg(r - t, fz, cz); sh2.absarc(0, cz, r - t, 0, Math.PI, true); seg(-r + t, cz, fz); sh2.closePath();
+  const bev = .014; let g = new THREE.ExtrudeGeometry(sh2, { depth: H - 2 * bev - .012, bevelEnabled: true, bevelThickness: bev, bevelSize: bev * .8, bevelSegments: 3, curveSegments: 12 });
+  const ext = H - 2 * bev - .012; g.rotateX(Math.PI / 2); g.translate(0, ext, 0);   // formen ligger i x/z, extruderas i höjdled
+  const p = g.attributes.position, top = ext;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i), z = p.getZ(i);
+    const u = THREE.MathUtils.smoothstep((z - cz) / (fz - cz), -.1, .45);   // 0 bak → 1 fram
+    const h = H - (H - armH) * u;
+    if (y > top * .5) p.setY(i, y + bev + .012 + (h - H)); else p.setY(i, y + bev + .012); }
+  g.deleteAttribute('normal'); g.deleteAttribute('uv'); g = mergeVertices(g, 1e-4); g.computeVertexNormals();   // mjuk yta utan ränder
+  add(g, M.sits, 0, 0, 0);
+  const uv = g.attributes.uv;   // tyget följer bågen runt stolen
+  for (let i = 0; i < g.attributes.position.count; i++) { const x = g.attributes.position.getX(i), y = g.attributes.position.getY(i), z = g.attributes.position.getZ(i);
+    uv.setXY(i, z < cz ? r * Math.atan2(x, cz - z) : Math.sign(x) * (r * Math.PI / 2 + z - cz), y); }
+  // sits: bas + dyna
+  const iw = W - 2 * t + .01, id = fz - cz + r - t;
+  box(iw, sh - .13 - .02, id - .01, M.sits, 0, .02, cz - (r - t) + id / 2, .02);
+  box(iw - .004, .11, id - .02, M.sits, 0, sh - .11, cz - (r - t) + id / 2 + .005, .045, .02);
+  // ryggstoppning
+  const b = box(iw - .08, H - sh - .1, .05, M.sits, 0, 0, 0, .025, .012); b.rotation.x = -.1; b.position.set(0, sh + (H - sh - .1) / 2 - .02, cz - r + t + .03);
+  for (const [x, z] of [[-r + .05, cz], [r - .05, cz], [-r + .05, fz - .05], [r - .05, fz - .05]]) cyl(.012, .012, .012, dark(), x, 0, z, 10);
 }
 
 // ---------- KÖK ----------
@@ -535,11 +565,11 @@ const SOFA_OPTS = [
   { k: 'form', t: 'sel', label: 'Form', v: 'rak', o: [['rak', 'Rak'], ['schV', 'Schäslong v.'], ['schH', 'Schäslong h.'], ['hornV', 'Hörn v.'], ['hornH', 'Hörn h.']] },
   { k: 'd2', t: 'num', label: 'Schäslong/hörn, längd', v: 1.6, min: 1.3, max: 2.8, step: .05, unit: 'm', if: o => o.form !== 'rak' },
   { k: 'sits', t: 'sel', label: 'Sittdynor', v: 3, o: [[1, '1'], [2, '2'], [3, '3'], [4, '4']] },
-  { k: 'armar', t: 'sel', label: 'Armstöd', v: 'smala', o: [['smala', 'Smala'], ['breda', 'Breda'], ['rundade', 'Rundade'], ['inga', 'Inga']] },
+  { k: 'armar', t: 'sel', label: 'Armstöd', v: 'smala', o: [['smala', 'Smala'], ['raka', 'Raka'], ['breda', 'Breda'], ['rundade', 'Rundade'], ['inga', 'Inga']] },
   { k: 'armH', t: 'num', label: 'Armstödshöjd', v: .62, min: .5, max: .75, step: .01, unit: 'm', if: o => o.armar !== 'inga' },
   { k: 'rygg', t: 'sel', label: 'Rygg', v: 'kuddar', o: [['kuddar', 'Lösa ryggdynor'], ['fast', 'Fast rygg']] },
   { k: 'sitth', t: 'num', label: 'Sitthöjd', v: .44, min: .38, max: .5, step: .01, unit: 'm' },
-  { k: 'ben', t: 'sel', label: 'Ben', v: 'tra', o: [['tra', 'Runda'], ['metall', 'Smala metall'], ['medar', 'Medar'], ['dolda', 'Dolda']] },
+  { k: 'ben', t: 'sel', label: 'Ben', v: 'tra', o: [['tra', 'Runda'], ['kloss', 'Fyrkantiga'], ['metall', 'Smala metall'], ['medar', 'Medar'], ['dolda', 'Dolda']] },
   { k: 'benH', t: 'num', label: 'Benhöjd', v: .12, min: .04, max: .22, step: .01, unit: 'm', if: o => o.ben !== 'dolda' },
   { k: 'kuddar', t: 'num', label: 'Prydnadskuddar', v: 2, min: 0, max: 6, step: 1 },
 ];
@@ -558,7 +588,7 @@ const KITCHEN_OPTS = [
 export const FURN = {
   soffa: { name: 'Soffa', icon: '🛋️', cat: 'vardag', w: 2.3, d: .95, h: .82, dims: { w: [1.3, 3.8], d: [.8, 1.15], h: [.65, 1.0] }, opts: SOFA_OPTS,
     slots: [['kladsel', 'Klädsel', 'textil', 'tyg', '#8b8f86'], ['kuddar', 'Prydnadskuddar', 'textil', 'linne', '#c8b393'], ['ben', 'Ben', 'ben', 'ek']], build: sofa,
-    foot: (it, o) => { const L = o.d2 || 1.6, s = o.form?.endsWith('H') ? 1 : -1; if (o.form === 'rak') return null; const ew = o.form.startsWith('horn') ? it.d : (it.w - .28) / o.sits + .14; return { x: s * (it.w / 2 - ew / 2), z: it.d / 2 + (L - it.d) / 2, w: ew, d: L - it.d }; } },
+    foot: (it, o) => { const L = o.d2 || 1.6, s = o.form?.endsWith('H') ? 1 : -1; if (o.form === 'rak') return null; const aw = ARMW[o.armar] ?? .14, ew = o.form.startsWith('horn') ? it.d : (it.w - 2 * aw) / o.sits + aw; return { x: s * (it.w / 2 - ew / 2), z: it.d / 2 + (L - it.d) / 2, w: ew, d: L - it.d }; } },
   fatolj: { name: 'Fåtölj', icon: '💺', cat: 'vardag', w: .85, d: .88, h: .82, dims: { w: [.65, 1.1], d: [.7, 1.0], h: [.7, 1.15] },
     opts: [{ k: 'vinge', t: 'bool', label: 'Öronlappar (hög rygg)', v: false }, ...SOFA_OPTS.filter(x => !['form', 'd2', 'sits'].includes(x.k)).map(x => x.k === 'kuddar' ? { ...x, v: 1, max: 2 } : x.k === 'armar' ? { ...x, v: 'breda' } : x)],
     slots: [['kladsel', 'Klädsel', 'textil', 'sammet', '#3f5a4c'], ['kuddar', 'Kudde', 'textil', 'linne', '#c8b393'], ['ben', 'Ben', 'ben', 'valnot']],
@@ -573,8 +603,10 @@ export const FURN = {
       { k: 'ben', t: 'sel', label: 'Ben', v: '4ben', o: [['4ben', 'Raka'], ['konisk', 'Koniska'], ['bock', 'Bockben'], ['pelare', 'Pelarfot'], ['ram', 'Metallram']] },
       { k: 'tjocklek', t: 'sel', label: 'Skiva', v: .03, o: [[.02, '20 mm'], [.03, '30 mm'], [.045, '45 mm']] }, { k: 'stolar', t: 'num', label: 'Platser (60 cm/person)', v: 6, min: 0, max: 12, step: 1, info: 1 }],
     slots: [['skiva', 'Skiva', 'skiva', 'ek'], ['ben', 'Ben', 'ben', 'ek']], build: table, sync: (it, o) => { if (o.form === 'rund') it.d = it.w; o.stolar = it.w >= 1 ? Math.floor(it.w / .6) * 2 + (o.form === 'rund' ? 0 : 0) : 2; } },
-  stol: { name: 'Stol', icon: '🪑', cat: 'kok', w: .45, d: .52, h: .82, dims: { w: [.4, .6], d: [.45, .6], h: [.75, 1.0] },
-    opts: [{ k: 'stil', t: 'sel', label: 'Modell', v: 'tra', o: [['tra', 'Pinnstol'], ['stoppad', 'Stoppad'], ['skal', 'Skalstol']] }],
+  stol: { name: 'Stol', icon: '🪑', cat: 'kok', w: .45, d: .52, h: .82, dims: { w: [.4, .7], d: [.45, .7], h: [.75, 1.0] },
+    opts: [{ k: 'stil', t: 'sel', label: 'Modell', v: 'tra', o: [['tra', 'Pinnstol'], ['stoppad', 'Stoppad'], ['skal', 'Skalstol'], ['karm', 'Karmstol, helklädd']] },
+      { k: 'sitth', t: 'num', label: 'Sitthöjd', v: .46, min: .42, max: .52, step: .01, unit: 'm' },
+      { k: 'armH', t: 'num', label: 'Armstödshöjd', v: .66, min: .6, max: .75, step: .01, unit: 'm', if: o => o.stil === 'karm' }],
     slots: [['stomme', 'Stomme', 'ben', 'ek'], ['sits', 'Sits', 'textil', 'tyg', '#b9ae9a']], build: chair },
   kok: { name: 'Köksrad', icon: '🍳', cat: 'kok', w: 3.6, d: .635, h: 2.2, fixed: 1, opts: KITCHEN_OPTS,
     slots: [['front', 'Luckor', 'front', 'matt', '#efece6'], ['bank', 'Bänkskiva', 'bank', 'ek'], ['stank', 'Stänkskydd', 'stank', 'kakel'], ['handtag', 'Handtag', 'metall', 'svartmetall'],

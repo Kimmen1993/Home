@@ -166,7 +166,7 @@ export function makeMat(id, color) {
   if (useTex) { P.map = det.map.clone(); P.map.repeat.set(rep, rep); P.map.needsUpdate = true;
     if (det.bump) { P.bumpMap = det.bump.clone(); P.bumpMap.repeat.set(rep, rep); P.bumpMap.needsUpdate = true; }
     if (det.rough) { P.roughnessMap = det.rough.clone(); P.roughnessMap.repeat.set(rep, rep); P.roughnessMap.needsUpdate = true; } }
-  const bs = { tiles: 2, tilesq: 2, wood: 1, pine: 1, fabric: 1.5, linen: 2, boucle: 4, velvet: .5, leather: 1, concrete: 1.5, brushed: .3, brass: .3, blackmetal: .3, wool: 3, shag: 6, jute: 4, rattan: 4 }[k] || 1;
+  const bs = { tiles: 2, tilesq: 2, wood: 1, pine: 1, fabric: .5, linen: 2, boucle: 4, velvet: .5, leather: 1, concrete: 1.5, brushed: .3, brass: .3, blackmetal: .3, wool: 3, shag: 6, jute: 4, rattan: 4 }[k] || 1;
   P.bumpScale = bs;
   Object.assign(P, {
     wood: { roughness: .62, clearcoat: .15, clearcoatRoughness: .5 },
