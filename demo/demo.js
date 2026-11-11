@@ -7,10 +7,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794419957';
-import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794419957';
-import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794419957';
-import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794419957';
+import { FURN, KMODS, KWIDTHS, ELFA_PARTS, ELFA_MODS, ELFA_W, elfaTemplate, elfaSnap, elfaMaxDn, elfaClash, elfaAdd, elfaFits, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794421141';
+import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794421141';
+import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794421141';
+import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794421141';
 
 const $ = s => document.querySelector(s);
 const host = $('#stage');
@@ -203,7 +203,7 @@ function clampSnap(it) {
   if (f[0] > .99 && it.x - ex < -RW / 2 + snap) it.x = -RW / 2 + ex + pad;
   if (f[0] < -.99 && it.x + ex > RW / 2 - snap) it.x = RW / 2 - ex - pad;
 }
-function select(it) { sel = it || null; outline.selectedObjects = sel ? [groups.get(sel.id)].filter(Boolean) : []; panel(); $('#hint').style.display = sel ? 'none' : ''; }
+function select(it) { if (it !== sel) eSec = 0; sel = it || null; outline.selectedObjects = sel ? [groups.get(sel.id)].filter(Boolean) : []; panel(); $('#hint').style.display = sel ? 'none' : ''; }
 addEventListener('keydown', e => {
   if (!sel || e.target.matches('input,select,textarea')) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { removeSel(); e.preventDefault(); }
@@ -232,7 +232,40 @@ function colorWidget(key, hex, pal) {
 }
 const fmtNum = (op, v) => op.unit === 'm' ? Math.round(v * 100) + ' cm' : op.unit === '%' ? Math.round(v * 100) + ' %' : v;
 const modsOp = () => FURN[sel.type].opts.find(x => x.t === 'mods'), modsOf = () => modsOp().mods || KMODS;
+// Elfa: ritning framifrån + delarna i vald sektion
+let eSec = 0;
+function elfaSvg(it) {
+  const o = it.o, W = it.w, H = it.h, L = Math.min(o.gren, H - .04), S = 100, yy = y => ((H + .05 - y) * S).toFixed(1);
+  let x = .004, out = `<rect x="0" y="${yy(H)}" width="${W * S}" height="3.2" class="et"/>`;
+  o.mods.forEach((m, i) => { const xa = x + .025, xb = x + m.w, bad = elfaClash(m);
+    out += `<g data-esec="${i}" class="es ${i === eSec ? 'on' : ''}"><rect x="${(x * S).toFixed(1)}" y="0" width="${(m.w * S).toFixed(1)}" height="${(H + .05) * S}" class="eb"/>`;
+    m.parts.forEach((p, j) => { const y = H - p.dn, P = ELFA_PARTS[p.t], cls = bad.has(j) ? 'bad' : '', X = (xa * S).toFixed(1), Wd = ((xb - xa) * S).toFixed(1);
+      if (p.t === 'stang') out += `<line x1="${X}" x2="${(xb * S).toFixed(1)}" y1="${yy(y - .075)}" y2="${yy(y - .075)}" class="er ${cls}"/><rect x="${X}" y="${yy(y - .09)}" width="${Wd}" height="${(Math.min(.9, y - .3) * S).toFixed(1)}" class="eg"/>`;
+      else if (P.h) out += `<rect x="${X}" y="${yy(y - .02)}" width="${Wd}" height="${(P.h * S).toFixed(1)}" rx="1.5" class="ed ${cls}"/>`;
+      else if (p.t === 'sko') out += `<line x1="${X}" x2="${(xb * S).toFixed(1)}" y1="${yy(y - .09)}" y2="${yy(y - .03)}" class="es2 ${cls}"/>`;
+      else if (p.t === 'byxa') out += `<rect x="${X}" y="${yy(y - .03)}" width="${Wd}" height="3" class="ed ${cls}"/>`;
+      else out += `<line x1="${X}" x2="${(xb * S).toFixed(1)}" y1="${yy(y)}" y2="${yy(y)}" class="eh ${cls}"/>`; });
+    out += `<text x="${((x + m.w / 2) * S).toFixed(1)}" y="${yy(.06)}" class="en">${i + 1}</text></g>`; x += m.w; });
+  for (let i = 0, x2 = .004; i <= o.mods.length; x2 += o.mods[i]?.w || 0, i++) out += `<rect x="${(x2 * S).toFixed(1)}" y="${yy(H - .01)}" width="2.5" height="${(L * S).toFixed(1)}" class="et"/>`;
+  return `<svg class="esvg" viewBox="-2 0 ${(W * S + 4).toFixed(0)} ${((H + .05) * S).toFixed(0)}">${out}</svg>`;
+}
+function elfaField(op, it) {
+  const o = it.o; eSec = Math.min(eSec, o.mods.length - 1); const m = o.mods[eSec], bad = elfaClash(m), H = it.h;
+  const rows = m.parts.map((p, j) => { const P = ELFA_PARTS[p.t], maxDn = elfaMaxDn(o, p);
+    return `<div class="ep ${bad.has(j) ? 'bad' : ''}"><span>${P.icon} ${P.name}${!elfaFits(p, m.w) ? ' <em>finns inte i den här bredden</em>' : bad.has(j) ? ' <em>krockar</em>' : ''}</span><b>${Math.round((H - p.dn) * 100)} cm</b><button data-epdel="${j}" title="Ta bort">✕</button>
+      <input type="range" data-ep="${j}" min="${(H - maxDn).toFixed(4)}" max="${(H - .035).toFixed(4)}" step=".032" value="${(H - p.dn).toFixed(4)}"></div>`; }).join('');
+  return `<div class="f"><label>${op.label}<b>${Math.round(it.w * 100)} cm</b></label>${elfaSvg(it)}
+    <div class="btns">${ELFA_W.map(([w, l]) => `<button class="btn" data-esecadd="${w}">＋ ${l}</button>`).join('')}</div></div>
+    <div class="slot"><h4>Sektion ${eSec + 1}<em>klicka på en sektion i ritningen</em></h4>
+      <div class="opt">${ELFA_W.map(([w, l]) => `<button data-ew="${w}" class="${Math.abs(w - m.w) < .002 ? 'on' : ''}">${l} cm</button>`).join('')}</div>
+      <div class="btns"><button class="btn" data-esecmove="-1">◀ Flytta</button><button class="btn" data-esecmove="1">Flytta ▶</button><button class="btn danger" data-esecdel="1">🗑</button></div>
+      <div class="f"><label>Delar, uppifrån</label><div class="eps">${rows || '<div class="now">Tom sektion</div>'}</div></div>
+      <div class="f"><label>Lägg till</label><div class="eadd">${Object.entries(ELFA_PARTS).filter(([k]) => elfaFits({ t: k }, m.w)).map(([k, P]) => `<button data-epadd="${k}">${P.icon}<span>${P.name}</span></button>`).join('')}</div></div>
+      <div class="f"><label>Fyll sektionen med en mall</label><select data-etpl="1"><option value="">Välj mall …</option>${Object.entries(ELFA_MODS).map(([k, K]) => `<option value="${k}">${K.icon} ${K.name}</option>`).join('')}</select></div>
+    </div>`;
+}
 function optField(op, it) {
+  if (op.t === 'elfa') return elfaField(op, it);
   const v = it.o[op.k];
   if (op.t === 'sel') return `<div class="f"><label>${op.label}</label><div class="opt">${op.o.map(([val, l]) => `<button data-o="${op.k}" data-v="${esc(JSON.stringify(val))}" class="${v === val ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
   if (op.t === 'num') { if (op.info) return `<div class="info">🪑 Får plats: <b>${v}</b> personer (60 cm bordskant per person)</div>`;
@@ -303,7 +336,8 @@ function setColor(key, hex) {
 }
 const P = $('#panel');
 P.addEventListener('click', e => {
-  const b = e.target.closest('[data-choice],[data-o],[data-mat],[data-act],[data-col],[data-pick],[data-floor],[data-modadd],[data-moddel],[data-modmove],[data-sugg] button');
+  const sv = e.target.closest('[data-esec]'); if (sv) { eSec = +sv.dataset.esec; panel(); return; }
+  const b = e.target.closest('[data-epadd],[data-epdel],[data-ew],[data-esecadd],[data-esecdel],[data-esecmove],[data-choice],[data-o],[data-mat],[data-act],[data-col],[data-pick],[data-floor],[data-modadd],[data-moddel],[data-modmove],[data-sugg] button');
   if (!b || b.matches('input')) return;
   if (b.dataset.pick) { select(byId(b.dataset.pick)); return; }
   if (b.dataset.floor) { st.floor = b.dataset.floor; st.floorColor = null; buildRoom(); save(); panel(); return; }
@@ -313,6 +347,13 @@ P.addEventListener('click', e => {
   if (b.dataset.choice) { const c = FAMILIES[sel.family].choices[+b.dataset.choice]; for (const [k, v] of Object.entries(c.m)) sel.m[k] = { ...v }; changed(); return; }
   if (b.dataset.o) { const op = FURN[sel.type].opts.find(x => x.k === b.dataset.o); sel.o[op.k] = op.t === 'bool' ? !sel.o[op.k] : JSON.parse(b.dataset.v); changed(); }
   if (b.dataset.mat) { sel.m[b.dataset.mat] = { mat: b.dataset.id, color: null }; changed(); }
+  if (sel && sel.type === 'elfa') { const o = sel.o, m = o.mods[eSec], d = b.dataset;
+    if (d.epadd) { elfaAdd(m, d.epadd, o); changed(); return; }
+    if (d.epdel) { m.parts.splice(+d.epdel, 1); changed(); return; }
+    if (d.ew) { m.w = +d.ew; changed(); return; }
+    if (d.esecadd) { o.mods.splice(eSec + 1, 0, { t: 'tom', w: +d.esecadd, parts: elfaTemplate('tom', +d.esecadd, o) }); eSec++; changed(); return; }
+    if (d.esecdel) { if (o.mods.length > 1) { o.mods.splice(eSec, 1); eSec = Math.max(0, eSec - 1); changed(); } return; }
+    if (d.esecmove) { const j = eSec + +d.esecmove; if (j >= 0 && j < o.mods.length) { [o.mods[eSec], o.mods[j]] = [o.mods[j], o.mods[eSec]]; eSec = j; changed(); } return; } }
   if (b.dataset.modadd) { sel.o.mods.push({ t: b.dataset.modadd, w: modsOf()[b.dataset.modadd].w }); changed(); }
   if (b.dataset.moddel) { sel.o.mods.splice(+b.dataset.moddel, 1); if (!sel.o.mods.length) { const [k, K] = Object.entries(modsOf())[0]; sel.o.mods.push({ t: k, w: K.w }); } changed(); }
   if (b.dataset.modmove) { const i = +b.dataset.modmove; if (i > 0) { const m = sel.o.mods; [m[i - 1], m[i]] = [m[i], m[i - 1]]; changed(); } }
@@ -325,6 +366,8 @@ P.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.dim) { sel[t.dataset.dim] = +t.value; t.previousElementSibling.querySelector('b').textContent = Math.round(t.value * 100) + ' cm'; changed(false); }
   if (t.dataset.rot) { sel.rot = +t.value * Math.PI / 180; t.previousElementSibling.querySelector('b').textContent = t.value + '°'; clampSnap(sel); place(sel); save(); }
+  if (t.dataset.ep !== undefined) { const p = sel.o.mods[eSec].parts[+t.dataset.ep]; p.dn = elfaSnap(sel.o, sel.h - +t.value, p);
+    t.parentElement.querySelector('b').textContent = Math.round((sel.h - p.dn) * 100) + ' cm'; changed(false); }
   if (t.dataset.o && t.dataset.num) { const op = FURN[sel.type].opts.find(x => x.k === t.dataset.o); sel.o[op.k] = +t.value;
     t.previousElementSibling.querySelector('b').textContent = fmtNum(op, +t.value); changed(false); }
   if (t.type === 'color' && t.dataset.col) { clearTimeout(t._t); t._t = setTimeout(() => setColor(t.dataset.col, t.value), 60); }
@@ -336,7 +379,8 @@ P.addEventListener('input', e => {
 P.addEventListener('change', e => {
   const t = e.target; if (!sel) return;
   if (t.dataset.mod !== undefined) { const m = sel.o.mods[+t.dataset.mod]; if (t.dataset.mk === 't') { const K = modsOf()[t.value]; m.t = t.value; if (!K.ws || !K.ws.includes(m.w)) m.w = K.w; } else m.w = +t.value; changed(); }
-  if (t.dataset.dim || t.dataset.num) panel();
+  if (t.dataset.dim || t.dataset.num || t.dataset.ep !== undefined) { if (t.dataset.ep !== undefined) sel.o.mods[eSec].parts.sort((a, b) => a.dn - b.dn); panel(); }
+  if (t.dataset.etpl) { const m = sel.o.mods[eSec]; m.t = t.value; m.parts = elfaTemplate(t.value, m.w, sel.o); changed(); }
   if (t.dataset.variant) { const v = variantsOf(sel.family).find(x => x.variant === t.value); if (v && v.type === sel.type) {
     sel.o = JSON.parse(JSON.stringify({ ...sel.o, ...v.o })); sel.preset = v.variant; sel.name = v.name; syncFurniture(sel); if (v.size) Object.assign(sel, v.size); changed(); } }
 });
