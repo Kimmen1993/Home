@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemma – Möbelverkstan</title>
+<link rel="stylesheet" href="../style.css?v=1794393531">
+<link rel="stylesheet" href="demo.css?v=1794393531">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="dm">
+  <aside class="dmSide">
+    <div class="logo">HEMMA</div>
+    <div class="sub">MÖBELVERKSTAN · DEMO</div>
+    <div class="sec">SÖK KÄND MÖBEL</div>
+    <input id="search" placeholder="t.ex. billy 80, kallax 4x4" autocomplete="off">
+    <div id="searchRes" class="sres"></div>
+    <div class="sec">LÄGG TILL</div>
+    <div id="cat" class="dmCat"></div>
+    <div class="sec">RUMMET</div>
+    <button class="nav" id="roomBtn"><i>🎨</i>Väggar &amp; golv</button>
+    <button class="small" id="reset">↺ Börja om demorummet</button>
+  </aside>
+  <main class="dmMain">
+    <div class="dmTop">
+      <div class="seg" id="light"><button data-l="dag" class="on">☀️ Dag</button><button data-l="kvall">🌙 Kväll</button></div>
+      <button class="ib" id="photo">📸 Spara bild</button>
+    </div>
+    <div id="stage" class="dmStage"></div>
+    <div class="dmHint" id="hint">Klicka på en möbel för att välja den · Dra den sen för att flytta · Dra i tomrummet för att snurra</div>
+  </main>
+  <section class="right dmRight" id="panel"></section>
+</div>
+<div id="toast" class="toast"></div>
+<script type="module" src="demo.js?v=1794393531"></script>
+</body>
+</html>
