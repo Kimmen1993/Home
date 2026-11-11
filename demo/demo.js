@@ -7,10 +7,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794408306';
-import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794408306';
-import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794408306';
-import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794408306';
+import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794408679';
+import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794408679';
+import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794408679';
+import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794408679';
 
 const $ = s => document.querySelector(s);
 const host = $('#stage');
@@ -262,10 +262,11 @@ function panel() {
       <div class="btns"><button class="btn" data-act="rotL">⟲ 90°</button><button class="btn" data-act="rotR">⟳ 90°</button><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑</button></div>
       <div class="f"><label>Vinkel<b>${Math.round(it.rot * 180 / Math.PI) % 360}°</b></label><input type="range" data-rot="1" min="0" max="355" step="5" value="${Math.round(it.rot * 180 / Math.PI) % 360}"></div>
       ${vars.length > 1 ? `<div class="f"><label>Modell</label><select data-variant="1">${vars.map(v => `<option ${v.variant === it.preset ? 'selected' : ''}>${esc(v.variant)}</option>`).join('')}</select></div>` : ''}
-      <div class="f"><label>Mått<b>${Math.round(it.w * 100)} × ${Math.round((it.o.form && it.o.form !== 'rak' ? it.o.d2 : it.d) * 100)} × ${Math.round(it.h * 100)} cm</b></label></div>
+      <div class="f"><label>Mått<b>${Math.round(it.w * 100)} × ${Math.round((it.type === 'soffa' && it.o.form && it.o.form !== 'rak' ? it.o.d2 : it.d) * 100)} × ${Math.round(it.h * 100)} cm</b></label></div>
+      ${F.opts.filter(op => fam.opts?.includes(op.k) && (!op.if || op.if(it.o))).map(op => optField(op, it)).join('')}
       <h3>${fam.label.toUpperCase()}</h3>
       ${groups.map(g => `<div class="slot">${g ? `<h4>${esc(g)}</h4>` : ''}<div class="fam">${fam.choices.map((c, i) => (c.group || '') !== g ? '' :
-        `<button data-choice="${i}" class="${cur && cur.mat === c.m[k0].mat && cur.color === c.m[k0].color ? 'on' : ''}" title="${esc(c.name)}"><img src="${swatch(c.m[k0].mat, c.m[k0].color)}"><span>${esc(g ? c.name.split(' ').slice(1).join(' ') : c.name)}</span></button>`).join('')}</div></div>`).join('')}
+        `<button data-choice="${i}" class="${cur && cur.mat === c.m[k0].mat && cur.color === c.m[k0].color ? 'on' : ''}" title="${esc(c.name)}"><img src="${swatch(c.m[k0].mat, c.m[k0].color)}"><span>${esc(g && c.name.startsWith(g.split(' ')[0] + ' ') ? c.name.slice(g.split(' ')[0].length + 1) : c.name)}</span></button>`).join('')}</div></div>`).join('')}
       ${(fam.fixed || []).map(([a, b]) => `<div class="f"><label>${a}<b>${esc(b)}</b></label></div>`).join('')}
       <button class="small" data-act="unlock">✏️ Gör om till egen möbel (fria mått och färger)</button>`;
     return;

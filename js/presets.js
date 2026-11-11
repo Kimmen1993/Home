@@ -1,4 +1,4 @@
-// Snabbval: kända möbler (IKEA, MIO, ILVA) med deras riktiga mått, t.ex. "billy 80" eller "kallax 4x4".
+// Snabbval: kända möbler (IKEA, MIO, ILVA, Rustikunik) med deras riktiga mått, t.ex. "billy 80" eller "kallax 4x4".
 // Måtten är hämtade från de vanligaste varianterna; färgerna är ungefärliga.
 const W = '#f1efe9', SVB = '#2b2420', EK = 'ljusek', BJ = 'bjork';
 const fin = { vit: ['matt', W], svartbrun: ['matt', SVB], ek: [EK, null], bjork: [BJ, null], svart: ['matt', '#1c1c1c'], gra: ['matt', '#8e8f8b'] };
@@ -66,6 +66,15 @@ const VADERO_CHOICES = [['Barrel', 'mullvad', '#8f7d69'], ['Barrel', 'ljusbeige'
 for (const s of [180, 90]) for (const [g, gn] of [['pikerad', 'pikerad'], ['stoppad', 'slät'], ['ribbad', 'ribbad']])
   list.push(B(`MIO Väderö ställbar ${s === 180 ? 'dubbelsäng 180 (2×90)' : 'enkelsäng 90'}, gavel ${gn}`, 'sang', 0, 0, 0,
     { storlek: s, typ: 'stallbar', gavel: g, gavelH: 1.21, gavelT: .1, overkast: false, kuddar: 1 }, { ...VADERO_CHOICES[2].m, ben: { mat: 'krom', color: null } }, 'vadero ställbar'));
+// Rustikunik Design (handgjort i Värmland): 4 cm skiva, matbord 74 cm högt, iläggsskivor 50 cm. Kulörer från deras kulörprov.
+const RK_EK = [['Hårdvaxolja ofärgad', '#a87750'], ['Hårdvaxolja natur', '#b5927a'], ['Hårdvaxolja vit', '#dbc8ba'], ['Hårdvaxolja vit Glacier', '#e1d3ca'], ['Silvergrå', '#937e6c'], ['Rustikgrå', '#615348'],
+  ['Valnöt', '#604134'], ['Rökt ek', '#493b33'], ['Mörk ek', '#43342f'], ['Tjära', '#3d3128'], ['Grafitsvart', '#2b292a']].map(([n, hex]) => { const c = lift(hex, 1.12);
+  return { name: n, group: 'Ek', hex: c, m: { skiva: { mat: 'ek', color: c }, ben: { mat: 'ek', color: c } } }; });
+const rkM = RK_EK.find(c => c.name === 'Grafitsvart').m;
+for (const d of [1.0, 1.1, 1.2, 1.3, 1.4, 1.5]) for (const n of [0, 1, 2, 3])
+  list.push(B(`Rustikunik runt matbord, täta ribbor Ø${Math.round(d * 100)}${n ? `, ${n} iläggsskiv${n > 1 ? 'or' : 'a'}` : ''}`, 'matbord', d, d, .74, { form: 'rund', ben: 'ribbor', tjocklek: .04, ilagg: n, utdragen: false }, rkM, 'rustikunik'));
+for (const w of [.9, 1.0, 1.1, 1.2, 1.3, 1.4]) for (const dd of [.5, .6, .7, .8])
+  list.push(B(`Rustikunik rektangulärt soffbord, kub ${Math.round(w * 100)}×${Math.round(dd * 100)}`, 'soffbord', w, dd, .48, { form: 'rekt', ben: 'kub', tjocklek: .04, hylla: false }, rkM, 'rustikunik'));
 // BESTÅ tv-bänk
 for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
   list.push(B('BESTÅ TV-bänk', 'tvbank', w, .42, .48, { front: 'luckor', frontstil: 'slat', handtag: 'inga', ben: 'ben' }, { stomme: { mat: fin[f][0], color: fin[f][1] }, front: { mat: fin[f][0], color: fin[f][1] } }, `${f} besta`));
@@ -73,7 +82,7 @@ for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
 list.push(B('METOD kök', 'kok', 0, 0, 0, { mods: [{ t: 'kyl', w: .6 }, { t: 'lador', w: .6 }, { t: 'disk', w: .8 }, { t: 'diskmaskin', w: .6 }, { t: 'spis', w: .6 }, { t: 'lador', w: .6 }] }, {}, 'kok kök'));
 
 export const PRESETS = list.map(p => ({ ...p,
-  label: `${p.name} ${/^(MIO|ILVA) /.test(p.name) ? '' : p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn|vadero ställbar/g, '')}`.replace(/\s+/g, ' ').trim(),
+  label: `${p.name} ${/^(MIO|ILVA|Rustikunik) /.test(p.name) ? '' : p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA|Rustikunik) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn|vadero ställbar|rustikunik/g, '')}`.replace(/\s+/g, ' ').trim(),
   dims: p.size.w ? `${Math.round(p.size.w * 100)}×${Math.round((p.o.d2 || p.size.d) * 100)}×${Math.round(p.size.h * 100)} cm` : '' }))
   .map(p => { if (!p.size.w) delete p.size; return p; });
 
@@ -86,7 +95,7 @@ export function findPreset(q) {
     for (const w of words) { if (/^\d+x\d+$/.test(w)) { if (text.includes(w)) sc += 8; else sc -= 2; continue; } if (/^\d+$/.test(w)) continue; if (text.includes(w)) sc += 2; else ok = false; }
     if (!ok) continue;
     const pd = p.size ? [p.size.w, p.size.d, p.size.h].map(v => Math.round(v * 100)) : [p.o.storlek, 200];
-    for (const n of nums) { if (n < 10 && text.includes(n + '-sits')) sc += 4; else if (pd.includes(n)) sc += 3; else if (pd.some(v => Math.abs(v - n) <= 3)) sc += 2; else if (p.kw.includes(n + 'x') || p.kw.includes('x' + n)) sc += 2; else sc -= 1; }
+    for (const n of nums) { if (n < 10 && (text.includes(n + '-sits') || text.includes(n + ' ilaggsskiv'))) sc += 4; else if (pd.includes(n)) sc += 3; else if (pd.some(v => Math.abs(v - n) <= 3)) sc += 2; else if (p.kw.includes(n + 'x') || p.kw.includes('x' + n)) sc += 2; else sc -= 1; }
     scored.push([sc, p]); }
   return scored.sort((a, b) => b[0] - a[0]).slice(0, 8).map(x => x[1]);
 }
@@ -105,9 +114,11 @@ export const FAMILIES = {
   'IKEA BESTÅ':  { label: 'Färg', choices: finish(['vit', 'svartbrun', 'ek'], ['stomme', 'front']) },
   'MIO Rossi':   { label: 'Klädsel', choices: ROSSI_CHOICES, fixed: [['Ben', 'Wengébetsat trä, 4,5 cm']] },
   'ILVA Dahl':   { label: 'Klädsel', choices: DAHL_CHOICES },
+  'Rustikunik matbord': { label: 'Träslag & kulör', choices: RK_EK, opts: ['utdragen'], fixed: [['Skiva', 'Massiv ek, 4 cm'], ['Höjd', '74 cm']] },
+  'Rustikunik soffbord': { label: 'Träslag & kulör', choices: RK_EK, fixed: [['Skiva', 'Massiv ek, 4 cm']] },
   'MIO Väderö':  { label: 'Tyg på säng och gavel', choices: VADERO_CHOICES, fixed: [['Ben', 'Krom, 18 cm'], ['Bäddmadrass', 'Väderö, 8 cm']] },
 };
-const FAM_OF = n => n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('MIO Väderö') ? 'MIO Väderö' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
+const FAM_OF = n => n.startsWith('Rustikunik runt') ? 'Rustikunik matbord' : n.startsWith('Rustikunik rekt') ? 'Rustikunik soffbord' : n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('MIO Väderö') ? 'MIO Väderö' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
   : ['BILLY', 'KALLAX', 'PAX', 'MALM'].includes(n) ? 'IKEA ' + n : null;
 for (const p of PRESETS) { p.family = FAM_OF(p.name); if (p.family) p.variant = p.label.replace(/\b(vit|svartbrun|ek|bjork|svart)\b/g, '').replace(/\s+/g, ' ').trim(); }
 // familjens storlekar/modeller (en per variant)
