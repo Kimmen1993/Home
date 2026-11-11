@@ -1,17 +1,19 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794431659';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794431659';
-import { createPlan } from './plan2d.js?v=1794431659';
-import { createView } from './view3d.js?v=1794431659';
-import { createHA } from './ha.js?v=1794431659';
-import { detectPlan } from './autoplan.js?v=1794431659';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794431659';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794431659';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794431659';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794431659';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794431659';
-import { checkHome } from './check.js?v=1794431659';
-import { openElfaStudio } from './elfastudio.js?v=1794431659';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794434330';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794434330';
+import { createPlan } from './plan2d.js?v=1794434330';
+import { createView } from './view3d.js?v=1794434330';
+import { createHA } from './ha.js?v=1794434330';
+import { detectPlan } from './autoplan.js?v=1794434330';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794434330';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794434330';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794434330';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794434330';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794434330';
+import { checkHome } from './check.js?v=1794434330';
+import { openByggStudio } from './byggstudio.js?v=1794434330';
+import { byggList } from './bygg.js?v=1794434330';
+import { openElfaStudio } from './elfastudio.js?v=1794434330';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -182,15 +184,18 @@ const HANDLE_TYPES = ['underskap', 'diskho', 'spis', 'overskap', 'hogskap', 'kyl
 const handles = cur => `<label class="f">Handtag</label><div class="sws">${HANDLES.map(([c, n]) => `<button class="swc ${c === (cur || '#9aa0a6') ? 'on' : ''}" title="${n}" style="background:${c}" data-color="${c}" data-f="handleColor"></button>`).join('')}</div>`;
 const opt = (f, cur, list) => `<div class="opt">${list.map(([v, l]) => `<button data-opt="${f}" data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 
-// inköpslista: alla riktiga produkter i hemmet, med färg
+// inköpslista: alla riktiga produkter + allt platsbyggt, uppdelat per butik
 function shopList(h) {
-  const rows = new Map();
-  for (const it of h.items) { if (!it.family || !furnKey(it)) continue; const fam = FAMILIES[it.family]; let col = '';
-    if (fam) { const k0 = Object.keys(fam.choices[0].m)[0], c = fam.choices.find(c => (!c.when || c.when(it.o)) && Object.entries(c.m).every(([k, v]) => it.m[k]?.color === v.color && it.m[k]?.mat === v.mat)); col = c ? c.name : ''; void k0; }
-    const key = `${it.name || it.family}${col ? ' – ' + col : ''}`; rows.set(key, (rows.get(key) || 0) + 1); }
-  if (!rows.size) return '';
-  const txt = [...rows].map(([k, n]) => `${n} × ${k}`).join('\n');
-  return `<h3>🛒 INKÖPSLISTA</h3><div class="shop">${[...rows].map(([k, n]) => `<div class="row"><div class="l"><span>${esc(k)}</span></div><b>${n} st</b></div>`).join('')}</div>
+  const stores = new Map(), add = (st, k, n = 1) => { if (!stores.has(st)) stores.set(st, new Map()); const m = stores.get(st); m.set(k, (m.get(k) || 0) + n); };
+  for (const it of h.items) {
+    if (it.type === 'platsbyggt' && it.o?.variants) { const V = it.o.variants[it.o.active || 0]; for (const [st, mp] of Object.entries(byggList(V?.parts || [], it.o))) for (const [k, n] of mp) add(st, k, n); continue; }
+    if (!it.family || !furnKey(it)) continue; const fam = FAMILIES[it.family]; let col = '';
+    if (fam) { const c = fam.choices.find(c => (!c.when || c.when(it.o)) && Object.entries(c.m).every(([k, v]) => it.m[k]?.color === v.color && it.m[k]?.mat === v.mat)); col = c ? c.name : ''; }
+    add(it.family.split(' ')[0], `${it.name || it.family}${col ? ' – ' + col : ''}`); }
+  if (!stores.size) return '';
+  const icon = { IKEA: '🔵', Bygghandeln: '🟫', El: '💡', Färg: '🎨', MIO: '🛋️', ILVA: '🪑', Elfa: '🧥', Rustikunik: '🪵', Hemtex: '🧵' };
+  const txt = [...stores].map(([st, mp]) => `${st}:\n` + [...mp].map(([k, n]) => `  ${n} × ${k}`).join('\n')).join('\n\n');
+  return `<h3>🛒 INKÖPSLISTA</h3><div class="shop">${[...stores].map(([st, mp]) => `<div class="shopst">${icon[st] || '🛍️'} ${esc(st)}</div>${[...mp].map(([k, n]) => `<div class="row"><div class="l"><span>${esc(k)}</span></div><b>${n} st</b></div>`).join('')}`).join('')}</div>
     <div class="btns" style="margin-bottom:10px"><button class="btn" data-copy="${esc(txt)}">📋 Kopiera listan</button></div>`;
 }
 function homePanel() {
@@ -413,7 +418,7 @@ bindFurnPanel(right, {
   before: () => commit(),
   changed(full) { syncF(selected()); emit('full', full ? undefined : 'panel'); },
   redraw: () => renderRight(),
-  act(a) { if (a === 'studio') openStudio(selected()); },
+  act(a) { if (a === 'studio') openStudio(selected()); if (a === 'bygg') openBygg(selected()); },
 });
 right.addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if (!b) return; navigator.clipboard?.writeText(b.dataset.copy.replace(/\\n/g, '\n')); window.toast('📋 Listan är kopierad'); });
 // grupper
@@ -447,10 +452,27 @@ function roomWalls(h, r) {
       const wl = wallLen(w), cx = w.a.x + (w.b.x - w.a.x) / wl * o.t, cy = w.a.y + (w.b.y - w.a.y) / wl * o.t, along = (cx - x1) * rx + (cy - y1) * ry;
       if (Math.abs((cx - x1) * nx + (cy - y1) * ny) > .3 || along < -o.w / 2 || along > len + o.w / 2) continue;
       if (o.kind === 'window') win.push([along - o.w / 2, o.w, o.sill || 0, o.h]); else doors.push([along - o.w / 2, o.w, o.h]); }
-    return { name: 'ABCDEFGHIJKL'[i], len, nx, nz: ny, rx, rz: ry, x1, z1: y1, x2: x1 + rx * len, z2: y1 + ry * len, win, doors }; });
+    // möbler som står mot väggen (visas som skuggor i verkstäderna så man inte bygger på dem)
+    const items = h.items.filter(it => !ITEMS[it.type]?.ceil && !['matta', 'skena', 'platsbyggt', 'elfa'].includes(it.type) && !it.grp).map(it => {
+      const a = it.rot * Math.PI / 180, ex = Math.abs(Math.cos(a)) * it.w / 2 + Math.abs(Math.sin(a)) * it.d / 2, ey = Math.abs(Math.sin(a)) * it.w / 2 + Math.abs(Math.cos(a)) * it.d / 2;
+      const dist = (it.x - x1) * nx + (it.y - y1) * ny, along = (it.x - x1) * rx + (it.y - y1) * ry, half = Math.abs(rx) * ex + Math.abs(ry) * ey, deep = Math.abs(nx) * ex + Math.abs(ny) * ey;
+      return dist - deep < .25 && dist > -.05 && along + half > 0 && along - half < len ? [along - half, half * 2, (it.elev || 0) + it.h, it.elev || 0, ITEMS[it.type]?.name || ''] : null; }).filter(Boolean);
+    return { name: 'ABCDEFGHIJKL'[i], len, nx, nz: ny, rx, rz: ry, x1, z1: y1, x2: x1 + rx * len, z2: y1 + ry * len, win, doors, items }; });
 }
 function placeOnWall(it, W, off, out = 0) { it.rot = ((-Math.atan2(W.nx, W.nz) * 180 / Math.PI) % 360 + 360) % 360;
   const a = off + it.w / 2, n = out + it.d / 2; it.x = Math.round((W.x1 + W.rx * a + W.nx * n) * 1000) / 1000; it.y = Math.round((W.z1 + W.rz * a + W.nz * n) * 1000) / 1000; }
+// byggverkstan: platsbyggt på en vägg (tv-vägg, sänggavel …)
+function openBygg(it) {
+  const h = home(), rooms = h.rooms.filter(r => !r.hidden && !r.outdoor && r.pts.length >= 3);
+  if (!rooms.length) return window.toast('Rita ett rum först – byggverkstan bygger på rummets väggar');
+  const r = (it && roomAt(h, it)) || (S.sel?.type === 'room' && rooms.find(x => x.id === S.sel.id)) || [...rooms].sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
+  const RL = [r, ...rooms.filter(x => x !== r)], roomsW = RL.map(x => ({ name: x.name || 'Rum', walls: roomWalls(h, x) }));
+  let wi = 0; if (it) { let best = 1e9; roomsW[0].walls.forEach((W, i) => { const dist = (it.x - W.x1) * W.nx + (it.y - W.z1) * W.nz; if (Math.abs(dist - it.d / 2) < best) { best = Math.abs(dist - it.d / 2); wi = i; } }); }
+  openByggStudio({ item: it, rooms: roomsW, startRoom: 0, startWall: wi, roomH: h.ceiling || 2.5, onDone: ({ o, m, room, wall }) => {
+    commit(); const W = roomsW[room].walls[wall]; let t = it && h.items.includes(it) ? it : makeItem(h, 'platsbyggt', 0, 0, 0, { o, m });
+    t.o = o; t.m = m; t.o.H = h.ceiling || 2.5; t.g = t.g || {}; t.w = +W.len.toFixed(3); t.name = `Platsbyggt · ${roomsW[room].name}`; syncF(t); placeOnWall(t, W, 0); arrange(h, t);
+    S.sel = { type: 'item', id: t.id }; S.placing = null; S.tool = 'select'; emit('full'); renderToolbar(); hint(); window.toast('🛠 Platsbyggt på plats – lamporna finns under Styr'); } });
+}
 function openStudio(it, extra) {
   const h = home(), rooms = h.rooms.filter(r => !r.hidden && !r.outdoor && r.pts.length >= 3);
   if (!rooms.length) return window.toast('Rita ett rum först – Elfa sätts mot rummets väggar');
@@ -482,6 +504,7 @@ right.addEventListener('click', e => {
   if (t.dataset.cat) { catTab = t.dataset.cat; renderRight(); return; }
   if (t.dataset.place === 'item:skena') { setTool('track'); return; }
   if (t.dataset.place === 'item:elfa') { openStudio(null); return; }
+  if (t.dataset.place === 'item:platsbyggt') { openBygg(null); return; }
   if (t.dataset.place) { const [kind, key] = t.dataset.place.split(':'); S.placing = { kind, key }; S.tool = 'add'; renderRight(); renderToolbar(); hint(); return; }
   if (t.dataset.scene) return scene(t.dataset.scene);
   if (t.dataset.dev) { const [type, id, pid] = t.dataset.dev.split(':'); return onDevice({ type, id, pid }); }

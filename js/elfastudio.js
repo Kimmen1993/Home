@@ -1,8 +1,8 @@
 // Elfa-verkstan: 1) välj vägg, system och färg  2) bygg väggen i stort format (dra in delar)  3) sätt in i rummet.
 // Används av demon (och sen huvudappen). Allt räknas i meter; ritningen i cm.
-import { ELFA_SYS, ELFA_PARTS, ELFA_CATS, elfaWhyNot, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794431659';
-import { FAMILIES } from './presets.js?v=1794431659';
-import { swatch } from './materials.js?v=1794431659';
+import { ELFA_SYS, ELFA_PARTS, ELFA_CATS, elfaWhyNot, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794434330';
+import { FAMILIES } from './presets.js?v=1794434330';
+import { swatch } from './materials.js?v=1794434330';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -10,7 +10,7 @@ const cm = v => Math.round(v * 100);
 const nm = v => { const c = v * 100, r = Math.round(c / 5) * 5; return Math.abs(r - c) < 1.2 ? r : Math.round(c); };
 const BRK = { .305: 32, .405: 42, .494: 50 };
 const SHELF = ['hylla', 'slat', 'trim', 'tra', 'mhylla'];
-const CSS = `
+export const STUDIO_CSS = `
 .es-ov{position:fixed;inset:0;z-index:50;background:#0b0e0b;color:#e9ede6;display:flex;flex-direction:column;font-family:inherit}
 .es-top{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid rgba(190,210,175,.13)}
 .es-top b{font-size:17px}
@@ -142,10 +142,24 @@ export function elevationSvg(o, m, { wall = null, off = 0, roomH = 2.5, sel = nu
   return `<svg class="${cls}" viewBox="-12 -12 ${X(len) + 24} ${X(RH) + pad + 12}" preserveAspectRatio="xMidYMid meet">${out}</svg>`;
 }
 
+// planen uppifrån där man väljer vägg (används också av byggverkstan)
+export function wallPlanSvg(ws, sel) {
+const xs = ws.flatMap(w => [w.x1, w.x2]), zs = ws.flatMap(w => [w.z1, w.z2]), mnx = Math.min(...xs), mxx = Math.max(...xs), mnz = Math.min(...zs), mxz = Math.max(...zs);
+  const k = 100, u = Math.max(1, Math.max(mxx - mnx, mxz - mnz) / 4), P = (x, z) => [((x - mnx) * k + 40 * u), ((z - mnz) * k + 40 * u)];
+return `<svg viewBox="0 0 ${((mxx - mnx) * k + 80 * u).toFixed(0)} ${((mxz - mnz) * k + 80 * u).toFixed(0)}" style="width:100%;max-height:360px">
+    <rect x="${40 * u}" y="${40 * u}" width="${((mxx - mnx) * k).toFixed(0)}" height="${((mxz - mnz) * k).toFixed(0)}" fill="#1a201a"/>
+    ${ws.map((w, i) => { const [ax, az] = P(w.x1, w.z1), [bx, bz] = P(w.x2, w.z2), on = i === sel, cx = (ax + bx) / 2 - w.nx * 26 * u, cz = (az + bz) / 2 - w.nz * 26 * u;
+      return `<g data-wall="${i}" style="cursor:pointer"><line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="${on ? '#ff7a2f' : '#9aa39a'}" stroke-width="${(on ? 14 : 8) * u}" stroke-linecap="round"/>
+        <line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="transparent" stroke-width="${44 * u}"/>
+        ${w.win.map(([a, ww]) => { const p1 = P(w.x1 + w.rx * a, w.z1 + w.rz * a), p2 = P(w.x1 + w.rx * (a + ww), w.z1 + w.rz * (a + ww)); return `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="#7fb2ff" stroke-width="${6 * u}"/>`; }).join('')}
+        <text x="${cx}" y="${cz + 7 * u}" font-size="${22 * u}" font-weight="700" fill="${on ? '#ff7a2f' : '#8f9a8b'}" text-anchor="middle">${w.name}</text>
+        <text x="${(ax + bx) / 2 + w.nx * 30 * u}" y="${(az + bz) / 2 + w.nz * 30 * u + 5 * u}" font-size="${14 * u}" fill="#8f9a8b" text-anchor="middle">${cm(w.len)} cm</text></g>`; }).join('')}</svg>`;
+}
+
 // ---------- verkstan ----------
 export function openElfaStudio({ item, walls: walls0, rooms = null, startRoom = 0, roomH = 2.5, startWall = 0, startOff = null, onDone }) {
   rooms = rooms || [{ name: '', walls: walls0 }];
-  if (!document.getElementById('es-css')) { const st = document.createElement('style'); st.id = 'es-css'; st.textContent = CSS; document.head.appendChild(st); }
+  if (!document.getElementById('es-css')) { const st = document.createElement('style'); st.id = 'es-css'; st.textContent = STUDIO_CSS; document.head.appendChild(st); }
   const base = item ? JSON.parse(JSON.stringify(item)) : newFurniture('elfa');
   const S = { o: base.o, m: base.m, wall: item?.o.wall ?? startWall, off: 0, step: item ? 2 : 1, sel: { sec: 0, part: null }, doors: false, drag: null };
   // ny inredning: bara stommen, inga delar – man bygger själv
@@ -185,16 +199,7 @@ export function openElfaStudio({ item, walls: walls0, rooms = null, startRoom = 
   }
   // ---- steg 1 ----
   function step1() {
-    const ws = walls(), xs = ws.flatMap(w => [w.x1, w.x2]), zs = ws.flatMap(w => [w.z1, w.z2]), mnx = Math.min(...xs), mxx = Math.max(...xs), mnz = Math.min(...zs), mxz = Math.max(...zs);
-    const k = 100, u = Math.max(1, Math.max(mxx - mnx, mxz - mnz) / 4), P = (x, z) => [((x - mnx) * k + 40 * u), ((z - mnz) * k + 40 * u)];
-    const plan = `<svg viewBox="0 0 ${((mxx - mnx) * k + 80 * u).toFixed(0)} ${((mxz - mnz) * k + 80 * u).toFixed(0)}" style="width:100%;max-height:360px">
-      <rect x="${40 * u}" y="${40 * u}" width="${((mxx - mnx) * k).toFixed(0)}" height="${((mxz - mnz) * k).toFixed(0)}" fill="#1a201a"/>
-      ${ws.map((w, i) => { const [ax, az] = P(w.x1, w.z1), [bx, bz] = P(w.x2, w.z2), on = i === S.wall, cx = (ax + bx) / 2 - w.nx * 26 * u, cz = (az + bz) / 2 - w.nz * 26 * u;
-        return `<g data-wall="${i}" style="cursor:pointer"><line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="${on ? '#ff7a2f' : '#9aa39a'}" stroke-width="${(on ? 14 : 8) * u}" stroke-linecap="round"/>
-          <line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="transparent" stroke-width="${44 * u}"/>
-          ${w.win.map(([a, ww]) => { const p1 = P(w.x1 + w.rx * a, w.z1 + w.rz * a), p2 = P(w.x1 + w.rx * (a + ww), w.z1 + w.rz * (a + ww)); return `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="#7fb2ff" stroke-width="${6 * u}"/>`; }).join('')}
-          <text x="${cx}" y="${cz + 7 * u}" font-size="${22 * u}" font-weight="700" fill="${on ? '#ff7a2f' : '#8f9a8b'}" text-anchor="middle">${w.name}</text>
-          <text x="${(ax + bx) / 2 + w.nx * 30 * u}" y="${(az + bz) / 2 + w.nz * 30 * u + 5 * u}" font-size="${14 * u}" fill="#8f9a8b" text-anchor="middle">${cm(w.len)} cm</text></g>`; }).join('')}</svg>`;
+    const plan = wallPlanSvg(walls(), S.wall);
     return `<div class="es-card">${rooms.length > 1 ? `<h4>VILKET RUM?</h4><div class="es-seg" style="margin-bottom:10px">${rooms.map((r, i) => `<button data-room="${i}" class="${i === S.room ? 'on' : ''}">${esc(r.name)}</button>`).join('')}</div>` : ''}<h4>VILKEN VÄGG?</h4>${plan}<div class="es-note">Klicka på väggen där inredningen ska sitta. Fönster syns i nästa steg.</div></div>
       <div class="es-card"><h4>VILKET SYSTEM?</h4><div class="es-sys">${Object.entries(ELFA_SYS).map(([k, y]) => `<button data-sys="${k}" class="${sys() === k ? 'on' : ''}"><i>${y.icon}</i><b>${y.name}</b><span>${y.desc}</span></button>`).join('')}</div>
         ${colorBlock()}
@@ -362,5 +367,5 @@ export function openElfaStudio({ item, walls: walls0, rooms = null, startRoom = 
   return { close };
 }
 // sync utan att importera hela FURN-objektet i onödan
-import { FURN } from './furniture.js?v=1794431659';
+import { FURN } from './furniture.js?v=1794434330';
 const FURNSYNC = it => FURN.elfa.sync(it, it.o);

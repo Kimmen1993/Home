@@ -1,6 +1,6 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794431659';
-import { furnKey, ensureFurn, syncF } from './furnbridge.js?v=1794431659';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794434330';
+import { furnKey, ensureFurn, syncF } from './furnbridge.js?v=1794434330';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';

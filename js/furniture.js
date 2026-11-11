@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794431659';
+import { PARTS as BPARTS } from './bygg.js?v=1794434330';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794434330';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -715,6 +716,40 @@ function elfa(it, o, M) {
   });
 }
 
+// ---------- PLATSBYGGT (byggverkstan): IKEA-stommar + egna delar på en vägg ----------
+// Väggen ligger vid lokal z = -d/2, x = 0 är väggens vänstra hörn sett inifrån rummet (möbeln är lika bred som väggen).
+function cabinet(p, cx, z0, M, o) {
+  const fd = .02, carc = p.d - fd, fz = z0 + carc, ikeaW = p.k === 'metod' ? p.w : .6;
+  box(p.w - .002, p.h, carc, M.stomme, cx, p.y, z0 + carc / 2);
+  const cols = Math.max(1, Math.round(p.w / ikeaW)), rows = p.h > 1.5 ? 3 : p.h > 1 ? 2 : 1, cw = p.w / cols, rh = p.h / rows;
+  if (p.front === 'oppen') { box(p.w - .04, p.h - .04, .004, dark(), cx, p.y + .02, z0 + .01); const n = Math.max(2, Math.round(p.h / .32));
+    for (let r = 1; r < n; r++) box(p.w - .036, .016, carc - .01, M.stomme, cx, p.y + r * p.h / n, z0 + carc / 2); return; }
+  const glass = makeMat('rokglas', '#5b5650');
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) { const x = cx - p.w / 2 + (c + .5) * cw, y = p.y + r * rh;
+    if (p.front === 'lador') { front(o.frontstil || 'slat', M.front, cw, rh / 2, x, y, fz, M.stomme); front(o.frontstil || 'slat', M.front, cw, rh / 2, x, y + rh / 2, fz, M.stomme); }
+    else if (p.front === 'glas') { const f = front('ram', M.front, cw, rh, x, y, fz, M.stomme); box(f.w - .13, f.h - .13, .004, glass, x, f.y + .065, f.z - .002); }
+    else front(o.frontstil || 'slat', M.front, cw, rh, x, y, fz, M.stomme); }
+}
+const ORDER = ['farg', 'panel', 'gips', 'sockel', 'passbit', 'kappa', 'besta', 'metod', 'skiva'];
+function platsbyggt(it, o, M) {
+  const parts = (o.variants?.[o.active || 0]?.parts || []).filter(p => BPARTS[p.k] && p.k !== 'led' && p.k !== 'tv'), W = it.w, zb = -it.d / 2;
+  for (const p of [...parts].sort((a, b) => ORDER.indexOf(a.k) - ORDER.indexOf(b.k))) {
+    const cx = -W / 2 + p.x + p.w / 2, z0 = zb + (p.z || 0);
+    if (p.k === 'farg') { const m = box(p.w, p.h, .002, makeMat('matt', p.color || '#3b3f3a'), cx, p.y, zb + .001); m.castShadow = false; }
+    else if (p.k === 'panel') {
+      if (p.stil === 'slat') box(p.w, p.h, .018, M.panel, cx, p.y, z0 + .009);
+      else { box(p.w, p.h, .009, p.stil === 'akustik' ? makeMat('tyg', '#1c1c1c') : M.panel, cx, p.y, z0 + .0045);
+        const sw = .027, gap = .013, n = Math.max(1, Math.floor((p.w + gap) / (sw + gap))), st = (p.w - (n * (sw + gap) - gap)) / 2, g = [];
+        for (let i = 0; i < n; i++) g.push(new THREE.BoxGeometry(sw, p.h, .012).translate(-W / 2 + p.x + st + i * (sw + gap) + sw / 2, p.y + p.h / 2, z0 + .015));
+        add(mergeGeometries(g), M.panel, 0, 0, 0); } }
+    else if (p.k === 'gips') box(p.w, p.h, p.d, M.gips, cx, p.y, z0 + p.d / 2, .002);
+    else if (p.k === 'passbit' || p.k === 'kappa') box(p.w, p.h, p.d - .002, M.front, cx, p.y, z0 + p.d / 2);
+    else if (p.k === 'sockel') box(p.w, p.h, p.d, dark(), cx, p.y, z0 + p.d / 2 - .02);
+    else if (p.k === 'skiva') box(p.w, p.h, p.d, M.skiva, cx, p.y, z0 + p.d / 2, .002);
+    else if (p.k === 'besta' || p.k === 'metod') cabinet(p, cx, z0, M, o);
+  }
+}
+
 // ---------- BOKHYLLA ----------
 function rnd(seed) { let s = seed * 9301 + 49297 | 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 const BOOKC = ['#7a2f2a', '#2b4256', '#c9b38a', '#e9e3d6', '#3d5240', '#1f1f22', '#a4673a', '#5b3a4d', '#d3c7a6', '#8b8f86', '#bfa178', '#36556b'];
@@ -1003,6 +1038,12 @@ export const FURN = {
       o.djup = near(o.djup, S.dep); if (S.len) o.gren = near(o.gren, S.len); if (elfaSys(o) === 'frist') o.hojd = near(o.hojd, S.hts); if (elfaSys(o) === 'lada') o.ram = near(o.ram, S.hts);
       for (const m of o.mods) { if (!S.ws.some(w => Math.abs(w - m.w) < .002)) m.w = near(m.w, S.ws); if (!m.parts) m.parts = elfaTemplate(m.t, m.w, o); m.parts = m.parts.filter(p => ELFA_PARTS[p.t]); for (const p of m.parts) p.dn = elfaSnap(o, p.dn, p); }
       const g = elfaGeo(o); it.w = +g.W.toFixed(3); it.h = +g.H.toFixed(3); it.d = elfaDepth(o); } },
+  platsbyggt: { name: 'Platsbyggt', icon: '🛠️', cat: 'vardag', w: 3, d: .4, h: 2.5, fixed: 1,
+    opts: [{ k: 'variants', t: 'bygg', label: 'Platsbyggt', v: [{ name: 'Förslag A', parts: [] }] },
+      ...[['active', 0], ['fronter', 'ikea'], ['frontstil', 'slat'], ['wall', null], ['room', null], ['yta', 'vagg']].map(([k, v]) => ({ k, t: 'hid', v, if: () => false }))],
+    slots: [['stomme', 'Stommar', 'front', 'matt', '#f2f2f0'], ['front', 'Fronter & passbitar', 'front', 'matt', '#f2f2f0'], ['panel', 'Ribbor & panel', 'tra', 'ek'], ['skiva', 'Skivor & hyllor', 'skiva', 'ek'], ['gips', 'Gips', 'front', 'matt', '#f4f2ee']],
+    build: platsbyggt, sync: (it, o) => { const P = (o.variants?.[o.active || 0]?.parts || []).filter(p => p.k !== 'led' && p.k !== 'tv');
+      it.d = +Math.max(.05, ...P.map(p => (p.z || 0) + (p.d || 0))).toFixed(3); it.h = +Math.max(.1, ...P.map(p => p.y + p.h)).toFixed(3); } },
   skjutdorr: { name: 'Skjutdörrar', icon: '🚪', cat: 'sov', w: 1.8, d: .1, h: 2.4, dims: { w: [.8, 5], h: [1.8, 2.7] },
     opts: [{ k: 'dorrar', t: 'num', label: 'Antal dörrar', v: 2, min: 2, max: 5, step: 1 },
       { k: 'modell', t: 'sel', label: 'Indelning', v: 'plain', o: [['plain', 'Hel'], ['duo', '2 fält'], ['trio', '3 fält'], ['quattro', '4 fält'], ['penta', '5 fält']] },

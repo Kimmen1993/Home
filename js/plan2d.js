@@ -1,8 +1,8 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794431659';
-import { footShape } from './furnbridge.js?v=1794431659';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794431659';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794434330';
+import { footShape } from './furnbridge.js?v=1794434330';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794434330';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -219,7 +219,8 @@ export function createPlan(canvas, ui) {
       ctx.fillStyle = hexA(it.color, it.type === 'matta' || it.type === 'altan' || it.type === 'gang' ? .55 : .9);
       ctx.strokeStyle = 'rgba(200,225,255,.75)'; ctx.lineWidth = 1;
       const fsh = footShape(it);
-      if (fsh?.round) { ctx.beginPath(); ctx.ellipse(0, 0, w / 2, d / 2, 0, 0, 7); ctx.fill(); ctx.stroke(); }
+      if (fsh?.parts) { for (const q of fsh.parts) { ctx.fillStyle = q.ikea ? 'rgba(127,178,255,.35)' : hexA(it.color || '#f2f2f0', .7); roundRect((q.x - q.w / 2) * scale, (q.z - q.d / 2) * scale, q.w * scale, q.d * scale, 2); ctx.fill(); ctx.stroke(); } }
+      else if (fsh?.round) { ctx.beginPath(); ctx.ellipse(0, 0, w / 2, d / 2, 0, 0, 7); ctx.fill(); ctx.stroke(); }
       else if (fsh?.oval) { const r = Math.min(w, d) / 2; roundRect(-w / 2, -d / 2, w, d, r); ctx.fill(); ctx.stroke(); }
       else { roundRect(-w / 2, -d / 2, w, d, Math.min(4, w / 4, d / 4)); ctx.fill(); ctx.stroke(); }
       if (fsh?.extra) { const e = fsh.extra; roundRect((e.x - e.w / 2) * scale, (e.z - e.d / 2) * scale, e.w * scale, e.d * scale, 3); ctx.fill(); ctx.stroke(); }

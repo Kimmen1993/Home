@@ -1,10 +1,11 @@
 // Möbelpanelen (gemensam för demon och huvudappen): mått, val, riktiga produkter (låsta färger/storlekar), material och RAL-färger.
 // Värden ändras direkt på möbeln; värden (host) ritar om 3D via changed().
-import { FURN, KMODS, KWIDTHS, ELFA_SYS, elfaSys, syncFurniture } from './furniture.js?v=1794431659';
-import { MATS, GROUPS, swatch } from './materials.js?v=1794431659';
-import { ralSearch, ralFind, ralOf } from './ral.js?v=1794431659';
-import { FAMILIES, variantsOf } from './presets.js?v=1794431659';
-import { elevationSvg } from './elfastudio.js?v=1794431659';
+import { FURN, KMODS, KWIDTHS, ELFA_SYS, elfaSys, syncFurniture } from './furniture.js?v=1794434330';
+import { MATS, GROUPS, swatch } from './materials.js?v=1794434330';
+import { ralSearch, ralFind, ralOf } from './ral.js?v=1794434330';
+import { FAMILIES, variantsOf } from './presets.js?v=1794434330';
+import { wallSvg } from './byggstudio.js?v=1794434330';
+import { elevationSvg } from './elfastudio.js?v=1794434330';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const QUICK = ['9010', '9001', '1013', '1015', '7044', '7035', '7016', '7021', '9005', '6021', '5014', '3012', '8017', '1019'].map(c => ralFind(c));
@@ -19,6 +20,10 @@ const fmtNum = (op, v) => op.unit === 'm' ? Math.round(v * 100) + ' cm' : op.uni
 function optField(op, it) {
   if (op.t === 'elfa') return `<div class="f"><label>${esc(ELFA_SYS[elfaSys(it.o)].name)} · ${it.o.mods.length} sektioner<b>${Math.round(it.w * 100)} cm</b></label>${elevationSvg(it.o, it.m, { cls: 'esvg' })}
     <button class="btn big acc" data-act="studio">🛠 Öppna Elfa-verkstan</button></div>`;
+  if (op.t === 'bygg') { const V = it.o.variants || [];
+    return `<div class="f">${V.length > 1 ? `<div class="opt" style="margin-bottom:6px">${V.map((v, i) => `<button data-o="active" data-v="${i}" class="${(it.o.active || 0) === i ? 'on' : ''}">${esc(v.name.split(' · ')[0])}</button>`).join('')}</div>` : ''}
+      ${wallSvg(V[it.o.active || 0]?.parts || [], it.m, { L: it.w, H: it.o.H || 2.5, cls: 'esvg', showIkea: false })}
+      <button class="btn big acc" data-act="bygg">🛠 Öppna byggverkstan</button></div>`; }
   const v = it.o[op.k];
   if (op.t === 'sel') return `<div class="f"><label>${op.label}</label><div class="opt">${op.o.map(([val, l]) => `<button data-o="${op.k}" data-v="${esc(JSON.stringify(val))}" class="${v === val ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
   if (op.t === 'num') { if (op.info) return `<div class="info">🪑 Får plats: <b>${v}</b> personer (60 cm bordskant per person)</div>`;

@@ -1,7 +1,7 @@
 // Rumskontroll: hittar sådant man lätt missar när man möblerar.
 // Dörrar som slår i möbler, för lite plats bakom matstolar, trånga sängsidor och smala passager.
 // Måtten är vanliga riktvärden: 75 cm bakom stolar, 50–60 cm vid sängen, 60 cm för att gå förbi.
-import { ITEMS } from './catalog.js?v=1794431659';
+import { ITEMS } from './catalog.js?v=1794434330';
 
 const cm = v => Math.round(v * 100);
 const ext = it => { const r = it.rot * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)); return { ex: c * it.w / 2 + s * it.d / 2, ey: s * it.w / 2 + c * it.d / 2 }; };
@@ -16,7 +16,7 @@ function ray(h, items, from, ox, oy, dx, dy, halfAcross, skip) {
     const t = ((w.a.x - ox) * sy - (w.a.y - oy) * sx) / den, u = ((w.a.x - ox) * dy - (w.a.y - oy) * dx) / den;
     if (u < 0 || u > 1 || t < -.02) continue; const tt = t - (w.t || .1) / 2 / Math.max(Math.abs(den) / Math.hypot(sx, sy), .25);
     if (tt < best) { best = Math.max(0, tt); what = 'väggen'; } }
-  for (const o of items) { if (o === from || related(o, from) || skip?.(o)) continue; const F = ext(o);
+  for (const o of items) { if (o === from || o.id === from.id || related(o, from) || skip?.(o)) continue; const F = ext(o);
     const across = dx ? Math.abs(oy - o.y) < F.ey + halfAcross * .7 : Math.abs(ox - o.x) < F.ex + halfAcross * .7; if (!across) continue;
     const tt = dx > 0 ? o.x - F.ex - ox : dx < 0 ? ox - (o.x + F.ex) : dy > 0 ? o.y - F.ey - oy : oy - (o.y + F.ey);
     if (tt > -.01 && tt < best) { best = Math.max(0, tt); what = o; } }
@@ -24,7 +24,12 @@ function ray(h, items, from, ox, oy, dx, dy, halfAcross, skip) {
 }
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 export function checkHome(h) {
-  const out = [], items = h.items.filter(solid), seen = new Set();
+  const out = [], seen = new Set();
+  const items = h.items.filter(solid).flatMap(it => { if (it.type !== 'platsbyggt') return [it];
+    const a = it.rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return (it.o?.variants?.[it.o.active || 0]?.parts || []).filter(p => !['farg', 'led', 'tv', 'panel'].includes(p.k) && p.d > .1 && p.y < .9).map(p => {
+      const lx = -it.w / 2 + p.x + p.w / 2, ly = -it.d / 2 + (p.z || 0) + p.d / 2;
+      return { ...it, x: it.x + lx * c - ly * s, y: it.y + lx * s + ly * c, w: p.w, d: p.d, h: p.y + p.h, name: 'Platsbyggt' }; }); });
   // 1) dörrar som slår i möbler
   for (const o of h.openings) { if (o.kind !== 'door') continue; const w = h.walls.find(x => x.id === o.wall); if (!w) continue;
     const L = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y), ux = (w.b.x - w.a.x) / L, uy = (w.b.y - w.a.y) / L, nx = -uy, ny = ux, sd = o.swing || 1, T = (w.t || .1) / 2;
