@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794403239';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794404076';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu

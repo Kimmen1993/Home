@@ -39,7 +39,17 @@ list.push(B('KLIPPAN 2-sits', 'soffa', 1.8, .88, .66, { form: 'rak', sits: 2, ar
 list.push(B('STRANDMON fåtölj', 'fatolj', .82, .96, 1.01, { vinge: true, armar: 'rundade', rygg: 'fast', ben: 'tra', benH: .12 }, {}, 'öronlapp oronlapp'));
 // MIO Rossi (låg, djup modulsoffa: djup 112, höjd 86, sitthöjd 44, armstöd 16 cm, fyrkantiga ben 4,5 cm)
 const ROSSI = { armar: 'raka', armH: .62, rygg: 'kuddar', sitth: .44, ben: 'kloss', benH: .045, kuddar: 2 };
-const rossiM = { kladsel: { mat: 'tyg', color: '#e6e0d4' }, kuddar: { mat: 'tyg', color: '#d8cfbf' }, ben: { mat: 'matt', color: '#2a2622' } };
+// tygerna som går att beställa (mio.se, nov 2026). Färgen är snittet av MIO:s tygprov, lite uppljusat.
+const ROSSI_TYG = { Alex: ['Chenille', 'tyg', [['light grey', '#9b9996'], ['stone', '#696664'], ['beige', '#a3958e'], ['moss', '#272c18'], ['offwhite', '#d6c7bc'], ['brown', '#544a3f']]],
+  Aurora: ['Bouclé', 'boucle', [['moss', '#333d2f'], ['pearl', '#bbb4a6'], ['beige', '#796d60'], ['deep terra', '#612e1b'], ['red', '#50131e'], ['amber', '#74501d'], ['deep blue', '#1b252c'], ['grey', '#5f5f5a']]],
+  Casa: ['Chenille', 'tyg', [['beige', '#938578'], ['moss', '#3d3a26']]],
+  Grand: ['Sammet', 'sammet', [['light grey', '#7e796d'], ['beige', '#78664f'], ['grey', '#393f3a'], ['khaki', '#524b39'], ['rust', '#8d5038'], ['yellow', '#ad7a40']]],
+  Iberia: ['Slätvävd', 'tyg', [['offwhite', '#abaa9d'], ['greige', '#897f73'], ['grey', '#676560'], ['beige', '#76685c'], ['dark grey', '#3d3f3e'], ['espresso', '#37342f']]],
+  Zoom: ['Manchester', 'sammet', [['cream', '#c4b7ad'], ['beige', '#897a6e'], ['brown', '#554a42'], ['mustard', '#8d642d'], ['moss', '#323b2f'], ['azur', '#334647'], ['ash', '#555252'], ['light aqua', '#5f7a7a']]] };
+const lift = (hex, k) => '#' + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join('');
+const ROSSI_CHOICES = Object.entries(ROSSI_TYG).flatMap(([q, [typ, mat, cols]]) => cols.map(([n, hex]) => { const c = lift(hex, 1.18);
+  return { name: `${q} ${n}`, group: `${q} · ${typ}`, hex: c, m: { kladsel: { mat, color: c }, kuddar: { mat, color: c } } }; }));
+const rossiM = { ...ROSSI_CHOICES.find(c => c.name === 'Alex offwhite').m, ben: { mat: 'matt', color: '#3a2c22' } };
 for (const [n, w, sits, extra, kw] of [['Rossi 1,5-sits', 1.38, 1, {}, ''], ['Rossi 2-sits', 1.58, 1, {}, ''], ['Rossi 3-sits', 2.42, 2, {}, ''], ['Rossi 3-sits hel dyna', 2.42, 1, {}, ''],
   ['Rossi 4-sits', 2.82, 2, {}, ''], ['Rossi 2-sits med schäslong XL vänster', 2.84, 2, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 2-sits med schäslong XL höger', 2.84, 2, { form: 'schH', d2: 1.9 }, 'divan'],
   ['Rossi 2-sits med schäslong vänster', 2.64, 2, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 2-sits med schäslong höger', 2.64, 2, { form: 'schH', d2: 1.9 }, 'divan'],
@@ -47,7 +57,8 @@ for (const [n, w, sits, extra, kw] of [['Rossi 1,5-sits', 1.38, 1, {}, ''], ['Ro
   ['Rossi hörnsoffa vänster', 2.32, 1, { form: 'hornV', d2: 2.32 }, 'horn'], ['Rossi hörnsoffa höger', 2.32, 1, { form: 'hornH', d2: 2.32 }, 'horn']])
   list.push(B('MIO ' + n, 'soffa', w, 1.12, .86, { ...ROSSI, sits, form: 'rak', ...extra }, rossiM, kw));
 // ILVA Dahl matstol (helklädd karmstol 60×61×80, sitthöjd 49)
-list.push(B('ILVA Dahl matstol', 'stol', .6, .61, .8, { stil: 'karm', sitth: .49, armH: .66 }, { sits: { mat: 'tyg', color: '#8f7e6b' }, stomme: { mat: 'matt', color: '#8f7e6b' } }, 'karmstol'));
+const DAHL_CHOICES = [['Austin Antelope (gråbrun)', '#8a7763'], ['Grön', '#3d4636']].map(([name, hex]) => ({ name, hex, m: { sits: { mat: 'tyg', color: hex }, stomme: { mat: 'tyg', color: hex } } }));
+list.push(B('ILVA Dahl matstol', 'stol', .6, .61, .8, { stil: 'karm', sitth: .49, armH: .66 }, DAHL_CHOICES[0].m, 'karmstol'));
 // BESTÅ tv-bänk
 for (const w of [1.2, 1.8]) for (const f of ['vit', 'svartbrun', 'ek'])
   list.push(B('BESTÅ TV-bänk', 'tvbank', w, .42, .48, { front: 'luckor', frontstil: 'slat', handtag: 'inga', ben: 'ben' }, { stomme: { mat: fin[f][0], color: fin[f][1] }, front: { mat: fin[f][0], color: fin[f][1] } }, `${f} besta`));
@@ -72,3 +83,24 @@ export function findPreset(q) {
     scored.push([sc, p]); }
   return scored.sort((a, b) => b[0] - a[0]).slice(0, 8).map(x => x[1]);
 }
+
+// ---------- fasta produkter: bara det som går att köpa ----------
+// Varje familj listar de färger/tyger som finns. En möbel från en familj får bara byta mellan dem (och mellan familjens storlekar).
+const FIN_NAME = { vit: 'Vit', svartbrun: 'Svartbrun', ek: 'Ekfaner/ekbets', bjork: 'Björkfaner', svart: 'Svart', gra: 'Grå' };
+const finish = (fs, slots) => fs.map(f => ({ name: FIN_NAME[f], hex: fin[f][1] || (f === 'ek' ? '#c9a77a' : '#dcc39c'), mat: fin[f][0],
+  m: Object.fromEntries(slots.map(k => [k, { mat: fin[f][0], color: fin[f][1] }])) }));
+export const FAMILIES = {
+  'IKEA BILLY':  { label: 'Färg', choices: finish(['vit', 'svartbrun', 'ek', 'bjork'], ['stomme']) },
+  'IKEA KALLAX': { label: 'Färg', choices: finish(['vit', 'svartbrun', 'ek'], ['stomme']) },
+  'IKEA PAX':    { label: 'Färg', choices: finish(['vit', 'svartbrun'], ['front', 'stomme']) },
+  'IKEA MALM':   { label: 'Färg', choices: finish(['vit', 'svartbrun', 'ek'], ['ram', 'ben']) },
+  'IKEA LACK':   { label: 'Färg', choices: finish(['vit', 'svart', 'ek'], ['skiva', 'ben']) },
+  'IKEA BESTÅ':  { label: 'Färg', choices: finish(['vit', 'svartbrun', 'ek'], ['stomme', 'front']) },
+  'MIO Rossi':   { label: 'Klädsel', choices: ROSSI_CHOICES, fixed: [['Ben', 'Wengébetsat trä, 4,5 cm']] },
+  'ILVA Dahl':   { label: 'Klädsel', choices: DAHL_CHOICES },
+};
+const FAM_OF = n => n.startsWith('MIO Rossi') ? 'MIO Rossi' : n.startsWith('ILVA Dahl') ? 'ILVA Dahl' : n.startsWith('LACK') ? 'IKEA LACK' : n.startsWith('BESTÅ') ? 'IKEA BESTÅ'
+  : ['BILLY', 'KALLAX', 'PAX', 'MALM'].includes(n) ? 'IKEA ' + n : null;
+for (const p of PRESETS) { p.family = FAM_OF(p.name); if (p.family) p.variant = p.label.replace(/\b(vit|svartbrun|ek|bjork|svart)\b/g, '').replace(/\s+/g, ' ').trim(); }
+// familjens storlekar/modeller (en per variant)
+export function variantsOf(family) { const seen = new Set(); return PRESETS.filter(p => p.family === family && !seen.has(p.variant) && seen.add(p.variant)); }

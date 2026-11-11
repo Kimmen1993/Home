@@ -7,10 +7,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794403239';
-import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794403239';
-import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794403239';
-import { PRESETS, findPreset } from '../js/presets.js?v=1794403239';
+import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794404076';
+import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794404076';
+import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794404076';
+import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794404076';
 
 const $ = s => document.querySelector(s);
 const host = $('#stage');
@@ -253,6 +253,23 @@ function panel() {
   if (!sel) { P.innerHTML = `<h2>🛋️ Möbelverkstan</h2><div class="info">Välj en möbel i rummet, eller lägg till en till vänster.<br><br>Alla mått är riktiga standardmått. Varje del kan få eget material och egen färg, också med <b>RAL-kod</b>.</div>
     <h3>I RUMMET</h3>${st.items.map(it => `<div class="row" data-pick="${it.id}"><div class="l"><span>${FURN[it.type].icon} ${it.name || FURN[it.type].name}</span><em>${Math.round(it.w * 100)}×${Math.round(it.d * 100)} cm</em></div><span>›</span></div>`).join('')}`; return; }
   const it = sel, F = FURN[it.type], dims = F.dims || {};
+  const fam = it.family && FAMILIES[it.family];
+  if (fam) {   // fast produkt: bara riktiga storlekar och färger
+    const vars = variantsOf(it.family), k0 = Object.keys(fam.choices[0].m)[0], cur = it.m[k0];
+    const groups = [...new Set(fam.choices.map(c => c.group || ''))];
+    P.innerHTML = `<h2>${F.icon} ${esc(it.family)}</h2>
+      <div class="info">📦 Riktig produkt. Här finns bara de storlekar och färger som går att köpa.</div>
+      <div class="btns"><button class="btn" data-act="rotL">⟲ 90°</button><button class="btn" data-act="rotR">⟳ 90°</button><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑</button></div>
+      <div class="f"><label>Vinkel<b>${Math.round(it.rot * 180 / Math.PI) % 360}°</b></label><input type="range" data-rot="1" min="0" max="355" step="5" value="${Math.round(it.rot * 180 / Math.PI) % 360}"></div>
+      ${vars.length > 1 ? `<div class="f"><label>Modell</label><select data-variant="1">${vars.map(v => `<option ${v.variant === it.preset ? 'selected' : ''}>${esc(v.variant)}</option>`).join('')}</select></div>` : ''}
+      <div class="f"><label>Mått<b>${Math.round(it.w * 100)} × ${Math.round((it.o.form && it.o.form !== 'rak' ? it.o.d2 : it.d) * 100)} × ${Math.round(it.h * 100)} cm</b></label></div>
+      <h3>${fam.label.toUpperCase()}</h3>
+      ${groups.map(g => `<div class="slot">${g ? `<h4>${esc(g)}</h4>` : ''}<div class="fam">${fam.choices.map((c, i) => (c.group || '') !== g ? '' :
+        `<button data-choice="${i}" class="${cur && cur.mat === c.m[k0].mat && cur.color === c.m[k0].color ? 'on' : ''}" title="${esc(c.name)}"><img src="${swatch(c.m[k0].mat, c.m[k0].color)}"><span>${esc(g ? c.name.split(' ').slice(1).join(' ') : c.name)}</span></button>`).join('')}</div></div>`).join('')}
+      ${(fam.fixed || []).map(([a, b]) => `<div class="f"><label>${a}<b>${esc(b)}</b></label></div>`).join('')}
+      <button class="small" data-act="unlock">✏️ Gör om till egen möbel (fria mått och färger)</button>`;
+    return;
+  }
   const dimRow = (k, label) => dims[k] && !(F.fixed) ? `<div class="f"><label>${label}<b>${Math.round(it[k] * 100)} cm</b></label><input type="range" data-dim="${k}" min="${dims[k][0]}" max="${dims[k][1]}" step=".01" value="${it[k]}"></div>` : '';
   const slots = F.slots.map(([k, label, grp]) => { const s = it.m[k]; return `<div class="slot"><h4>${label}<em>${MATS[s.mat]?.name || ''}</em></h4>
     <div class="mats">${GROUPS[grp].map(id => `<button data-mat="${k}" data-id="${id}" class="${s.mat === id ? 'on' : ''}" title="${MATS[id].name}"><img src="${swatch(id, s.mat === id ? s.color : null)}">${MATS[id].name.split(/[ ,]/)[0]}</button>`).join('')}</div>
@@ -280,19 +297,21 @@ function setColor(key, hex) {
 }
 const P = $('#panel');
 P.addEventListener('click', e => {
-  const b = e.target.closest('[data-o],[data-mat],[data-act],[data-col],[data-pick],[data-floor],[data-modadd],[data-moddel],[data-modmove],[data-sugg] button');
+  const b = e.target.closest('[data-choice],[data-o],[data-mat],[data-act],[data-col],[data-pick],[data-floor],[data-modadd],[data-moddel],[data-modmove],[data-sugg] button');
   if (!b || b.matches('input')) return;
   if (b.dataset.pick) { select(byId(b.dataset.pick)); return; }
   if (b.dataset.floor) { st.floor = b.dataset.floor; st.floorColor = null; buildRoom(); save(); panel(); return; }
   if (b.dataset.hexpick) { setColor(b.dataset.key, b.dataset.hexpick); return; }
   if (b.dataset.col && b.dataset.hex) { setColor(b.dataset.col, b.dataset.hex); return; }
   if (!sel) return;
+  if (b.dataset.choice) { const c = FAMILIES[sel.family].choices[+b.dataset.choice]; for (const [k, v] of Object.entries(c.m)) sel.m[k] = { ...v }; changed(); return; }
   if (b.dataset.o) { const op = FURN[sel.type].opts.find(x => x.k === b.dataset.o); sel.o[op.k] = op.t === 'bool' ? !sel.o[op.k] : JSON.parse(b.dataset.v); changed(); }
   if (b.dataset.mat) { sel.m[b.dataset.mat] = { mat: b.dataset.id, color: null }; changed(); }
   if (b.dataset.modadd) { sel.o.mods.push({ t: b.dataset.modadd, w: .6 }); changed(); }
   if (b.dataset.moddel) { sel.o.mods.splice(+b.dataset.moddel, 1); if (!sel.o.mods.length) sel.o.mods.push({ t: 'lucka', w: .6 }); changed(); }
   if (b.dataset.modmove) { const i = +b.dataset.modmove; if (i > 0) { const m = sel.o.mods; [m[i - 1], m[i]] = [m[i], m[i - 1]]; changed(); } }
   const a = b.dataset.act;
+  if (a === 'unlock') { delete sel.family; sel.preset = null; changed(); return; }
   if (a === 'rotL') rotate(Math.PI / 2); if (a === 'rotR') rotate(-Math.PI / 2); if (a === 'del') removeSel();
   if (a === 'dup') { const c = JSON.parse(JSON.stringify(sel)); c.id = 'f' + Math.random().toString(36).slice(2, 8); c.x += .3; c.z += .3; c.seed = (c.seed || 1) + 11; clampSnap(c); st.items.push(c); build(c); save(); select(c); }
 });
@@ -312,6 +331,8 @@ P.addEventListener('change', e => {
   const t = e.target; if (!sel) return;
   if (t.dataset.mod !== undefined) { const m = sel.o.mods[+t.dataset.mod]; if (t.dataset.mk === 't') { m.t = t.value; m.w = KMODS[t.value].w; } else m.w = +t.value; changed(); }
   if (t.dataset.dim || t.dataset.num) panel();
+  if (t.dataset.variant) { const v = variantsOf(sel.family).find(x => x.variant === t.value); if (v && v.type === sel.type) {
+    sel.o = JSON.parse(JSON.stringify({ ...sel.o, ...v.o })); sel.preset = v.variant; sel.name = v.name; syncFurniture(sel); if (v.size) Object.assign(sel, v.size); changed(); } }
 });
 P.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset.ral) { const b = P.querySelector(`[data-sugg="${CSS.escape(e.target.dataset.ral)}"] button`); if (b) b.click(); } });
 // skriver man en hel RAL-kod byts färgen direkt men panelen ritas inte om (så man kan fortsätta skriva)
@@ -339,7 +360,7 @@ if (search) {
   search.addEventListener('input', () => { const list = findPreset(search.value); res.innerHTML = list.map((p, i) => `<button data-pre="${i}"><b>${FURN[p.type].icon}</b><span>${esc(p.label)}<em>${esc(p.dims)}</em></span></button>`).join(''); res._list = list; });
   search.addEventListener('keydown', e => { if (e.key === 'Enter') res.querySelector('button')?.click(); });
   res.addEventListener('click', e => { const b = e.target.closest('[data-pre]'); if (!b) return; const p = res._list[+b.dataset.pre]; roomOpen = false;
-    const it = addItem(p.type, { o: p.o, m: p.m }); Object.assign(it, p.size || {}); it.preset = p.label; it.name = p.name; syncFurniture(it); if (p.size) Object.assign(it, p.size); clampSnap(it); build(it); save(); select(it);
+    const it = addItem(p.type, { o: p.o, m: p.m }); Object.assign(it, p.size || {}); it.preset = p.variant || p.label; it.name = p.name; if (p.family) it.family = p.family; syncFurniture(it); if (p.size) Object.assign(it, p.size); clampSnap(it); build(it); save(); select(it);
     search.value = ''; res.innerHTML = ''; });
 }
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800); }

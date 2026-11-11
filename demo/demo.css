@@ -52,3 +52,8 @@
 .sres button b{font-size:18px;font-weight:400}
 .sres button span{display:flex;flex-direction:column}
 .sres button em{font-style:normal;color:var(--dim);font-size:10px}
+.fam{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.fam button{background:none;border:2px solid transparent;border-radius:10px;padding:3px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--dim);line-height:1.15;text-align:center}
+.fam button img{width:100%;aspect-ratio:1;border-radius:7px;display:block}
+.fam button.on{border-color:var(--acc);color:var(--text)}
+.dmRight select{width:100%}
