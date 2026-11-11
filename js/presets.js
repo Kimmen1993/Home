@@ -39,8 +39,8 @@ list.push(B('KLIPPAN 2-sits', 'soffa', 1.8, .88, .66, { form: 'rak', sits: 2, ar
 list.push(B('STRANDMON fåtölj', 'fatolj', .82, .96, 1.01, { vinge: true, armar: 'rundade', rygg: 'fast', ben: 'tra', benH: .12 }, {}, 'öronlapp oronlapp'));
 // MIO Rossi (låg, djup modulsoffa: djup 112, höjd 86, sitthöjd 44, armstöd 16 cm, fyrkantiga ben 4,5 cm)
 const ROSSI = { armar: 'raka', armH: .62, rygg: 'kuddar', sitth: .44, ben: 'kloss', benH: .045, kuddar: 2 };
-// tygerna som går att beställa (mio.se, nov 2026). Färgen är snittet av MIO:s tygprov, lite uppljusat.
-const ROSSI_TYG = { Alex: ['Chenille', 'tyg', [['light grey', '#9b9996'], ['stone', '#696664'], ['beige', '#a3958e'], ['moss', '#272c18'], ['offwhite', '#d6c7bc'], ['brown', '#544a3f']]],
+// tygerna som går att beställa (mio.se, nov 2026) + utgångna tyger som folk har hemma. Färgen är snittet av MIO:s tygprov, lite uppljusat.
+const ROSSI_TYG = { Alex: ['Chenille', 'tyg', [['light grey', '#9b9996'], ['medium grey (utgått)', '#82807d'], ['stone', '#696664'], ['beige', '#a3958e'], ['moss', '#272c18'], ['offwhite', '#d6c7bc'], ['brown', '#544a3f']]],
   Aurora: ['Bouclé', 'boucle', [['moss', '#333d2f'], ['pearl', '#bbb4a6'], ['beige', '#796d60'], ['deep terra', '#612e1b'], ['red', '#50131e'], ['amber', '#74501d'], ['deep blue', '#1b252c'], ['grey', '#5f5f5a']]],
   Casa: ['Chenille', 'tyg', [['beige', '#938578'], ['moss', '#3d3a26']]],
   Grand: ['Sammet', 'sammet', [['light grey', '#7e796d'], ['beige', '#78664f'], ['grey', '#393f3a'], ['khaki', '#524b39'], ['rust', '#8d5038'], ['yellow', '#ad7a40']]],
