@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794423078';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794423397';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -540,10 +540,11 @@ export const ELFA_MODS = {
   skor:   { name: 'Skohyllor', icon: '👟', w: .607 },
   mix:    { name: 'Blandade lådor', icon: '🗄️', w: .45 },
   sma:    { name: 'Många små lådor', icon: '🗃️', w: .45 },
-  tom:    { name: 'Tom', icon: '▫️', w: .607 },
+  tom:    { name: 'Töm sektionen', icon: '▫️', w: .607 },
 };
 export const elfaModsFor = o => ({ lada: ['mix', 'sma', 'tom'], hylla: ['hyllor', 'tom'] })[elfaSys(o)] || ['hang', 'dubbel', 'lador', 'hyllor', 'skor', 'tom'];
 export function elfaTemplate(t, w, o) {
+  if (t === 'tom') return [];
   const s = elfaSys(o), H = elfaH(o), L = elfaL(o), lo = H - L, P = [], put = (t2, y) => { const p = { t: t2 }; p.dn = elfaSnap(o, H - y, p); P.push(p); return p; };
   if (s === 'lada') { let dn = ELFA_SYS.lada.top;
     const seq = t === 'sma' ? ['lada8', 'lada8', 'lada8', 'lada18', 'lada18', 'lada28'] : t === 'tom' ? [] : ['lada8', 'lada18', 'lada28', 'lada28', 'lada28'];

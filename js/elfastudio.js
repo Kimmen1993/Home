@@ -1,8 +1,8 @@
 // Elfa-verkstan: 1) välj vägg, system och färg  2) bygg väggen i stort format (dra in delar)  3) sätt in i rummet.
 // Används av demon (och sen huvudappen). Allt räknas i meter; ritningen i cm.
-import { ELFA_SYS, ELFA_PARTS, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794423078';
-import { FAMILIES } from './presets.js?v=1794423078';
-import { swatch } from './materials.js?v=1794423078';
+import { ELFA_SYS, ELFA_PARTS, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794423397';
+import { FAMILIES } from './presets.js?v=1794423397';
+import { swatch } from './materials.js?v=1794423397';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -98,6 +98,7 @@ export function elevationSvg(o, m, { wall = null, off = 0, roomH = 2.5, sel = nu
     if (o.toppskiva !== false) out += fr(-.005, yB + fh, W + .01, .02); if (o.hjul) for (const sx of xs) out += `<circle cx="${ux(sx + .0125)}" cy="${Y(.035)}" r="3.5" fill="#222"/>`; }
   // delarna
   o.mods.forEach((md, i) => { const bad = elfaClash(md, o), xa = xs[i] + .025, xb = xs[i + 1], w = xb - xa;
+    if (interactive && !md.parts.length) out += `<text x="${ux(xa + w / 2)}" y="${Y(yB + (H - yB) / 2)}" fill="#5d6a5b" font-size="13" text-anchor="middle">dra in</text><text x="${ux(xa + w / 2)}" y="${Y(yB + (H - yB) / 2) + 16}" fill="#5d6a5b" font-size="13" text-anchor="middle">delar här</text>`;
     const P = md.parts.map((p, j) => ({ ...p, j, y: H - p.dn, u: elfaUnder(p, o) }));
     const below = (y, j) => Math.max(.02, ...P.filter(q => q.j !== j && q.y < y - .001).map(q => q.y));
     for (const p of P) { const { y, u, j } = p, on = sel && sel.sec === i && sel.part === j, ok = elfaFits(p, md.w, o);
@@ -138,7 +139,9 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   if (!document.getElementById('es-css')) { const st = document.createElement('style'); st.id = 'es-css'; st.textContent = CSS; document.head.appendChild(st); }
   const base = item ? JSON.parse(JSON.stringify(item)) : newFurniture('elfa');
   const S = { o: base.o, m: base.m, wall: item?.o.wall ?? startWall, off: 0, step: item ? 2 : 1, sel: { sec: 0, part: null }, doors: false, drag: null };
-  if (!S.o.mods.length) S.o.mods.push({ t: 'hang', w: .607 });
+  // ny inredning: bara stommen, inga delar – man bygger själv
+  if (!item) S.o.mods = [{ t: 'tom', w: .607, parts: [] }, { t: 'tom', w: .607, parts: [] }];
+  if (!S.o.mods.length) S.o.mods.push({ t: 'tom', w: .607, parts: [] });
   const fam = FAMILIES['Elfa'];
   const ov = document.createElement('div'); ov.className = 'es-ov'; document.body.appendChild(ov);
   const msg = document.createElement('div'); msg.className = 'es-msg'; ov.appendChild(msg);
@@ -156,7 +159,8 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     if (!cs.some(c => c.m[k].color === cur?.color && c.m[k].mat === cur?.mat)) S.m[k] = { ...cs[0].m[k] }; } };
   const setSystem = k => { S.o.system = k; const sy = ELFA_SYS[k]; S.o.djup = sy.dep[0] === .305 ? .405 : sy.dep[0];
     if (k === 'hylla') { S.o.gren = 1.98; S.o.skenaH = Math.min(roomH - .2, 2.1); } else if (sy.len) { S.o.gren = 2.14; S.o.skenaH = Math.min(roomH - .02, 2.2); }
-    const tp = elfaModsFor(S.o)[0]; S.o.mods = S.o.mods.map(md => ({ t: elfaModsFor(S.o).includes(md.t) ? md.t : tp, w: sy.ws.reduce((b, x) => Math.abs(x - md.w) < Math.abs(b - md.w) ? x : b, sy.ws[0]) }));
+    S.o.mods = S.o.mods.map(md => { const w = sy.ws.reduce((b, x) => Math.abs(x - md.w) < Math.abs(b - md.w) ? x : b, sy.ws[0]);
+      return { t: 'tom', w, edited: true, parts: (md.parts || []).filter(p => ELFA_PARTS[p.t].sys.includes(k)) }; });   // behåll delar som finns i det nya systemet
     resync(); fixColors(); S.sel = { sec: 0, part: null }; };
   fixColors(); resync();
 
@@ -209,7 +213,7 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
           <div class="es-seg es-wide"><button data-mv="-1" title="Upp">▲</button><button data-mv="1" title="Ner">▼</button><button data-del title="Ta bort">🗑</button></div>
           <div class="es-note">Dra den i bilden, även till en annan sektion.</div>`
         : `<h4>SEKTION ${S.sel.sec + 1}</h4><div class="es-seg">${elfaWidths(S.o).map(([w, l]) => `<button data-w="${w}" class="${Math.abs(md.w - w) < .002 ? 'on' : ''}">${l} cm</button>`).join('')}</div>
-          <h4>FYLL MED</h4><div class="es-seg">${elfaModsFor(S.o).map(k => `<button data-tpl="${k}">${ELFA_MODS[k].icon} ${ELFA_MODS[k].name}</button>`).join('')}</div>
+          <h4>SNABBSTART (VALFRITT)</h4><div class="es-seg">${elfaModsFor(S.o).map(k => `<button data-tpl="${k}">${ELFA_MODS[k].icon} ${ELFA_MODS[k].name}</button>`).join('')}</div>
           <div class="es-seg" style="margin-top:10px"><button data-sdel>🗑 Ta bort sektionen</button></div>`}
         <h4>SÅ HÄR</h4><div class="es-tips">✋ Dra skåpet i sidled<br>${g.track || sys() === 'hylla' ? '↕ Dra i den orange listen för höjden<br>' : ''}⇔ Dra i kanterna för fler sektioner<br>🧲 Dra in delar från vänster</div>
         <button class="es-more" data-more>⚙ Fler inställningar ${S.more ? '▴' : '▾'}</button>
@@ -268,7 +272,7 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     for (const [a, ww] of W().win || []) { L.push([a, a], [a + ww, a + ww]); R.push([a - w, a], [a + ww - w, a + ww]); }
     let best = null; for (const [o2, gx] of [...L, ...R]) { const dd = Math.abs(o2 - off); if (dd < T && (!best || dd < best[2])) best = [o2, gx, dd]; }
     off = Math.max(0, Math.min(len - w, best ? best[0] : off)); return [off, best ? [best[1]] : []]; }
-  const addSec = (atStart, w0) => { const nb = atStart ? S.o.mods[0] : S.o.mods[S.o.mods.length - 1], md = { t: nb.t, w: w0 }; md.parts = elfaTemplate(md.t, w0, S.o);
+  const addSec = (atStart, w0) => { const md = { t: 'tom', w: w0, parts: [] };
     if (atStart) { S.o.mods.unshift(md); S.sel.sec++; } else S.o.mods.push(md); resync(); };
   window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
   function onMove(e) {
@@ -318,7 +322,7 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
     if (d.smv) { const j = S.sel.sec + +d.smv; if (j >= 0 && j < S.o.mods.length) { [S.o.mods[S.sel.sec], S.o.mods[j]] = [S.o.mods[j], S.o.mods[S.sel.sec]]; S.sel = { sec: j, part: null }; } return draw(); }
     if ('sdel' in d) { if (S.o.mods.length > 1) { S.o.mods.splice(S.sel.sec, 1); S.sel = { sec: Math.max(0, S.sel.sec - 1), part: null }; resync(); } else say('Minst en sektion'); return draw(); }
     if ('sadd' in d) { const w = SY().ws[Math.min(1, SY().ws.length - 1)], room = W().len - geo().W; if (room < w - .01) { say('Det får inte plats fler sektioner på väggen'); return; }
-      const t = elfaModsFor(S.o)[elfaModsFor(S.o).length - 1]; S.o.mods.splice(S.sel.sec + 1, 0, { t, w, parts: elfaTemplate(t === 'tom' ? 'tom' : t, w, S.o) }); S.sel = { sec: S.sel.sec + 1, part: null }; resync(); return draw(); }
+      S.o.mods.splice(S.sel.sec + 1, 0, { t: 'tom', w, parts: [] }); S.sel = { sec: S.sel.sec + 1, part: null }; resync(); return draw(); }
     if (d.pos !== undefined) { S.off = +d.pos * Math.max(0, W().len - geo().W); return draw(); }
     if (d.mv) return movePart(+d.mv);
     if ('del' in d) return delPart();
@@ -345,5 +349,5 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   return { close };
 }
 // sync utan att importera hela FURN-objektet i onödan
-import { FURN } from './furniture.js?v=1794423078';
+import { FURN } from './furniture.js?v=1794423397';
 const FURNSYNC = it => FURN.elfa.sync(it, it.o);
