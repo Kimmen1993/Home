@@ -1,7 +1,8 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794423827';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794423827';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794425574';
+import { footShape } from './furnbridge.js?v=1794425574';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794425574';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -210,7 +211,11 @@ export function createPlan(canvas, ui) {
     } else {
       ctx.fillStyle = hexA(it.color, it.type === 'matta' || it.type === 'altan' || it.type === 'gang' ? .55 : .9);
       ctx.strokeStyle = 'rgba(200,225,255,.75)'; ctx.lineWidth = 1;
-      roundRect(-w / 2, -d / 2, w, d, Math.min(4, w / 4, d / 4)); ctx.fill(); ctx.stroke();
+      const fsh = footShape(it);
+      if (fsh?.round) { ctx.beginPath(); ctx.ellipse(0, 0, w / 2, d / 2, 0, 0, 7); ctx.fill(); ctx.stroke(); }
+      else if (fsh?.oval) { const r = Math.min(w, d) / 2; roundRect(-w / 2, -d / 2, w, d, r); ctx.fill(); ctx.stroke(); }
+      else { roundRect(-w / 2, -d / 2, w, d, Math.min(4, w / 4, d / 4)); ctx.fill(); ctx.stroke(); }
+      if (fsh?.extra) { const e = fsh.extra; roundRect((e.x - e.w / 2) * scale, (e.z - e.d / 2) * scale, e.w * scale, e.d * scale, 3); ctx.fill(); ctx.stroke(); }
       // fronten
       if (it.d > .05 && !['matta', 'altan', 'gang', 'pool', 'trad', 'buske', 'vaxt'].includes(it.type)) {
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-w / 2 + 2, d / 2 - 2); ctx.lineTo(w / 2 - 2, d / 2 - 2); ctx.stroke(); }
@@ -368,7 +373,7 @@ export function createPlan(canvas, ui) {
   function updateGhost(p, alt) {
     const h = home(), pl = S.placing;
     if (pl.kind === 'item') {
-      const c = ITEMS[pl.key], it = { type: pl.key, x: p.x, y: p.y, rot: pl.rot || 0, w: c.w, d: c.d, h: c.h, elev: c.elev || 0, color: c.color, color2: c.color2, state: c.dev ? { on: true, bri: .8 } : null };
+      const c = ITEMS[pl.key], ex = pl.extra || {}, it = { type: pl.key, x: p.x, y: p.y, rot: pl.rot || 0, w: ex.w || c.w, d: ex.d || c.d, h: ex.h || c.h, elev: c.elev || 0, color: c.color, color2: c.color2, state: c.dev ? { on: true, bri: .8 } : null, o: ex.o, m: ex.m };
       if (c.snap && !alt) { const sw = snapToWall(h, it, p); if (sw) Object.assign(it, sw); }
       ghost = { item: it };
     } else { const f = findWall(h, p, .5), c = OPENINGS[pl.key];
@@ -380,7 +385,7 @@ export function createPlan(canvas, ui) {
     if (pl.kind === 'item' && pl.key === 'uteyta') { commit(); const x = Math.round(p.x * 10) / 10 - 2, y = Math.round(p.y * 10) / 10 - 1.5;
       const r = { id: Math.random().toString(36).slice(2, 10), name: 'Uteplats', pts: [{ x, y }, { x: x + 4, y }, { x: x + 4, y: y + 3 }, { x, y: y + 3 }], floor: '#8a6440', style: 'tra', outdoor: true };
       h.rooms.push(r); S.sel = { type: 'room', id: r.id }; }
-    else if (pl.kind === 'item' && ghost?.item) { commit(); const g = ghost.item; const it = makeItem(h, pl.key, Math.round(g.x * 100) / 100, Math.round(g.y * 100) / 100, g.rot);
+    else if (pl.kind === 'item' && ghost?.item) { commit(); const g = ghost.item; const it = makeItem(h, pl.key, Math.round(g.x * 100) / 100, Math.round(g.y * 100) / 100, g.rot, pl.extra ? JSON.parse(JSON.stringify(pl.extra)) : {});
       if (it.state) it.state.on = true; S.sel = { type: 'item', id: it.id }; }
     else if (pl.kind === 'opening' && ghost?.opening) { commit(); const o = makeOpening(h, pl.key, ghost.opening.wall, Math.round(ghost.opening.t * 20) / 20); S.sel = { type: 'opening', id: o.id }; }
     else { ui.toast?.('Klicka på en vägg'); return; }

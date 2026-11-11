@@ -1,5 +1,6 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794423827';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794425574';
+import { furnKey, ensureFurn, syncF } from './furnbridge.js?v=1794425574';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -423,6 +424,7 @@ export function makeItem(h, type, x, y, rot = 0, extra = {}) {
   const it = { id: uid(), type, x, y, rot, w: c.w, d: c.d, h: c.h, elev: c.ceil ? (h.ceiling || 2.5) - c.h : (c.elev || 0),
     color: c.color, color2: c.color2 || null, name: '', entity: '', state: c.dev ? { on: false, bri: 0.8 } : null, ...extra };
   if (extra.on !== undefined) { it.state.on = extra.on; delete it.on; }
+  if (furnKey(it)) { ensureFurn(it); syncF(it); }
   h.items.push(it); return it;
 }
 export function makeOpening(h, key, wall, t, extra = {}) {

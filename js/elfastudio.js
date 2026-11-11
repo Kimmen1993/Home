@@ -1,8 +1,8 @@
 // Elfa-verkstan: 1) välj vägg, system och färg  2) bygg väggen i stort format (dra in delar)  3) sätt in i rummet.
 // Används av demon (och sen huvudappen). Allt räknas i meter; ritningen i cm.
-import { ELFA_SYS, ELFA_PARTS, ELFA_CATS, elfaWhyNot, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794423827';
-import { FAMILIES } from './presets.js?v=1794423827';
-import { swatch } from './materials.js?v=1794423827';
+import { ELFA_SYS, ELFA_PARTS, ELFA_CATS, elfaWhyNot, ELFA_MODS, elfaSys, elfaGeo, elfaFits, elfaSnap, elfaClash, elfaAdd, elfaTemplate, elfaModsFor, elfaUnder, elfaDepth, elfaWidths, newFurniture } from './furniture.js?v=1794425574';
+import { FAMILIES } from './presets.js?v=1794425574';
+import { swatch } from './materials.js?v=1794425574';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -143,7 +143,8 @@ export function elevationSvg(o, m, { wall = null, off = 0, roomH = 2.5, sel = nu
 }
 
 // ---------- verkstan ----------
-export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startOff = null, onDone }) {
+export function openElfaStudio({ item, walls: walls0, rooms = null, startRoom = 0, roomH = 2.5, startWall = 0, startOff = null, onDone }) {
+  rooms = rooms || [{ name: '', walls: walls0 }];
   if (!document.getElementById('es-css')) { const st = document.createElement('style'); st.id = 'es-css'; st.textContent = CSS; document.head.appendChild(st); }
   const base = item ? JSON.parse(JSON.stringify(item)) : newFurniture('elfa');
   const S = { o: base.o, m: base.m, wall: item?.o.wall ?? startWall, off: 0, step: item ? 2 : 1, sel: { sec: 0, part: null }, doors: false, drag: null };
@@ -154,7 +155,8 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   const ov = document.createElement('div'); ov.className = 'es-ov'; document.body.appendChild(ov);
   const msg = document.createElement('div'); msg.className = 'es-msg'; ov.appendChild(msg);
   let msgT = 0; const say = t => { msg.textContent = t; msg.classList.add('show'); clearTimeout(msgT); msgT = setTimeout(() => msg.classList.remove('show'), 2200); };
-  const W = () => walls[S.wall], geo = () => elfaGeo(S.o), sys = () => elfaSys(S.o), SY = () => ELFA_SYS[sys()];
+  S.room = startRoom; const walls = () => rooms[S.room].walls;
+  const W = () => walls()[S.wall], geo = () => elfaGeo(S.o), sys = () => elfaSys(S.o), SY = () => ELFA_SYS[sys()];
   const fit = () => { const g = geo(), len = W().len; S.off = Math.max(0, Math.min(S.off, len - g.W)); };
   // ny eller flyttad hit från rummet
   S.off = item ? (startOff ?? item.o.off ?? 0) : Math.max(0, (W().len - geo().W) / 2); fit();
@@ -183,16 +185,17 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   }
   // ---- steg 1 ----
   function step1() {
-    const xs = walls.flatMap(w => [w.x1, w.x2]), zs = walls.flatMap(w => [w.z1, w.z2]), mnx = Math.min(...xs), mxx = Math.max(...xs), mnz = Math.min(...zs), mxz = Math.max(...zs);
-    const k = 100, P = (x, z) => `${((x - mnx) * k + 30).toFixed(0)},${((z - mnz) * k + 30).toFixed(0)}`; void P;
-    const plan = `<svg viewBox="-20 -20 ${((mxx - mnx) * k + 100).toFixed(0)} ${((mxz - mnz) * k + 100).toFixed(0)}" style="width:100%;max-height:340px">
-      <rect x="30" y="30" width="${((mxx - mnx) * k).toFixed(0)}" height="${((mxz - mnz) * k).toFixed(0)}" fill="#1a201a"/>
-      ${walls.map((w, i) => { const [ax, az] = P(w.x1, w.z1).split(','), [bx, bz] = P(w.x2, w.z2).split(','), cx = (+ax + +bx) / 2 - w.nx * 26, cz = (+az + +bz) / 2 - w.nz * 26;
-        return `<g data-wall="${i}" style="cursor:pointer"><line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="${i === S.wall ? '#ff7a2f' : '#9aa39a'}" stroke-width="${i === S.wall ? 14 : 9}" stroke-linecap="round"/>
-          <line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="transparent" stroke-width="40"/>
-          <text x="${cx}" y="${cz + 6}" font-size="22" font-weight="700" fill="${i === S.wall ? '#ff7a2f' : '#8f9a8b'}" text-anchor="middle">${w.name}</text>
-          <text x="${(+ax + +bx) / 2 + w.nx * 34}" y="${(+az + +bz) / 2 + w.nz * 34 + 5}" font-size="15" fill="#8f9a8b" text-anchor="middle">${cm(w.len)} cm</text></g>`; }).join('')}</svg>`;
-    return `<div class="es-card"><h4>VILKEN VÄGG?</h4>${plan}<div class="es-note">Klicka på väggen där inredningen ska sitta. Fönster syns i nästa steg.</div></div>
+    const ws = walls(), xs = ws.flatMap(w => [w.x1, w.x2]), zs = ws.flatMap(w => [w.z1, w.z2]), mnx = Math.min(...xs), mxx = Math.max(...xs), mnz = Math.min(...zs), mxz = Math.max(...zs);
+    const k = 100, u = Math.max(1, Math.max(mxx - mnx, mxz - mnz) / 4), P = (x, z) => [((x - mnx) * k + 40 * u), ((z - mnz) * k + 40 * u)];
+    const plan = `<svg viewBox="0 0 ${((mxx - mnx) * k + 80 * u).toFixed(0)} ${((mxz - mnz) * k + 80 * u).toFixed(0)}" style="width:100%;max-height:360px">
+      <rect x="${40 * u}" y="${40 * u}" width="${((mxx - mnx) * k).toFixed(0)}" height="${((mxz - mnz) * k).toFixed(0)}" fill="#1a201a"/>
+      ${ws.map((w, i) => { const [ax, az] = P(w.x1, w.z1), [bx, bz] = P(w.x2, w.z2), on = i === S.wall, cx = (ax + bx) / 2 - w.nx * 26 * u, cz = (az + bz) / 2 - w.nz * 26 * u;
+        return `<g data-wall="${i}" style="cursor:pointer"><line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="${on ? '#ff7a2f' : '#9aa39a'}" stroke-width="${(on ? 14 : 8) * u}" stroke-linecap="round"/>
+          <line x1="${ax}" y1="${az}" x2="${bx}" y2="${bz}" stroke="transparent" stroke-width="${44 * u}"/>
+          ${w.win.map(([a, ww]) => { const p1 = P(w.x1 + w.rx * a, w.z1 + w.rz * a), p2 = P(w.x1 + w.rx * (a + ww), w.z1 + w.rz * (a + ww)); return `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="#7fb2ff" stroke-width="${6 * u}"/>`; }).join('')}
+          <text x="${cx}" y="${cz + 7 * u}" font-size="${22 * u}" font-weight="700" fill="${on ? '#ff7a2f' : '#8f9a8b'}" text-anchor="middle">${w.name}</text>
+          <text x="${(ax + bx) / 2 + w.nx * 30 * u}" y="${(az + bz) / 2 + w.nz * 30 * u + 5 * u}" font-size="${14 * u}" fill="#8f9a8b" text-anchor="middle">${cm(w.len)} cm</text></g>`; }).join('')}</svg>`;
+    return `<div class="es-card">${rooms.length > 1 ? `<h4>VILKET RUM?</h4><div class="es-seg" style="margin-bottom:10px">${rooms.map((r, i) => `<button data-room="${i}" class="${i === S.room ? 'on' : ''}">${esc(r.name)}</button>`).join('')}</div>` : ''}<h4>VILKEN VÄGG?</h4>${plan}<div class="es-note">Klicka på väggen där inredningen ska sitta. Fönster syns i nästa steg.</div></div>
       <div class="es-card"><h4>VILKET SYSTEM?</h4><div class="es-sys">${Object.entries(ELFA_SYS).map(([k, y]) => `<button data-sys="${k}" class="${sys() === k ? 'on' : ''}"><i>${y.icon}</i><b>${y.name}</b><span>${y.desc}</span></button>`).join('')}</div>
         ${colorBlock()}
         <h4>DJUP</h4><div class="es-seg">${SY().dep.map(d => `<button data-djup="${d}" class="${Math.abs(S.o.djup - d) < .002 ? 'on' : ''}">${nm(d)} cm</button>`).join('')}</div>
@@ -313,11 +316,12 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   }
   ov.addEventListener('click', e => {
     if (S.noClick) return;
-    const b = e.target.closest('button,[data-wall],[data-sec],[data-chip],[data-tog]'); if (!b) return; const d = b.dataset;
+    const b = e.target.closest('button,[data-wall],[data-sec],[data-chip],[data-tog],[data-room]'); if (!b) return; const d = b.dataset;
     if ('more' in d) { S.more = !S.more; return draw(); }
     if ('close' in d) return close();
     if (d.step) { S.step = +d.step; S.sel.part = null; return draw(); }
-    if ('done' in d) { cleanup(); onDone({ o: S.o, m: S.m, wall: S.wall, off: S.off, doors: S.doors }); return; }
+    if ('done' in d) { cleanup(); onDone({ o: S.o, m: S.m, wall: S.wall, off: S.off, doors: S.doors, room: S.room }); return; }
+    if (d.room !== undefined) { S.room = +d.room; S.wall = 0; S.off = Math.max(0, (W().len - geo().W) / 2); fit(); return draw(); }
     if (d.wall) { S.wall = +d.wall; S.off = Math.max(0, (W().len - geo().W) / 2); fit(); return draw(); }
     if (d.sys) { setSystem(d.sys); return draw(); }
     if (d.col) { const c = fam.choices[+d.col]; for (const [k, v] of Object.entries(c.m)) S.m[k] = { ...v }; if (c.group === 'Metall') S.o.farg = c.name; return draw(); }
@@ -358,5 +362,5 @@ export function openElfaStudio({ item, walls, roomH = 2.5, startWall = 0, startO
   return { close };
 }
 // sync utan att importera hela FURN-objektet i onödan
-import { FURN } from './furniture.js?v=1794423827';
+import { FURN } from './furniture.js?v=1794425574';
 const FURNSYNC = it => FURN.elfa.sync(it, it.o);

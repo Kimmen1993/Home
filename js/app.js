@@ -1,10 +1,15 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794423827';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794423827';
-import { createPlan } from './plan2d.js?v=1794423827';
-import { createView } from './view3d.js?v=1794423827';
-import { createHA } from './ha.js?v=1794423827';
-import { detectPlan } from './autoplan.js?v=1794423827';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794425574';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794425574';
+import { createPlan } from './plan2d.js?v=1794425574';
+import { createView } from './view3d.js?v=1794425574';
+import { createHA } from './ha.js?v=1794425574';
+import { detectPlan } from './autoplan.js?v=1794425574';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794425574';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794425574';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794425574';
+import { PRESETS, findPreset } from './presets.js?v=1794425574';
+import { openElfaStudio } from './elfastudio.js?v=1794425574';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -175,15 +180,29 @@ function homePanel() {
     <label class="f">Rummen följer väggarna</label>${opt('home.autoRooms', h.autoRooms === false ? 'nej' : 'ja', [['ja', '🔄 Automatiskt'], ['nej', '✋ Manuellt']])}<div style="height:8px"></div>
     <div class="note">${h.rooms.filter(r => !r.outdoor && !r.hidden).length} rum · ${h.rooms.filter(r => !r.outdoor && !r.hidden).reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
 }
+// katalogens sak för en möbeltyp (för riktiga produkter ur sökningen)
+const itemKeyFor = (k, p) => k === 'sang' ? (p?.o?.storlek <= 120 ? 'sang90' : 'sang') : k === 'kok' ? 'koksrad' : Object.keys(ITEMS).find(x => ITEMS[x].furn === k) || null;
+let searchQ = '';
+function searchResults() { const list = findPreset(searchQ).filter(p => itemKeyFor(p.type, p)); right._sres = list;
+  return list.length ? `<div class="sres">${list.map((p, i) => `<button data-sres="${i}"><b>${FURN[p.type].icon}</b><span>${esc(p.label)}<em>${esc(p.dims || '')}</em></span></button>`).join('')}</div>` : searchQ.length > 1 ? '<p class="note">Hittade inget. Prova t.ex. "rossi", "billy 80", "elfa", "malm 160".</p>' : ''; }
 function catalogPanel() {
   const list = catTab === 'oppningar' ? Object.entries(OPENINGS).map(([k, v]) => ['opening', k, v]) : Object.entries(ITEMS).filter(([, v]) => v.cat === catTab).map(([k, v]) => ['item', k, v]);
   return `<h2>🛋️ Lägg till</h2>
+    <input class="search" data-search placeholder="🔍 Sök möbel, t.ex. rossi, billy 80, elfa" value="${esc(searchQ)}" autocomplete="off">
+    <div data-sresbox>${searchResults()}</div>
     <div class="chips">${CATS.map(([k, n, i]) => `<button class="chip ${catTab === k ? 'on' : ''}" data-cat="${k}">${i} ${n}</button>`).join('')}</div>
     <div class="grid">${list.map(([kind, k, v]) => `<button class="cat ${S.placing?.key === k ? 'on' : ''}" data-place="${kind}:${k}"><b>${v.icon}</b>${v.name}</button>`).join('')}</div>
     <p class="note">Välj, klicka sedan i ritningen eller i 3D. Skåp, sängar, TV m.m. lägger sig automatiskt mot väggen.</p>`;
 }
 function itemPanel(it) {
   const c = ITEMS[it.type];
+  if (furnKey(it)) { ensureFurn(it); const f = furnObj(it);
+    return `<h2>${c.icon} ${esc(it.family || it.name || c.name)}</h2>
+    <div class="btns"><button class="btn" data-act="rot-90" title="Vrid">⟲</button><button class="btn" data-act="rot90" title="Vrid">⟳</button><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑</button></div>
+    ${furnPanelHtml(f, { more: right._more })}
+    ${c.dev ? `<h3>SMART ENHET</h3>
+      <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : 'media_player.tv'}"></label>
+      <div class="btns"><button class="btn acc" data-act="test">${it.state?.on ? 'Släck / stäng av' : 'Tänd / sätt på'}</button></div>` : ''}`; }
   return `<h2>${c.icon} ${esc(c.name)}</h2>
     ${field('Namn (valfritt)', 'name', it.name, 'text')}
     <div class="g2">${field('Bredd (cm)', 'w', it.w)}${field('Djup (cm)', 'd', it.d)}${field('Höjd (cm)', 'h', it.h)}${field('Över golvet (cm)', 'elev', it.elev)}</div>
@@ -338,6 +357,56 @@ function lightGroups(h, lights, src) {
 
 // ---------- panel-händelser ----------
 const right = $('#right');
+// ---------- möbelpanelen (samma som i demon) ----------
+bindFurnPanel(right, {
+  item: () => { const it = selected(); return S.sel?.type === 'item' && it && furnKey(it) ? furnObj(it) : null; },
+  before: () => commit(),
+  changed(full) { syncF(selected()); emit('full', full ? undefined : 'panel'); },
+  redraw: () => renderRight(),
+  act(a) { if (a === 'studio') openStudio(selected()); },
+});
+// sök riktiga produkter
+right.addEventListener('input', e => { if (!('search' in e.target.dataset)) return; searchQ = e.target.value; right.querySelector('[data-sresbox]').innerHTML = searchResults(); });
+right.addEventListener('keydown', e => { if ('search' in e.target.dataset && e.key === 'Enter') right.querySelector('[data-sres]')?.click(); });
+right.addEventListener('click', e => { const b = e.target.closest('[data-sres]'); if (!b) return; const p = right._sres[+b.dataset.sres], key = itemKeyFor(p.type, p);
+  const extra = JSON.parse(JSON.stringify({ o: p.o, m: p.m, family: p.family || null, name: p.name, preset: p.variant || p.label, ...(p.size || {}) }));
+  if (key === 'elfa') return openStudio(null, extra);
+  S.placing = { kind: 'item', key, extra }; S.tool = 'add'; searchQ = ''; renderRight(); renderToolbar(); hint(); window.toast(`👆 Klicka där ${p.name} ska stå`); });
+// ---------- Elfa-verkstan med rummets riktiga väggar ----------
+// rummets väggar sedda inifrån: från vänster till höger hörn, inre väggytan, med fönster och dörrar
+function roomWalls(h, r) {
+  const P = r.pts, n = P.length;
+  return P.map((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+    let nx = -uy, ny = ux; if (!inPoly({ x: (a.x + b.x) / 2 + nx * .05, y: (a.y + b.y) / 2 + ny * .05 }, P)) { nx = -nx; ny = -ny; }
+    const near = (p, w) => { const wl = wallLen(w), wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl, t = (p.x - w.a.x) * wx + (p.y - w.a.y) * wy; return Math.abs((p.x - w.a.x) * wy - (p.y - w.a.y) * wx) < .08 && t > -.08 && t < wl + .08; };
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, wall = h.walls.find(w => near(mid, w)), T = wall?.t || .1, half = T / 2;
+    const rx = ny, ry = -nx, s0 = ux * rx + uy * ry > 0 ? a : b, len = Math.max(.2, L - T);
+    const x1 = s0.x + nx * half + rx * half, y1 = s0.y + ny * half + ry * half, win = [], doors = [];
+    for (const o of h.openings) { const w = h.walls.find(x => x.id === o.wall); if (!w || !(near(w.a, { a, b }) || near(w.b, { a, b }) || w === wall)) continue;
+      const wl = wallLen(w), cx = w.a.x + (w.b.x - w.a.x) / wl * o.t, cy = w.a.y + (w.b.y - w.a.y) / wl * o.t, along = (cx - x1) * rx + (cy - y1) * ry;
+      if (Math.abs((cx - x1) * nx + (cy - y1) * ny) > .3 || along < -o.w / 2 || along > len + o.w / 2) continue;
+      if (o.kind === 'window') win.push([along - o.w / 2, o.w, o.sill || 0, o.h]); else doors.push([along - o.w / 2, o.w, o.h]); }
+    return { name: 'ABCDEFGHIJKL'[i], len, nx, nz: ny, rx, rz: ry, x1, z1: y1, x2: x1 + rx * len, z2: y1 + ry * len, win, doors }; });
+}
+function placeOnWall(it, W, off, out = 0) { it.rot = ((-Math.atan2(W.nx, W.nz) * 180 / Math.PI) % 360 + 360) % 360;
+  const a = off + it.w / 2, n = out + it.d / 2; it.x = Math.round((W.x1 + W.rx * a + W.nx * n) * 1000) / 1000; it.y = Math.round((W.z1 + W.rz * a + W.nz * n) * 1000) / 1000; }
+function openStudio(it, extra) {
+  const h = home(), rooms = h.rooms.filter(r => !r.hidden && !r.outdoor && r.pts.length >= 3);
+  if (!rooms.length) return window.toast('Rita ett rum först – Elfa sätts mot rummets väggar');
+  const r = (it && roomAt(h, it)) || (S.sel?.type === 'room' && rooms.find(x => x.id === S.sel.id)) || rooms.find(x => x.id === S.focus) || [...rooms].sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
+  const RL = [r, ...rooms.filter(x => x !== r)], roomsW = RL.map(x => ({ name: x.name || 'Rum', walls: roomWalls(h, x) })), walls = roomsW[0].walls; let wi = 0, off = null;
+  if (it) { let best = 1e9; walls.forEach((W, i) => { const dist = (it.x - W.x1) * W.nx + (it.y - W.z1) * W.nz, along = (it.x - W.x1) * W.rx + (it.y - W.z1) * W.rz;
+    if (Math.abs(dist - it.d / 2) < best && along > -.2 && along < W.len + .2) { best = Math.abs(dist - it.d / 2); wi = i; off = Math.max(0, along - it.w / 2); } }); }
+  const item = it ? { type: 'elfa', o: it.o, m: it.m, w: it.w, d: it.d, h: it.h } : extra ? { type: 'elfa', o: extra.o, m: extra.m } : null;
+  if (item) item.o.wall = wi;
+  openElfaStudio({ item, rooms: roomsW, roomH: h.ceiling || 2.5, startWall: wi, startOff: off, onDone: ({ o, m, wall, off: of2, doors, room }) => {
+    commit(); const W = roomsW[room].walls[wall]; let t = it && h.items.includes(it) ? it : makeItem(h, 'elfa', 0, 0, 0, { o, m });
+    t.o = o; t.m = m; t.family = 'Elfa'; t.name = 'Elfa ' + ELFA_SYS[elfaSys(o)].name; t.preset = extra?.preset || 'Egen uppställning'; syncF(t); placeOnWall(t, W, of2);
+    if (doors) { let dr = h.items.find(x => x.id === t.o.doors); const p = PRESETS.find(q => q.name === 'Elfa skjutdörrar Artic Plain');
+      if (!dr) { dr = makeItem(h, 'skjutdorr', 0, 0, 0, JSON.parse(JSON.stringify({ o: p.o, m: p.m, family: p.family, name: p.name, preset: p.variant }))); t.o.doors = dr.id; }
+      dr.w = W.len; dr.h = (h.ceiling || 2.5) - .005; syncF(dr); placeOnWall(dr, W, 0, t.d + .04); }
+    S.sel = { type: 'item', id: t.id }; S.placing = null; S.tool = 'select'; emit('full'); renderToolbar(); hint(); window.toast('🧥 Elfa-inredningen sitter på plats'); } });
+}
 right.addEventListener('click', e => {
   const h = home(), s = S.sel;
   const gsw = e.target.closest('[data-gsw]');
@@ -351,6 +420,7 @@ right.addEventListener('click', e => {
   const t = e.target.closest('button,[data-dev]'); if (!t) return;
   if (t.dataset.cat) { catTab = t.dataset.cat; renderRight(); return; }
   if (t.dataset.place === 'item:skena') { setTool('track'); return; }
+  if (t.dataset.place === 'item:elfa') { openStudio(null); return; }
   if (t.dataset.place) { const [kind, key] = t.dataset.place.split(':'); S.placing = { kind, key }; S.tool = 'add'; renderRight(); renderToolbar(); hint(); return; }
   if (t.dataset.scene) return scene(t.dataset.scene);
   if (t.dataset.dev) { const [type, id, pid] = t.dataset.dev.split(':'); return onDevice({ type, id, pid }); }

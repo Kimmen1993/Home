@@ -2,9 +2,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794423827';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794423827';
-import { insideSign } from './plan2d.js?v=1794423827';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794425574';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794425574';
+import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794425574';
+import { insideSign } from './plan2d.js?v=1794425574';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -24,6 +26,8 @@ export function createView(host, api) {
   const sun = new THREE.DirectionalLight(0xffe2c0, 2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
   scene.add(sun); scene.add(sun.target);
   const world = new THREE.Group(); scene.add(world);
+  // reflektioner bara för möblerna från möbelmotorn (metall, glas, lack ska glänsa)
+  const envTex = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), .04).texture;
   let refs = { items: {}, openings: {}, pick: [] };
   let selBox = null, built = false, need = false, lastSig = '';
 
@@ -141,6 +145,16 @@ export function createView(host, api) {
 
   // ---------- möbler ----------
   function buildItem(it) {
+    if (furnKey(it)) {   // möbel från möbelmotorn (samma som demon)
+      const e = onTopElev(it, home().items); if (e !== null) it.elev = e;
+      const g = new THREE.Group(), { g: inner, lights, glows } = buildF(it, home().ceiling || 2.5); g.add(inner);
+      inner.traverse(o => { const m = o.material; if (m && m.isMeshStandardMaterial && !m.envMap && !o.isReflector) { m.envMap = envTex; m.envMapIntensity = S.day ? .55 : .2; } });
+      const ref = { group: g, it, flights: lights, fglows: glows };
+      inner.traverse(o => { if (o.material?.userData?.screen) ref.screen = o; });
+      g.position.set(it.x, it.elev || 0, it.y); g.rotation.y = -it.rot * Math.PI / 180;
+      g.traverse(o => { if (!o.userData.pick) o.userData.pick = { type: 'item', id: it.id }; });
+      return ref;
+    }
     handleC = it.handleColor || null;
     const g = new THREE.Group(), { w, d, h } = it, c = it.color, c2 = it.color2, cat = ITEMS[it.type];
     const ref = { group: g, it };
@@ -578,6 +592,8 @@ export function createView(host, api) {
     for (const id in refs.items) { const r = refs.items[id]; if (r.target === undefined) continue;
       r.cur += (r.target - r.cur) * k; const v = r.cur, dev = ITEMS[r.it.type].dev;
       if (r.light) r.light.intensity = v * (r.power || 10) * (dev === 'tv' ? 1 : 1);
+      if (r.flights) r.flights.forEach(L => L.intensity = v * (L.userData.power || 1) * (L.isSpotLight ? 40 : 7));
+      if (r.fglows) r.fglows.forEach(m => m.emissiveIntensity = v * 2.2);
       if (r.bulb) { r.bulb.material.emissive.setRGB(1, .72, .42); r.bulb.material.emissiveIntensity = v * 3; r.bulb.material.color.setScalar(v > .05 ? 1 : .45); }
       if (r.shade) { r.shade.material.emissive.setRGB(1, .7, .4); r.shade.material.emissiveIntensity = v * .9; }
       if (r.screen) { const m = r.screen.material; if (v > .05 && !m.emissiveMap) { m.emissiveMap = tvScreen(); m.emissive.set(0xffffff); m.needsUpdate = true; } m.emissiveIntensity = v * 1.2; }
@@ -644,8 +660,8 @@ export function createView(host, api) {
   function placeAt(e, p) {
     const h = home(), pl = S.placing; rayAt(e); ray.ray.intersectPlane(plane, hp);
     if (pl.kind === 'item') { let q = { x: Math.round(hp.x * 20) / 20, y: Math.round(hp.z * 20) / 20, rot: 0 }; const c = ITEMS[pl.key];
-      if (c.snap) { const sw = snapToWall(h, { w: c.w, d: c.d }, q); if (sw) q = sw; }
-      commit(); const it = makeItem(h, pl.key, q.x, q.y, q.rot); if (it.state) it.state.on = true; S.sel = { type: 'item', id: it.id }; }
+      const ex = pl.extra || {}; if (c.snap) { const sw = snapToWall(h, { w: ex.w || c.w, d: ex.d || c.d }, q); if (sw) q = sw; }
+      commit(); const it = makeItem(h, pl.key, q.x, q.y, q.rot, pl.extra ? JSON.parse(JSON.stringify(pl.extra)) : {}); if (it.state) it.state.on = true; S.sel = { type: 'item', id: it.id }; }
     else { const pt = p?.point || hp; const f = findWall(h, { x: pt.x, y: pt.z }, .6); if (!f) { api.toast('Klicka på en vägg'); return; }
       const c = OPENINGS[pl.key]; commit(); const o = makeOpening(h, pl.key, f.wall, Math.round(Math.min(Math.max(f.t, c.w / 2), wallLen(f.wall) - c.w / 2) * 20) / 20); S.sel = { type: 'opening', id: o.id }; }
     if (!e.shiftKey) S.placing = null; emit('full'); api.toolDone();
@@ -665,7 +681,7 @@ export function createView(host, api) {
   return {
     build() { need = true; },
     buildNow: build,
-    syncItem(id) { const r = refs.items[id]; if (!r) return; const it = r.it; r.group.position.set(it.x, it.elev || 0, it.y); r.group.rotation.y = -it.rot * Math.PI / 180; },
+    syncItem(id) { const r = refs.items[id]; if (!r) return; const it = r.it; if (furnKey(it)) { const e = onTopElev(it, home().items); if (e !== null) it.elev = e; } r.group.position.set(it.x, it.elev || 0, it.y); r.group.rotation.y = -it.rot * Math.PI / 180; },
     states() { applyStates(false); },
     highlight, fitCam, setLighting, resize,
     eye(room) { // stå i rummet i ögonhöjd
