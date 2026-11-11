@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemma – platsbyggd tv-vägg (skiss)</title>
+<style>
+:root{--bg:#0e110e;--panel:#161b16;--line:rgba(190,210,175,.16);--text:#e9ede6;--dim:#8f9a8b;--acc:#ff7a2f;--ok:#7bd88f;--ikea:#7fb2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px 16px 60px}
+.wrap{max-width:1150px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}.lead{color:var(--dim);margin:0 0 22px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:28px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tabs{display:flex;gap:6px}.tabs span{padding:8px 16px;border-radius:99px;border:1px solid var(--line);color:var(--dim);font-size:14px}
+.tabs span.on{background:var(--acc);color:#1a0d05;border-color:var(--acc);font-weight:700}
+.btn{display:inline-block;background:var(--acc);color:#1a0d05;font-weight:700;border-radius:12px;padding:11px 16px;font-size:14px}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:500}
+.grid{display:grid;grid-template-columns:160px 1fr 260px;gap:12px}
+.box{background:#0f130f;border:1px solid var(--line);border-radius:12px;padding:12px}
+.box h4{margin:0 0 8px;font-size:11px;letter-spacing:.12em;color:var(--dim);font-weight:600}
+.box h4:not(:first-child){margin-top:14px}
+.pal{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pal div{border:1px solid var(--line);border-radius:10px;padding:7px 2px;text-align:center;font-size:20px;background:var(--panel)}
+.pal div small{display:block;font-size:10px;color:var(--dim);margin-top:2px;line-height:1.15}
+.pal div.ik{border-color:rgba(127,178,255,.5)}
+.chips span{display:inline-block;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;margin:0 4px 5px 0;color:var(--dim)}
+.chips span.on{border-color:var(--acc);color:var(--text);background:rgba(255,122,47,.12)}
+.row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(190,210,175,.08)}
+.row b{font-weight:600}.row.ik span:first-child{color:var(--ikea)}.row.own span:first-child{color:var(--acc)}
+.note{font-size:12.5px;color:var(--dim);margin-top:8px;line-height:1.45}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin-top:8px}
+.leg i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.tog{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0}
+.tog i{width:34px;height:19px;border-radius:99px;background:var(--acc);position:relative}.tog i:after{content:'';position:absolute;right:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#fff}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.step{background:#0f130f;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13.5px;color:var(--dim);line-height:1.45}
+.step b{display:block;color:var(--text);font-size:15px;margin-bottom:4px}.step em{font-style:normal;font-size:26px;display:block}
+@media (max-width:900px){.grid,.steps{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Platsbyggd tv-vägg med IKEA som grund</h1>
+<p class="lead">Skiss, inget byggt än. IKEA-stommarna är <span style="color:var(--ikea)">blå</span>, de egna delarna som gör det inbyggt är <span style="color:var(--acc)">orange</span>.</p>
+
+<div class="mock">
+  <div class="top">
+    <div class="tabs"><span class="on">Förslag A</span><span>Förslag B</span><span>Förslag C</span><span>＋</span></div>
+    <div><span class="btn ghost">✨ Ge mig förslag</span> <span class="btn">✓ Sätt in i rummet</span></div>
+  </div>
+  <div class="grid">
+    <div class="box">
+      <h4>IKEA-STOMMAR</h4>
+      <div class="pal"><div class="ik">▭<small>BESTÅ 120×38</small></div><div class="ik">▯<small>BESTÅ 60×64</small></div><div class="ik">▯<small>BESTÅ 60×192</small></div><div class="ik">▭<small>METOD 80×40</small></div></div>
+      <h4>EGNA DELAR</h4>
+      <div class="pal"><div>▕<small>Passbit</small></div><div>▔<small>Kappa upp till tak</small></div><div>⬚<small>Nisch</small></div><div>|||<small>Ribbpanel</small></div><div>▭<small>Hylla</small></div><div>💡<small>LED</small></div><div>▒<small>Gips</small></div><div>🎨<small>Färgyta</small></div></div>
+    </div>
+    <div class="box" style="padding:8px">
+      <svg viewBox="-20 -20 480 330" style="width:100%;display:block">
+        <!-- vägg 420 × 250 (1 enhet = 1 cm), y nedåt -->
+        <rect x="0" y="0" width="420" height="250" fill="#20271f"/>
+        <rect x="0" y="250" width="420" height="8" fill="#4a3a28"/>
+        <!-- kappa upp till tak (egen) -->
+        <rect x="0" y="0" width="420" height="16" fill="rgba(255,122,47,.18)" stroke="#ff7a2f" stroke-width="1.2"/>
+        <text x="210" y="11" fill="#ffb27f" font-size="8" text-anchor="middle">kappa mot taket · 16 cm</text>
+        <!-- passbitar mot väggarna (egna) -->
+        <rect x="0" y="16" width="6" height="234" fill="rgba(255,122,47,.28)" stroke="#ff7a2f" stroke-width="1"/>
+        <rect x="414" y="16" width="6" height="234" fill="rgba(255,122,47,.28)" stroke="#ff7a2f" stroke-width="1"/>
+        <!-- vänster torn: BESTÅ 60×40×192 + sockel -->
+        <rect x="6" y="48" width="60" height="192" fill="#2a3442" stroke="#7fb2ff" stroke-width="1.5"/>
+        <g stroke="#7fb2ff" stroke-width=".8" opacity=".7"><line x1="6" y1="112" x2="66" y2="112"/><line x1="6" y1="176" x2="66" y2="176"/></g>
+        <rect x="66" y="48" width="0" height="0"/>
+        <rect x="6" y="16" width="60" height="32" fill="rgba(255,122,47,.12)" stroke="#ff7a2f" stroke-width="1" stroke-dasharray="3 2"/>
+        <text x="36" y="35" fill="#ffb27f" font-size="7" text-anchor="middle">påbyggnad</text>
+        <rect x="6" y="240" width="60" height="10" fill="rgba(255,122,47,.3)" stroke="#ff7a2f" stroke-width="1"/>
+        <!-- höger torn -->
+        <rect x="354" y="48" width="60" height="192" fill="#2a3442" stroke="#7fb2ff" stroke-width="1.5"/>
+        <g stroke="#7fb2ff" stroke-width=".8" opacity=".7"><line x1="354" y1="112" x2="414" y2="112"/><line x1="354" y1="176" x2="414" y2="176"/></g>
+        <rect x="354" y="16" width="60" height="32" fill="rgba(255,122,47,.12)" stroke="#ff7a2f" stroke-width="1" stroke-dasharray="3 2"/>
+        <rect x="354" y="240" width="60" height="10" fill="rgba(255,122,47,.3)" stroke="#ff7a2f" stroke-width="1"/>
+        <!-- mitten: ribbad panel bakom tv (egen) -->
+        <rect x="66" y="16" width="288" height="184" fill="rgba(255,122,47,.08)" stroke="#ff7a2f" stroke-width="1"/>
+        <g stroke="#ff9a5c" stroke-width="1.6" opacity=".45">
+          <line x1="76" y1="16" x2="76" y2="200"/><line x1="86" y1="16" x2="86" y2="200"/><line x1="96" y1="16" x2="96" y2="200"/><line x1="106" y1="16" x2="106" y2="200"/><line x1="116" y1="16" x2="116" y2="200"/><line x1="126" y1="16" x2="126" y2="200"/><line x1="136" y1="16" x2="136" y2="200"/><line x1="146" y1="16" x2="146" y2="200"/><line x1="156" y1="16" x2="156" y2="200"/><line x1="166" y1="16" x2="166" y2="200"/><line x1="176" y1="16" x2="176" y2="200"/><line x1="186" y1="16" x2="186" y2="200"/><line x1="196" y1="16" x2="196" y2="200"/><line x1="206" y1="16" x2="206" y2="200"/><line x1="216" y1="16" x2="216" y2="200"/><line x1="226" y1="16" x2="226" y2="200"/><line x1="236" y1="16" x2="236" y2="200"/><line x1="246" y1="16" x2="246" y2="200"/><line x1="256" y1="16" x2="256" y2="200"/><line x1="266" y1="16" x2="266" y2="200"/><line x1="276" y1="16" x2="276" y2="200"/><line x1="286" y1="16" x2="286" y2="200"/><line x1="296" y1="16" x2="296" y2="200"/><line x1="306" y1="16" x2="306" y2="200"/><line x1="316" y1="16" x2="316" y2="200"/><line x1="326" y1="16" x2="326" y2="200"/><line x1="336" y1="16" x2="336" y2="200"/><line x1="346" y1="16" x2="346" y2="200"/>
+        </g>
+        <!-- tv 65" -->
+        <rect x="153" y="88" width="144" height="82" rx="2" fill="#0b0c0e" stroke="#555" stroke-width="1"/>
+        <text x="225" y="133" fill="#777" font-size="9" text-anchor="middle">TV 65"</text>
+        <!-- LED-list -->
+        <line x1="70" y1="198" x2="350" y2="198" stroke="#ffd27a" stroke-width="2.4" style="filter:drop-shadow(0 0 3px #ffd27a)"/>
+        <!-- bänk: 2 × BESTÅ 120×40×38 vägghängd + ekskiva (egen) -->
+        <rect x="90" y="200" width="120" height="38" fill="#2a3442" stroke="#7fb2ff" stroke-width="1.5"/>
+        <rect x="210" y="200" width="120" height="38" fill="#2a3442" stroke="#7fb2ff" stroke-width="1.5"/>
+        <rect x="86" y="196" width="248" height="4" fill="#ff7a2f"/>
+        <text x="210" y="222" fill="#9cc2ff" font-size="8" text-anchor="middle">BESTÅ 120×40×38 · ×2 · vägghängd</text>
+        <!-- mått -->
+        <g fill="#8f9a8b" font-size="8" text-anchor="middle"><text x="210" y="272">420 cm vägg till vägg</text><text x="36" y="272">60</text><text x="384" y="272">60</text><text x="3" y="263">6</text><text x="417" y="263">6</text></g>
+        <g stroke="#8f9a8b" stroke-width=".7"><line x1="0" y1="264" x2="420" y2="264"/><line x1="0" y1="260" x2="0" y2="268"/><line x1="420" y1="260" x2="420" y2="268"/></g>
+        <text x="436" y="140" fill="#8f9a8b" font-size="8">250</text>
+      </svg>
+      <div class="leg"><span><i style="background:#2a3442;border:1px solid #7fb2ff"></i>IKEA-stomme (riktiga mått)</span><span><i style="background:rgba(255,122,47,.3);border:1px solid #ff7a2f"></i>Egen del (passbit, kappa, panel, skiva)</span><span><i style="background:#ffd27a"></i>LED</span></div>
+    </div>
+    <div class="box">
+      <h4>INBYGGT-KÄNSLAN</h4>
+      <div class="tog"><span>Fyll ut till väggarna (passbitar)</span><i></i></div>
+      <div class="tog"><span>Kappa ända upp till taket</span><i></i></div>
+      <div class="tog"><span>Sockel / indragen sockel</span><i></i></div>
+      <div class="tog"><span>Gemensam skiva ovanpå</span><i></i></div>
+      <h4>FRONTER</h4>
+      <div class="chips"><span>IKEA original</span><span class="on">Egna fronter</span><span>RAL 7022</span><span>Ribbor</span><span>Ek</span></div>
+      <h4>LISTA</h4>
+      <div class="row ik"><span>BESTÅ stomme 60×40×192</span><b>2 st</b></div>
+      <div class="row ik"><span>BESTÅ stomme 120×40×38</span><b>2 st</b></div>
+      <div class="row ik"><span>BESTÅ upphängningsskena</span><b>2 st</b></div>
+      <div class="row own"><span>Passbit 6×234 cm</span><b>2 st</b></div>
+      <div class="row own"><span>Kappa 420×16 cm</span><b>1 st</b></div>
+      <div class="row own"><span>Ribbpanel 288×184 cm</span><b>1 st</b></div>
+      <div class="row own"><span>Ekskiva 248×42 cm</span><b>1 st</b></div>
+      <div class="row own"><span>LED-list 280 cm</span><b>1 st</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step"><em>1️⃣</em><b>Välj väggen</b>Appen tar mått, fönster och tak från din ritning.</div>
+  <div class="step"><em>2️⃣</em><b>Ställ in IKEA-stommar</b>BESTÅ, METOD eller PAX i riktiga storlekar. Dra dem på plats, så snäpper de mot varandra.</div>
+  <div class="step"><em>3️⃣</em><b>Gör det inbyggt</b>Ett klick fyller ut mot väggar och tak med passbitar och kappa. Lägg till panel, nisch, skiva och LED.</div>
+  <div class="step"><em>4️⃣</em><b>Jämför och sätt in</b>Gör förslag A, B och C, gå in i rummet och titta. Ta med listan till IKEA och snickaren.</div>
+</div>
+</div></body></html>
