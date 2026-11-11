@@ -1,8 +1,8 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794434330';
-import { footShape } from './furnbridge.js?v=1794434330';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794434330';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794434861';
+import { footShape } from './furnbridge.js?v=1794434861';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794434861';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -45,11 +45,12 @@ export function createPlan(canvas, ui) {
 
   // ---------- träff ----------
   function hitItem(p) {
-    const h = home(); const list = [...h.items].sort((a, b) => (b.elev + b.h) - (a.elev + a.h));
+    const h = home(); const last = it => it.type === 'innertak' ? 1 : 0; const list = [...h.items].sort((a, b) => last(a) - last(b) || (b.elev + b.h) - (a.elev + a.h));
     for (const it of list) {
       if (it.type === 'skena') { if ((it.pts || []).length > 1 && trackProj(it.pts, p).d < Math.max(.12, 8 / scale)) return it; continue; }
       const a = -it.rot * Math.PI / 180, dx = p.x - it.x, dy = p.y - it.y;
       const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+      const fp = footShape(it)?.parts; if (fp) { if (fp.some(q => Math.abs(lx - q.x) <= q.w / 2 && Math.abs(ly - q.z) <= q.d / 2)) return it; continue; }
       if (Math.abs(lx) <= Math.max(it.w, .2) / 2 && Math.abs(ly) <= Math.max(it.d, .2) / 2) return it;
     }
   }
@@ -210,7 +211,7 @@ export function createPlan(canvas, ui) {
       const g = ctx.createRadialGradient(0, 0, 0, 0, 0, scale * 1.6); g.addColorStop(0, `rgba(255,190,100,${.45 * it.state.bri + .1})`); g.addColorStop(1, 'rgba(255,190,100,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, scale * 1.6, 0, 7); ctx.fill();
     }
-    if (c.ceil || c.dev === 'light') {
+    if ((c.ceil || c.dev === 'light') && it.type !== 'innertak') {
       ctx.fillStyle = it.state?.on ? '#ffc061' : 'rgba(0,0,0,.25)'; ctx.strokeStyle = '#ffc061'; ctx.lineWidth = 1.6;
       if (it.type === 'ledlist') { ctx.fillRect(-w / 2, -3, w, 6); ctx.strokeRect(-w / 2, -3, w, 6); }
       else { const r = Math.max(6, Math.min(w, d) / 2.5); ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.stroke();
@@ -219,7 +220,7 @@ export function createPlan(canvas, ui) {
       ctx.fillStyle = hexA(it.color, it.type === 'matta' || it.type === 'altan' || it.type === 'gang' ? .55 : .9);
       ctx.strokeStyle = 'rgba(200,225,255,.75)'; ctx.lineWidth = 1;
       const fsh = footShape(it);
-      if (fsh?.parts) { for (const q of fsh.parts) { ctx.fillStyle = q.ikea ? 'rgba(127,178,255,.35)' : hexA(it.color || '#f2f2f0', .7); roundRect((q.x - q.w / 2) * scale, (q.z - q.d / 2) * scale, q.w * scale, q.d * scale, 2); ctx.fill(); ctx.stroke(); } }
+      if (fsh?.parts) { for (const q of fsh.parts) { ctx.fillStyle = q.tak ? 'rgba(255,122,47,.13)' : q.ikea ? 'rgba(127,178,255,.35)' : hexA(it.color || '#f2f2f0', .7); if (q.tak) ctx.setLineDash([6, 4]); roundRect((q.x - q.w / 2) * scale, (q.z - q.d / 2) * scale, q.w * scale, q.d * scale, 2); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); } }
       else if (fsh?.round) { ctx.beginPath(); ctx.ellipse(0, 0, w / 2, d / 2, 0, 0, 7); ctx.fill(); ctx.stroke(); }
       else if (fsh?.oval) { const r = Math.min(w, d) / 2; roundRect(-w / 2, -d / 2, w, d, r); ctx.fill(); ctx.stroke(); }
       else { roundRect(-w / 2, -d / 2, w, d, Math.min(4, w / 4, d / 4)); ctx.fill(); ctx.stroke(); }
@@ -230,7 +231,7 @@ export function createPlan(canvas, ui) {
       if (it.type === 'sang' || it.type === 'sang90') { ctx.fillStyle = hexA(it.color2 || '#fff', .95); ctx.fillRect(-w / 2 + 2, -d / 2 + d * .3, w - 4, d * .68);
         ctx.fillStyle = '#fff'; const n = it.w > 1.2 ? 2 : 1; for (let i = 0; i < n; i++) ctx.fillRect(-w / 2 + 4 + i * (w - 8) / n + 2, -d / 2 + 4, (w - 8) / n - 4, d * .16); }
       const fs = Math.min(w, d) * .6;
-      if (fs > 11) { ctx.font = `${Math.min(fs, 26)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.rotate(-it.rot * Math.PI / 180);
+      if (fs > 11 && !fsh?.parts) { ctx.font = `${Math.min(fs, 26)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.rotate(-it.rot * Math.PI / 180);
         ctx.globalAlpha = alpha * .9; ctx.fillText(c.icon, 0, 1); ctx.textBaseline = 'alphabetic'; }
     }
     ctx.restore();

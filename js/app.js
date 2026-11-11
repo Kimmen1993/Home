@@ -1,19 +1,20 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794434330';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794434330';
-import { createPlan } from './plan2d.js?v=1794434330';
-import { createView } from './view3d.js?v=1794434330';
-import { createHA } from './ha.js?v=1794434330';
-import { detectPlan } from './autoplan.js?v=1794434330';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794434330';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794434330';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794434330';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794434330';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794434330';
-import { checkHome } from './check.js?v=1794434330';
-import { openByggStudio } from './byggstudio.js?v=1794434330';
-import { byggList } from './bygg.js?v=1794434330';
-import { openElfaStudio } from './elfastudio.js?v=1794434330';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794434861';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794434861';
+import { createPlan } from './plan2d.js?v=1794434861';
+import { createView } from './view3d.js?v=1794434861';
+import { createHA } from './ha.js?v=1794434861';
+import { detectPlan } from './autoplan.js?v=1794434861';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794434861';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794434861';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794434861';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794434861';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794434861';
+import { checkHome } from './check.js?v=1794434861';
+import { openTakStudio, takList } from './tak.js?v=1794434861';
+import { openByggStudio } from './byggstudio.js?v=1794434861';
+import { byggList } from './bygg.js?v=1794434861';
+import { openElfaStudio } from './elfastudio.js?v=1794434861';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -188,6 +189,7 @@ const opt = (f, cur, list) => `<div class="opt">${list.map(([v, l]) => `<button 
 function shopList(h) {
   const stores = new Map(), add = (st, k, n = 1) => { if (!stores.has(st)) stores.set(st, new Map()); const m = stores.get(st); m.set(k, (m.get(k) || 0) + n); };
   for (const it of h.items) {
+    if (it.type === 'innertak' && it.o?.areas) { for (const [st, mp] of Object.entries(takList(it.o, it.w, it.d))) for (const [k, n] of mp) add(st, k, n); continue; }
     if (it.type === 'platsbyggt' && it.o?.variants) { const V = it.o.variants[it.o.active || 0]; for (const [st, mp] of Object.entries(byggList(V?.parts || [], it.o))) for (const [k, n] of mp) add(st, k, n); continue; }
     if (!it.family || !furnKey(it)) continue; const fam = FAMILIES[it.family]; let col = '';
     if (fam) { const c = fam.choices.find(c => (!c.when || c.when(it.o)) && Object.entries(c.m).every(([k, v]) => it.m[k]?.color === v.color && it.m[k]?.mat === v.mat)); col = c ? c.name : ''; }
@@ -418,7 +420,7 @@ bindFurnPanel(right, {
   before: () => commit(),
   changed(full) { syncF(selected()); emit('full', full ? undefined : 'panel'); },
   redraw: () => renderRight(),
-  act(a) { if (a === 'studio') openStudio(selected()); if (a === 'bygg') openBygg(selected()); },
+  act(a) { if (a === 'studio') openStudio(selected()); if (a === 'bygg') openBygg(selected()); if (a === 'tak') openTak(selected()); },
 });
 right.addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if (!b) return; navigator.clipboard?.writeText(b.dataset.copy.replace(/\\n/g, '\n')); window.toast('📋 Listan är kopierad'); });
 // grupper
@@ -461,6 +463,24 @@ function roomWalls(h, r) {
 }
 function placeOnWall(it, W, off, out = 0) { it.rot = ((-Math.atan2(W.nx, W.nz) * 180 / Math.PI) % 360 + 360) % 360;
   const a = off + it.w / 2, n = out + it.d / 2; it.x = Math.round((W.x1 + W.rx * a + W.nx * n) * 1000) / 1000; it.y = Math.round((W.z1 + W.rz * a + W.nz * n) * 1000) / 1000; }
+// takverkstan: sänkt tak i ett rum (rummets omskrivna rektangel; plan-koordinater från övre vänstra hörnet)
+function roomBox(h, r) {
+  const xs = r.pts.map(p => p.x), ys = r.pts.map(p => p.y), x0 = Math.min(...xs), y0 = Math.min(...ys), W = Math.max(...xs) - x0, D = Math.max(...ys) - y0;
+  const items = h.items.filter(it => inPoly(it, r.pts) && !ITEMS[it.type]?.ceil && !['matta', 'skena', 'innertak'].includes(it.type) && it.w * it.d > .15 && !it.grp)
+    .map(it => ({ x: it.x - x0, y: it.y - y0, w: it.w, d: it.d, rot: it.rot, name: it.family || ITEMS[it.type]?.name || '' }));
+  return { name: r.name || 'Rum', x0, y0, W, D, H: h.ceiling || 2.5, pts: r.pts.map(p => ({ x: p.x - x0, y: p.y - y0 })), items, id: r.id };
+}
+function openTak(it) {
+  const h = home(), rooms = h.rooms.filter(r => !r.hidden && !r.outdoor && r.pts.length >= 3);
+  if (!rooms.length) return window.toast('Rita ett rum först');
+  const r = (it && roomAt(h, it)) || (S.sel?.type === 'room' && rooms.find(x => x.id === S.sel.id)) || [...rooms].sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
+  const RL = [r, ...rooms.filter(x => x !== r)].map(x => roomBox(h, x));
+  openTakStudio({ item: it, rooms: RL, startRoom: 0, onDone: ({ o, room }) => {
+    commit(); const R = RL[room]; let t = it && h.items.includes(it) ? it : makeItem(h, 'innertak', 0, 0, 0, { o });
+    t.o = o; t.o.H = R.H; t.o.room = R.id; t.g = t.g || {}; t.rot = 0; t.w = +R.W.toFixed(3); t.d = +R.D.toFixed(3); t.x = +(R.x0 + R.W / 2).toFixed(3); t.y = +(R.y0 + R.D / 2).toFixed(3);
+    t.name = `Sänkt tak · ${R.name}`; syncF(t); t.elev = R.H - t.h; arrange(h, t);
+    S.sel = { type: 'item', id: t.id }; S.placing = null; S.tool = 'select'; emit('full'); renderToolbar(); hint(); window.toast(`⬆️ Taket är klart – ${o.spots.length} spotlights finns under Styr`); } });
+}
 // byggverkstan: platsbyggt på en vägg (tv-vägg, sänggavel …)
 function openBygg(it) {
   const h = home(), rooms = h.rooms.filter(r => !r.hidden && !r.outdoor && r.pts.length >= 3);
@@ -505,6 +525,7 @@ right.addEventListener('click', e => {
   if (t.dataset.place === 'item:skena') { setTool('track'); return; }
   if (t.dataset.place === 'item:elfa') { openStudio(null); return; }
   if (t.dataset.place === 'item:platsbyggt') { openBygg(null); return; }
+  if (t.dataset.place === 'item:innertak') { openTak(null); return; }
   if (t.dataset.place) { const [kind, key] = t.dataset.place.split(':'); S.placing = { kind, key }; S.tool = 'add'; renderRight(); renderToolbar(); hint(); return; }
   if (t.dataset.scene) return scene(t.dataset.scene);
   if (t.dataset.dev) { const [type, id, pid] = t.dataset.dev.split(':'); return onDevice({ type, id, pid }); }

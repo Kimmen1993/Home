@@ -1,7 +1,7 @@
 // Bryggan mellan huvudappens saker (plan-koordinater x/y, rot i grader) och möbelmotorn (FURN).
 // En sak i appen som har en möbel bakom sig får it.o (val) och it.m (material) – samma som i demon.
-import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794434330';
-import { ITEMS } from './catalog.js?v=1794434330';
+import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794434861';
+import { ITEMS } from './catalog.js?v=1794434861';
 
 export const furnKey = it => ITEMS[it.type]?.furn || null;
 const hashSeed = id => { let s = 7; for (const c of String(id)) s = (s * 31 + c.charCodeAt(0)) % 9973; return s + 1; };
@@ -41,6 +41,7 @@ export function onTopElev(it, items) {
 // fotavtryck för 2D: rektangel + ev. schäslong; rund = cirkel
 export function footShape(it) {
   const k = furnKey(it); if (!k || !it.o) return null; const F = FURN[k];
+  if (k === 'innertak') return { parts: (it.o.areas || []).map(a => ({ x: -it.w / 2 + a.x + a.w / 2, z: -it.d / 2 + a.y + a.d / 2, w: a.w, d: a.d, tak: 1 })) };
   if (k === 'platsbyggt') { const P = (it.o.variants?.[it.o.active || 0]?.parts || []).filter(p => !['farg', 'led', 'tv'].includes(p.k) && (p.d || 0) > .015);
     return { parts: P.map(p => ({ x: -it.w / 2 + p.x + p.w / 2, z: -it.d / 2 + (p.z || 0) + p.d / 2, w: p.w, d: p.d, ikea: p.k === 'besta' || p.k === 'metod' })) }; }
   const round = (k === 'matbord' || k === 'soffbord') && it.o.form === 'rund' && !(it.o.utdragen && it.o.ilagg) || (k === 'matta' && it.o.form === 'rund') || k === 'vaxt' || k === 'taklampa' || k === 'golvlampa' || k === 'bordslampa';

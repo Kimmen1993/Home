@@ -4,8 +4,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { PARTS as BPARTS } from './bygg.js?v=1794434330';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794434330';
+import { PARTS as BPARTS } from './bygg.js?v=1794434861';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794434861';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -750,6 +750,12 @@ function platsbyggt(it, o, M) {
   }
 }
 
+// ---------- SÄNKT TAK (takverkstan) ----------
+function innertak(it, o, M) {
+  const H = it.ceilH || o.H || 2.5, W = it.w, D = it.d;
+  for (const a of o.areas || []) { const m = box(a.w, a.drop, a.d, M.gips, -W / 2 + a.x + a.w / 2, H - a.drop, -D / 2 + a.y + a.d / 2); m.castShadow = false; }
+}
+
 // ---------- BOKHYLLA ----------
 function rnd(seed) { let s = seed * 9301 + 49297 | 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 const BOOKC = ['#7a2f2a', '#2b4256', '#c9b38a', '#e9e3d6', '#3d5240', '#1f1f22', '#a4673a', '#5b3a4d', '#d3c7a6', '#8b8f86', '#bfa178', '#36556b'];
@@ -1038,6 +1044,10 @@ export const FURN = {
       o.djup = near(o.djup, S.dep); if (S.len) o.gren = near(o.gren, S.len); if (elfaSys(o) === 'frist') o.hojd = near(o.hojd, S.hts); if (elfaSys(o) === 'lada') o.ram = near(o.ram, S.hts);
       for (const m of o.mods) { if (!S.ws.some(w => Math.abs(w - m.w) < .002)) m.w = near(m.w, S.ws); if (!m.parts) m.parts = elfaTemplate(m.t, m.w, o); m.parts = m.parts.filter(p => ELFA_PARTS[p.t]); for (const p of m.parts) p.dn = elfaSnap(o, p.dn, p); }
       const g = elfaGeo(o); it.w = +g.W.toFixed(3); it.h = +g.H.toFixed(3); it.d = elfaDepth(o); } },
+  innertak: { name: 'Sänkt tak', icon: '⬆️', cat: 'ljus', w: 4, d: 4, h: .15, fixed: 1, ceil: 1,
+    opts: [{ k: 'areas', t: 'tak', label: 'Sänkt tak', v: [] }, ...[['spots', []], ['led', true], ['cc', .4], ['spacing', 1.2], ['room', null], ['H', 2.5]].map(([k, v]) => ({ k, t: 'hid', v, if: () => false }))],
+    slots: [['gips', 'Gips (färg på taket)', 'front', 'matt', '#f4f2ee']], build: innertak,
+    sync: (it, o) => { it.h = +Math.max(.05, ...(o.areas || []).map(a => a.drop)).toFixed(3); } },
   platsbyggt: { name: 'Platsbyggt', icon: '🛠️', cat: 'vardag', w: 3, d: .4, h: 2.5, fixed: 1,
     opts: [{ k: 'variants', t: 'bygg', label: 'Platsbyggt', v: [{ name: 'Förslag A', parts: [] }] },
       ...[['active', 0], ['fronter', 'ikea'], ['frontstil', 'slat'], ['wall', null], ['room', null], ['yta', 'vagg']].map(([k, v]) => ({ k, t: 'hid', v, if: () => false }))],

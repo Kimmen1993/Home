@@ -1,9 +1,9 @@
 // Smarta grupper: en "förälder" (bord, säng, soffa) äger sina delar (stolar, sängbord, soffbord, matta).
 // Delarna placeras automatiskt och följer med när föräldern flyttas, vrids eller ändras.
 // Plan-koordinater: x, y (y = djupet i 3D), rot i grader. Möblernas framsida är lokal +y.
-import { makeItem } from './store.js?v=1794434330';
-import { syncF } from './furnbridge.js?v=1794434330';
-import { PRESETS } from './presets.js?v=1794434330';
+import { makeItem } from './store.js?v=1794434861';
+import { syncF } from './furnbridge.js?v=1794434861';
+import { PRESETS } from './presets.js?v=1794434861';
 
 const D2R = Math.PI / 180;
 const toWorld = (p, lx, ly) => { const r = p.rot * D2R, c = Math.cos(r), s = Math.sin(r); return { x: p.x + lx * c - ly * s, y: p.y + lx * s + ly * c }; };
@@ -16,7 +16,7 @@ export const CHAIRS = [
   ...PRESETS.filter(p => p.type === 'stol' && p.family).filter((p, i, a) => a.findIndex(q => q.family === p.family) === i)
     .map(p => [p.family, p.family.replace(/^ILVA /, ''), { o: p.o, m: p.m, family: p.family, name: p.name, preset: p.variant, ...(p.size || {}) }]),
 ];
-export const groupKind = it => ({ matbord: 'stolar', sang: 'sangbord', sang90: 'sangbord', soffa: 'soffgrupp', platsbyggt: 'bygg' })[it.type] || null;
+export const groupKind = it => ({ matbord: 'stolar', sang: 'sangbord', sang90: 'sangbord', soffa: 'soffgrupp', platsbyggt: 'bygg', innertak: 'tak' })[it.type] || null;
 
 // var delarna ska stå (lokalt kring föräldern)
 function slots(p) {
@@ -41,6 +41,14 @@ function slots(p) {
     for (const q of parts) {
       if (q.k === 'led') out.push({ key: 'ledlist', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + (q.z ?? .02) + .012, rot: 0, w: q.w, d: .025, elev: q.y });
       if (q.k === 'tv') out.push({ key: 'tv', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + .125, rot: 0, o: { montering: 'vagg', tum: q.inch, hojd: q.y }, elev: 0 }); }
+    return out; }
+  if (groupKind(p) === 'tak') {   // takverkstan: spotlights och LED-list blir riktiga lampor
+    const o = p.o || {}, W = p.w, D = p.d, H = o.H || 2.5, at = (x, y) => (o.areas || []).find(a => x >= a.x - .001 && x <= a.x + a.w + .001 && y >= a.y - .001 && y <= a.y + a.d + .001);
+    for (const sp of o.spots || []) { const a = at(sp.x, sp.y); if (a) out.push({ key: 'spot', tag: sp.id, lx: -W / 2 + sp.x, ly: -D / 2 + sp.y, rot: 0, elev: H - a.drop - .04 }); }
+    if (o.led) for (const a of o.areas || []) { const T = .02, E = [];
+      if (a.y > T) E.push([a.x + a.w / 2, a.y - .03, a.w, 0]); if (a.y + a.d < D - T) E.push([a.x + a.w / 2, a.y + a.d + .03, a.w, 0]);
+      if (a.x > T) E.push([a.x - .03, a.y + a.d / 2, a.d, 90]); if (a.x + a.w < W - T) E.push([a.x + a.w + .03, a.y + a.d / 2, a.d, 90]);
+      E.forEach(([x, y, len, r], i) => out.push({ key: 'ledlist', tag: a.id + ':' + i, lx: -W / 2 + x, ly: -D / 2 + y, rot: r, w: len, d: .025, elev: H - a.drop + .01 })); }
     return out; }
   if (groupKind(p) === 'soffgrupp') {
     if (g.bord) out.push({ key: 'soffbord', lx: 0, ly: p.d / 2 + .45 + .3, rot: 0, tag: 'bord' });
