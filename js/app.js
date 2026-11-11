@@ -1,16 +1,17 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794426392';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794426392';
-import { createPlan } from './plan2d.js?v=1794426392';
-import { createView } from './view3d.js?v=1794426392';
-import { createHA } from './ha.js?v=1794426392';
-import { detectPlan } from './autoplan.js?v=1794426392';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794426392';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794426392';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794426392';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794426392';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794426392';
-import { openElfaStudio } from './elfastudio.js?v=1794426392';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794426993';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794426993';
+import { createPlan } from './plan2d.js?v=1794426993';
+import { createView } from './view3d.js?v=1794426993';
+import { createHA } from './ha.js?v=1794426993';
+import { detectPlan } from './autoplan.js?v=1794426993';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794426993';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794426993';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794426993';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794426993';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794426993';
+import { checkHome } from './check.js?v=1794426993';
+import { openElfaStudio } from './elfastudio.js?v=1794426993';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -30,8 +31,8 @@ on((kind, id) => {
   // grupper: delarna följer med föräldern
   if (kind === 'item') { const h = home(), it = h.items.find(i => i.id === id); let ids = [];
     if (it?.g) ids = arrange(h, it); else if (it?.grp) { const p = h.items.find(i => i.id === it.grp); if (p) ids = arrange(h, p); }
-    plan.draw(); view.syncItem(id); ids.forEach(x => view.syncItem(x)); return; }
-  if (kind !== 'state' && kind !== 'sel') arrangeAll(home());
+    updateWarns(); plan.draw(); view.syncItem(id); ids.forEach(x => view.syncItem(x)); return; }
+  if (kind !== 'state' && kind !== 'sel') { arrangeAll(home()); updateWarns(); }
   if (kind === 'state') { plan.draw(); view.states(); cancelAnimationFrame(stateT); stateT = requestAnimationFrame(() => { if (S.mode === 'styr') renderRight(); }); return; }
   if (kind === 'sel') { if (S.sel?.type !== 'room' || S.sel.id !== S.selPt?.room) S.selPt = null; plan.draw(); view.highlight(); renderRight();
     if (S.walls === 'rum' && S.sel?.type === 'room' && S.sel.id !== S.focus) { S.focus = S.sel.id; view.build(); } return; }
@@ -149,8 +150,19 @@ function hint() {
 $('#zoom2d').addEventListener('click', e => { const z = e.target.dataset.z; if (!z) return; z === 'fit' ? plan.fit() : plan.zoom(+z); });
 
 // ---------- högerpanel ----------
+// ---------- rumskontroll ----------
+const wpill = document.createElement('button'); wpill.className = 'wpill'; wpill.hidden = true; $('#stage').appendChild(wpill);
+wpill.onclick = () => { S.sel = null; S.showWarns = true; emit('sel'); renderRight(); };
+function updateWarns() { S.warns = S.mode === 'bygg' ? checkHome(home()) : []; const n = S.warns.length;
+  wpill.hidden = S.mode !== 'bygg'; wpill.className = 'wpill ' + (n ? 'bad' : 'ok'); wpill.innerHTML = n ? `⚠️ ${n} ${n === 1 ? 'sak' : 'saker'} att kolla` : '✅ Rummen ser bra ut'; }
+function warnPanel() {
+  return `<h2>🔍 Kolla rummen</h2><p class="note">Sådant som är lätt att missa när man möblerar. Klicka för att se var.</p>
+    ${S.warns.length ? S.warns.map(w => `<button class="warn" data-wsel="${w.id}"><b>${w.icon}</b><span>${esc(w.msg)}</span></button>`).join('') : '<div class="tips"><div><b>✅</b>Inga problem hittades – dörrar går fria, det finns plats bakom stolarna och vid sängarna.</div></div>'}
+    <p class="note" style="margin-top:12px">Riktvärden: 75 cm bakom matstolar · 50–60 cm vid sängens sidor · 60–90 cm för att gå förbi.</p>`;
+}
+$('#right').addEventListener('click', e => { const b = e.target.closest('[data-wsel]'); if (!b) return; S.showWarns = false; S.sel = { type: 'item', id: b.dataset.wsel }; emit('sel'); });
 function renderRight() {
-  const el = $('#right'); if (S.sel?.type !== 'item') { const sb = document.querySelector('.selbar'); if (sb) sb.hidden = true; }
+  const el = $('#right'); if (S.showWarns && !S.sel && S.mode === 'bygg' && !S.placing && S.tool === 'select') { el.innerHTML = warnPanel(); return; } if (S.sel) S.showWarns = false; if (S.sel?.type !== 'item') { const sb = document.querySelector('.selbar'); if (sb) sb.hidden = true; }
   if (S.mode === 'styr') { el.innerHTML = controlPanel(); return; }
   if (S.tool === 'bild') { el.innerHTML = bgPanel(); return; }
   if (S.tool === 'add' || S.placing) { el.innerHTML = catalogPanel(); return; }
@@ -769,7 +781,7 @@ window.addEventListener('keydown', e => {
 });
 
 // ---------- start ----------
-function renderAll() { renderSide(); renderTop(); renderToolbar(); renderRight(); hint(); renderLevels(); }
+function renderAll() { updateWarns(); renderSide(); renderTop(); renderToolbar(); renderRight(); hint(); renderLevels(); }
 function goOut() { const was = S.inside; S.inside = false; if (was && S.prev) { S.walls = S.prev.walls; S.ceil = S.prev.ceil; S.prev = null; view.buildNow(); } view.fitCam(); renderTop(); }
 // ---------- våningar ----------
 function renderLevels() {

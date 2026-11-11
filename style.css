@@ -214,3 +214,9 @@ input[type=range]{padding:0;accent-color:var(--acc);border:0;background:none}
 .selbar button:hover{background:rgba(255,255,255,.08)}
 .selbar button.danger:hover{background:rgba(255,90,74,.25)}
 .right .shop .row{cursor:default}
+.wpill{position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:6;border-radius:99px;padding:7px 13px;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:rgba(18,22,18,.92);color:var(--text)}
+.wpill.bad{border-color:#ffb02e;color:#ffd38a}
+.wpill.ok{color:#9be3a9}
+.right .warn{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:var(--panel);border:1px solid rgba(255,176,46,.35);border-radius:10px;padding:9px 10px;margin:0 0 6px;cursor:pointer;color:var(--text);font-size:13px}
+.right .warn b{font-size:17px;font-weight:400}
+.right .warn:hover{border-color:#ffb02e}

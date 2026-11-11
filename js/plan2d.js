@@ -1,8 +1,8 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794426392';
-import { footShape } from './furnbridge.js?v=1794426392';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794426392';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794426993';
+import { footShape } from './furnbridge.js?v=1794426993';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794426993';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');
@@ -131,6 +131,9 @@ export function createPlan(canvas, ui) {
       label(Math.hypot(p.x - last.x, p.y - last.y).toFixed(2).replace('.', ',') + ' m', (s0.x + s1.x) / 2, (s0.y + s1.y) / 2 - 14); }
     if (ghost) drawGhost();
     if (guides) drawGuides();
+    // varningar från rumskontrollen: liten orange bricka på möbeln
+    for (const w of S.mode === 'bygg' ? S.warns || [] : []) { const it = h.items.find(i => i.id === w.id); if (!it) continue; const p2 = ts(it);
+      ctx.fillStyle = '#ffb02e'; ctx.beginPath(); ctx.arc(p2.x + 10, p2.y - 10, 8, 0, 7); ctx.fill(); ctx.fillStyle = '#1a0d05'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', p2.x + 10, p2.y - 9); ctx.textBaseline = 'alphabetic'; }
     // flytande meny ovanför vald sak
     { const it = S.sel?.type === 'item' && !drag?.item && !drag?.rot ? h.items.find(i => i.id === S.sel.id) : null;
       if (it && it.type !== 'skena') { const r = it.rot * Math.PI / 180, ey = Math.abs(Math.sin(r)) * it.w / 2 + Math.abs(Math.cos(r)) * it.d / 2, sp = ts(it); ui.selbar?.({ x: sp.x, y: sp.y + ey * scale + 18 }); } else ui.selbar?.(null); }
