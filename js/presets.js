@@ -108,7 +108,7 @@ for (const [n, system, mods, djup, gren, h, extra = {}] of [
   ['Classic fristående låg 2 sektioner', 'frist', [['hyllor', S6], ['hyllor', S6]], .405, 0, 0, { hojd: 1.11 }],
   ['hyllsystem bokhylla 3 sektioner', 'hylla', [['hyllor', S9], ['hyllor', S9], ['hyllor', S9]], .25, 1.98, 2.1],
   ['lådsystem 3 lådhurtsar', 'lada', [['mix', .45], ['sma', .45], ['mix', .45]], .535, 0, 0, { ram: .74 }]])
-  list.push(B(`Elfa ${n}`, 'elfa', 0, 0, 0, { system, mods: mods.map(([t, w]) => ({ t, w })), djup, gren: gren || 2.14, skenaH: h || 2.2, decor: false, klader: true, ...extra },
+  list.push(B(`Elfa ${n}`, 'elfa', 0, 0, 0, { system, mods: mods.map(([t, w]) => ({ t, w })), djup, gren: gren || 2.14, skenaH: h || 2.2, decor: false, klader: true, farg: ELFA_COL.find(c => c.when({ system })).name, ...extra },
     { stomme: ELFA_COL.find(c => c.when({ system })).m.stomme, decor: ELFA_COL.find(c => c.group === 'Trä' && c.when({ system: system === 'decor' ? 'decor' : 'topp' })).m.decor, stang: { mat: 'rostfritt', color: '#cfd1d3' } },
     'elfa garderobsinredning kladkammare'));
 // Elfa skjutdörrar (måttbeställda, upp till 2700 mm höga). Profil: Silver, Sanded White, Sanded Black. Artic och Vista har lite olika fyllningar.

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794423397';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794423827';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -481,28 +481,48 @@ export const ELFA_SYS = {
 };
 const CL = ['topp', 'frist'], CD = ['topp', 'frist', 'decor'];
 // delarna. dn = hur långt under ramens/bärlistens överkant konsolen sitter. under = hur långt delen når ner under sin konsol.
+// Click-in-delarna ur prislistan. Lådorna sitter i en glidram (449/605 × 336/430 × 25) mellan två konsoler:
+// nätback (mesh drawer) 427/580 bred, 327 eller 427 djup, 85/185/285 hög, vit/platina/grafit; trådback (wire drawer) 427/580 × 427, bara vit.
+// deps = vilka hylldjup (konsoler) delen kräver, farg = vilka stomfärger den finns i.
+const D3 = [.305, .405], D4 = [.405];
 export const ELFA_PARTS = {
-  hylla:  { name: 'Trådhylla', icon: '▭', under: .02, sys: CL },
-  slat:   { name: 'Slät hylla', icon: '▬', under: .025, sys: CL },
-  trim:   { name: 'Trådhylla med trälist', icon: '▭', under: .035, sys: ['decor'] },
-  tra:    { name: 'Trähylla', icon: '🟫', under: .035, sys: ['decor'] },
-  stang:  { name: 'Klädstång', icon: '👔', under: .1, sys: CD },
-  lada8:  { name: 'Låda 8 cm', icon: '🗄️', h: .085, ws: [.451, .607], sys: [...CD, 'lada'] },
-  lada18: { name: 'Låda 18 cm', icon: '🗄️', h: .185, ws: [.451, .607], sys: [...CD, 'lada'] },
-  lada28: { name: 'Låda 28 cm', icon: '🗄️', h: .285, ws: [.451, .607], sys: [...CD, 'lada'] },
-  tralada:{ name: 'Låda med träfront', icon: '🟫', h: .185, ws: [.451, .607], sys: ['decor'] },
-  sko:    { name: 'Skohylla, vinklad', icon: '👟', under: .1, ws: [.607], sys: CD },
-  byxa:   { name: 'Byxhängare', icon: '👖', under: .06, ws: [.451, .607], sys: CD },
-  led:    { name: 'LED-list', icon: '💡', under: .015, sys: ['decor'] },
-  mhylla: { name: 'Hylla, melamin', icon: '▬', under: .05, sys: ['hylla'] },
+  hylla:  { name: 'Trådhylla', icon: '▭', under: .02, sys: CL, cat: 'Hyllor' },
+  slat:   { name: 'Slät hylla', icon: '▬', under: .025, ws: [.607, .902], sys: CL, cat: 'Hyllor' },
+  korg:   { name: 'Hyllkorg', icon: '🧺', under: .1, ws: [.607], sys: CL, cat: 'Hyllor' },
+  bricka: { name: 'Metallhylla med kant', icon: '▱', under: .05, ws: [.451, .607], deps: [.305, .405, .494], sys: CL, cat: 'Hyllor' },
+  trim:   { name: 'Trådhylla med trälist', icon: '▭', under: .035, sys: ['decor'], cat: 'Hyllor' },
+  tra:    { name: 'Trähylla', icon: '🟫', under: .035, sys: ['decor'], cat: 'Hyllor' },
+  mhylla: { name: 'Hylla, melamin', icon: '▬', under: .05, sys: ['hylla'], cat: 'Hyllor' },
+  lada8:  { name: 'Nätback 8 cm', icon: '🗄️', h: .085, ws: [.451, .607], deps: D3, sys: [...CD, 'lada'], cat: 'Lådor' },
+  lada18: { name: 'Nätback 18 cm', icon: '🗄️', h: .185, ws: [.451, .607], deps: D3, sys: [...CD, 'lada'], cat: 'Lådor' },
+  lada28: { name: 'Nätback 28 cm', icon: '🗄️', h: .285, ws: [.451, .607], deps: D4, sys: [...CD, 'lada'], cat: 'Lådor' },
+  trad8:  { name: 'Trådback 8 cm', icon: '🧺', h: .085, ws: [.451, .607], deps: D4, farg: ['Vit'], sys: [...CL, 'lada'], cat: 'Lådor' },
+  trad18: { name: 'Trådback 18 cm', icon: '🧺', h: .185, ws: [.451, .607], deps: D4, farg: ['Vit'], sys: [...CL, 'lada'], cat: 'Lådor' },
+  trad28: { name: 'Trådback 28 cm', icon: '🧺', h: .285, ws: [.451, .607], deps: D4, farg: ['Vit'], sys: [...CL, 'lada'], cat: 'Lådor' },
+  tralada:{ name: 'Låda med träfront', icon: '🟫', h: .185, ws: [.451, .607], sys: ['decor'], cat: 'Lådor' },
+  stang:  { name: 'Klädstång', icon: '👔', under: .1, sys: CD, cat: 'Häng' },
+  byxa:   { name: 'Byxhängare, utdragbar', icon: '👖', under: .06, ws: [.451, .607], deps: D4, sys: CD, cat: 'Häng' },
+  krok:   { name: 'Krokslist', icon: '🪝', under: .09, ws: [.607], sys: CL, cat: 'Häng' },
+  sko:    { name: 'Skohylla, vinklad', icon: '👟', under: .1, ws: [.607], sys: CD, cat: 'Skor' },
+  skodrag:{ name: 'Skohylla, utdragbar', icon: '👞', under: .12, ws: [.451, .607], deps: D4, sys: CD, cat: 'Skor' },
+  skogrund:{ name: 'Skohylla för klackar', icon: '👠', under: .1, ws: [.607], sys: CL, cat: 'Skor' },
+  led:    { name: 'LED-list', icon: '💡', under: .015, sys: ['decor'], cat: 'Övrigt' },
 };
+export const ELFA_CATS = ['Hyllor', 'Lådor', 'Häng', 'Skor', 'Övrigt'];
+const isDrawer = t => /^(lada|trad)\d/.test(t);
 const SHELVES = ['hylla', 'slat', 'trim', 'tra', 'mhylla'];
 export const elfaSys = o => ELFA_SYS[o.system] ? o.system : 'topp';
 const under = (p, o) => { const P = ELFA_PARTS[p.t]; if (elfaSys(o) === 'lada') return Math.round((P.h + .015) / .1) * .1; return P.h ? P.h + .03 : P.under; };
 export const elfaH = o => { const s = elfaSys(o); return s === 'frist' ? o.hojd || 2.2 : s === 'lada' ? (o.ram || .74) + (o.hjul ? .07 : .02) : o.skenaH; };
 export const elfaL = o => { const s = elfaSys(o), H = elfaH(o); return s === 'frist' ? H - .09 : s === 'lada' ? (o.ram || .74) - .02 : Math.min(o.gren || 2.14, H - .04); };
 export const elfaCC = (m, o) => elfaSys(o) === 'lada' ? m.w + .025 : m.w;
-export const elfaFits = (p, w, o) => { const P = ELFA_PARTS[p.t], s = elfaSys(o); return !!P && P.sys.includes(s) && (s === 'lada' || !P.ws || P.ws.some(x => Math.abs(x - w) < .002)); };
+export const elfaFits = (p, w, o) => { const P = ELFA_PARTS[p.t], s = elfaSys(o); return !!P && P.sys.includes(s) && (s === 'lada' || ((!P.ws || P.ws.some(x => Math.abs(x - w) < .002)) && (!P.deps || P.deps.some(x => Math.abs(x - o.djup) < .002))))
+  && (!P.farg || !o.farg || P.farg.includes(o.farg)); };
+// varför en del inte går (för meddelanden)
+export function elfaWhyNot(t, w, o) { const P = ELFA_PARTS[t], s = elfaSys(o); if (!P.sys.includes(s)) return 'finns inte i det här systemet';
+  if (s !== 'lada' && P.ws && !P.ws.some(x => Math.abs(x - w) < .002)) return `finns bara i ${P.ws.map(x => Math.round(x * 100 / 5) * 5).join(' och ')} cm bredd`;
+  if (s !== 'lada' && P.deps && !P.deps.some(x => Math.abs(x - o.djup) < .002)) return `kräver ${P.deps.map(x => Math.round(x * 100 / 5) * 5).join(' eller ')} cm djup`;
+  if (P.farg && o.farg && !P.farg.includes(o.farg)) return `finns bara i ${P.farg.join('/').toLowerCase()}`; return ''; }
 export const elfaPartsFor = (o, w) => Object.keys(ELFA_PARTS).filter(k => elfaFits({ t: k }, w, o));
 // närmaste läge på grenen/ramen
 export function elfaSnap(o, dn, p) {
@@ -577,8 +597,26 @@ export function elfaGeo(o) {
 }
 export const elfaDepth = o => { const s = elfaSys(o), hang = o.mods.some(m => (m.parts || []).some(p => p.t === 'stang' || p.t === 'byxa'));
   return +(s === 'lada' ? o.djup : s === 'hylla' ? o.djup + .02 : s === 'frist' ? Math.max(.56, o.djup + .05) : Math.max(o.djup + .035, hang ? .45 : 0)).toFixed(3); };
+// trådgaller (trådback, hyllkorg): stående trådar runt om, galler i botten, dubbel kant upptill
+function wireBasket(xa, xb, y, h, zb, d, mat) {
+  const g = [], w = xb - xa, cx = (xa + xb) / 2, p = (bw, bh, bd, x, yy, z) => g.push(new THREE.BoxGeometry(bw, bh, bd).translate(x, yy + bh / 2, z));
+  const n = Math.round(w / .025), m = Math.round(d / .03), k = Math.max(2, Math.round(h / .045));
+  for (let i = 0; i <= n; i++) { const x = xa + i * w / n; p(.003, .003, d, x, y, zb + d / 2); p(.003, h, .003, x, y, zb + d); p(.003, h, .003, x, y, zb); }
+  for (let j = 1; j < m; j++) { const z = zb + j * d / m; p(.003, h, .003, xa, y, z); p(.003, h, .003, xb, y, z); }
+  for (let l = 0; l <= k; l++) { const yy = y + l * h / k; p(w, .003, .003, cx, yy, zb); p(w, .003, .003, cx, yy, zb + d); p(.003, .003, d, xa, yy, zb + d / 2); p(.003, .003, d, xb, yy, zb + d / 2); }
+  p(w + .006, .006, .006, cx, y + h - .003, zb + d); p(w * .35, .004, .012, cx, y + h - .03, zb + d + .006);   // kant + grepp
+  add(mergeGeometries(g), mat, 0, 0, 0);
+}
+// glidram 25 mm som backarna hänger i
+function glideFrame(xa, xb, y, zb, d, mat) { const g = [], w = xb - xa, p = (bw, bh, bd, x, yy, z) => g.push(new THREE.BoxGeometry(bw, bh, bd).translate(x, yy + bh / 2, z));
+  for (const x of [xa + .006, xb - .006]) p(.012, .025, d, x, y, zb + d / 2); p(w, .012, .012, (xa + xb) / 2, y, zb + .006); add(mergeGeometries(g), mat, 0, 0, 0); }
 const meshCache = new WeakMap();
-const meshOf = m => { let c = meshCache.get(m); if (!c) { c = m.clone(); c.transparent = true; c.opacity = .4; c.depthWrite = false; c.side = THREE.DoubleSide; meshCache.set(m, c); } return c; };
+// finmaskigt nät (nätback): hål ca 5 mm. UV är i meter, så 8 hål per 48 mm.
+let meshTex = null;
+function meshAlpha() { if (meshTex) return meshTex; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#000'; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) g.fillRect(i * 8 + 1.5, j * 8 + 1.5, 5, 5);
+  meshTex = new THREE.CanvasTexture(c); meshTex.wrapS = meshTex.wrapT = THREE.RepeatWrapping; meshTex.repeat.set(1 / .048, 1 / .048); meshTex.anisotropy = 8; return meshTex; }
+const meshOf = m => { let c = meshCache.get(m); if (!c) { c = m.clone(); c.map = null; c.bumpMap = null; c.roughnessMap = null; c.alphaMap = meshAlpha(); c.transparent = true; c.opacity = .95; c.depthWrite = false; c.side = THREE.DoubleSide; c.needsUpdate = true; meshCache.set(m, c); } return c; };
 function wireShelf(xa, xb, y, zb, D, mat, fascia) {
   const g = [], w = xb - xa, n = Math.round(w / .025), p = (bw, bh, bd, x, yy, z) => g.push(new THREE.BoxGeometry(bw, bh, bd).translate(x, yy + bh / 2, z));
   for (let i = 0; i <= n; i++) p(.0035, .0035, D - .01, xa + i * w / n, y - .0035, zb + D / 2 - .005);
@@ -635,7 +673,7 @@ function elfa(it, o, M) {
     const floorBelow = (y, self) => Math.max(.02, ...P.filter(q => q !== self && q.y < y - .001).map(q => q.y));
     const roofAbove = (y, self) => Math.min(H + .2, ...P.filter(q => q !== self && q.y > y + .001).map(q => q.y - q.u));
     for (const p of P) { const y = p.y, Pd = ELFA_PARTS[p.t];
-      if (s === 'lada') { const h = Pd.h; meshDrawer(xa, xb, y - p.u + .008, h, zs, D, M, null, D - .02);
+      if (s === 'lada') { const h = Pd.h; if (p.t.startsWith('trad')) wireBasket(xa + .01, xb - .01, y - p.u + .008, h, zs + .005, D - .02, M.stomme); else meshDrawer(xa, xb, y - p.u + .008, h, zs, D, M, null, D - .02);
         for (const sx of [s0, s1]) box(.012, .006, D - .04, M.stomme, sx, y - p.u + h + .012, zs + D / 2); continue; }
       if (SHELVES.includes(p.t)) {
         if (p.t === 'mhylla') { for (const sx of [s0, s1]) box(.013, .049, D - .03, M.stomme, sx, y - .069, zs + (D - .03) / 2, .002); box(xb - xa + .05, .019, D, mel, (xa + xb) / 2, y - .019, zs + D / 2, .002); }
@@ -649,7 +687,22 @@ function elfa(it, o, M) {
         const room = ry - floorBelow(y, p) - .06; if (kl && room > .3) garments(xa, xb, ry, room > 1.05 ? 1.15 : .9, zr, .48, r, room); }
       else if (p.t === 'tralada') { const h = Pd.h, cx = (xa + xb) / 2, w = xb - xa - .01; box(w, h, Math.min(D, .42), mel, cx, y - .02 - h, zs + Math.min(D, .42) / 2, .003);
         box(w + .02, h + .015, .02, M.decor, cx, y - .025 - h, zs + Math.min(D, .42) + .01, .004); const k = cyl(.012, .012, .025, M.stang, 0, 0, 0, 16); k.rotation.x = Math.PI / 2; k.position.set(cx, y - .02 - h / 2, zs + Math.min(D, .42) + .033); br(y + .03); }
-      else if (Pd.h) { meshDrawer(xa, xb, y - .02 - Pd.h, Pd.h, zs, D, M, dec); br(y + .03); }
+      else if (isDrawer(p.t)) { const h = Pd.h, dd = D < .35 ? .327 : .427, y0 = y - .02 - h; br(y + .03); glideFrame(xa, xb, y - .02, zs, dd + .003, M.stomme);
+        if (p.t.startsWith('trad')) wireBasket(xa + (xb - xa - Math.min(xb - xa - .01, .58)) / 2, xb - (xb - xa - Math.min(xb - xa - .01, .58)) / 2, y0, h, zs + .005, dd, M.stomme);
+        else meshDrawer(xa, xb, y0, h, zs, D, M, dec, dd); }
+      else if (p.t === 'korg') { br(y); wireBasket(xa, xb, y - .096, .096, zs, Math.min(D, .405), M.stomme); if (kl) piles(xa, xb, y - .093, zs, Math.min(D, .405), r, .12); }
+      else if (p.t === 'bricka') { br(y); const cx = (xa + xb) / 2, w = xb - xa; box(w, .004, D - .02, M.stomme, cx, y - .045, zs + D / 2, .002);
+        for (const z of [zs + .01, zs + D - .01]) box(w, .045, .004, M.stomme, cx, y - .045, z); for (const x of [xa, xb]) box(.004, .045, D - .02, M.stomme, x, y - .045, zs + D / 2);
+        if (kl) piles(xa, xb, y - .041, zs, D, r, .2); }
+      else if (p.t === 'skodrag') { br(y); const cx = (xa + xb) / 2, w = xb - xa; glideFrame(xa, xb, y - .025, zs, .43, M.stomme); box(w - .02, .003, .42, meshOf(M.stomme), cx, y - .1, zs + .215);
+        box(w - .02, .05, .01, M.stomme, cx, y - .1, zs + .425, .003);
+        if (kl) { let x = xa + .03; while (x < xb - .2) { const c = cloth(r); for (const k2 of [0, 1]) box(.085, .075, .26, c, x + .045 + k2 * .095, y - .097, zs + .2, .03); x += .2 + r() * .03; } } }
+      else if (p.t === 'skogrund') { const cx = (xa + xb) / 2, w = xb - xa; for (const [yy, zz] of [[y - .02, zs + .02], [y - .09, zs + .19]]) { const c = cyl(.005, .005, w, M.stomme, 0, 0, 0, 10); c.rotation.z = Math.PI / 2; c.position.set(cx, yy, zz); }
+        for (const x of [xa + .01, xb - .01]) { const sb = box(.01, .012, .2, M.stomme, x, y - .06, zs + .1); sb.rotation.x = -.4; }
+        if (kl) { let x = xa + .03; while (x < xb - .2) { const c = cloth(r); for (const k2 of [0, 1]) { const sh = box(.08, .07, .25, c, x + .045 + k2 * .09, y - .13, zs + .12, .03); sh.rotation.x = -.45; } x += .19 + r() * .03; } } }
+      else if (p.t === 'krok') { const cx = (xa + xb) / 2, w = xb - xa; for (const sx of [s0, s1]) box(.02, .064, .02, M.stomme, sx, y - .07, zs + .01); box(w + .01, .064, .018, M.stomme, cx, y - .07, zs + .009, .003);
+        for (let k2 = 0; k2 < 3; k2++) { const hx = xa + w * (k2 + .5) / 3; box(.018, .05, .02, M.stomme, hx, y - .08, zs + .028, .004); box(.018, .012, .06, M.stomme, hx, y - .08, zs + .06, .004);
+          if (kl && r() < .7) garment(.03, .5, .35, cloth(r), hx, y - .6, zs + .2); } }
       else if (p.t === 'sko') { angledShelf(xa, xb, y - .09, zs, M, r, kl); if (dec) box(xb - xa, .032, .025, dec, (xa + xb) / 2, y - .1, zs + .36, .003); }
       else if (p.t === 'byxa') { br(y); pantRack(xa, xb, y, zs, M, r, kl); }
       else if (p.t === 'led') { const l = box(xb - xa - .02, .008, .025, led, (xa + xb) / 2, y - .045, zs + D - .06, .002); l.castShadow = false; } }
