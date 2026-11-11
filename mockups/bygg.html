@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemma – byggverkstan (skiss)</title>
+<style>
+:root{--bg:#0e110e;--panel:#161b16;--line:rgba(190,210,175,.16);--text:#e9ede6;--dim:#8f9a8b;--acc:#ff7a2f;--ikea:#7fb2ff;--bygg:#e0c27a;--el:#ffd27a;--ok:#7bd88f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px 16px 60px}
+.wrap{max-width:1150px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}.lead{color:var(--dim);margin:0 0 22px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:28px}
+.mock h2{margin:0 0 4px;font-size:20px}.why{color:var(--dim);margin:0 0 14px;font-size:14.5px}
+.surf{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.surf span{padding:9px 14px;border-radius:12px;border:1px solid var(--line);font-size:14px;color:var(--dim)}
+.surf span.on{border-color:var(--acc);color:var(--text);background:rgba(255,122,47,.12)}
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:12px}
+.box{background:#0f130f;border:1px solid var(--line);border-radius:12px;padding:12px}
+.box h4{margin:0 0 8px;font-size:11px;letter-spacing:.12em;color:var(--dim);font-weight:600}
+.box h4:not(:first-child){margin-top:14px}
+.row{display:flex;justify-content:space-between;font-size:13.5px;padding:6px 0;border-bottom:1px solid rgba(190,210,175,.08)}
+.row b{font-weight:600}
+.shop{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.store{background:#0f130f;border:1px solid var(--line);border-radius:12px;padding:12px}
+.store h3{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between}
+.store h3 small{font-size:12px;color:var(--dim);font-weight:400}
+.note{font-size:12.5px;color:var(--dim);margin-top:8px;line-height:1.45}
+.warn{font-size:13px;background:rgba(255,176,46,.08);border:1px solid rgba(255,176,46,.35);border-radius:10px;padding:9px 11px;margin-top:10px;color:#ffd38a}
+.chips span{display:inline-block;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;margin:0 4px 5px 0;color:var(--dim)}
+.chips span.on{border-color:var(--acc);color:var(--text);background:rgba(255,122,47,.12)}
+.btn{display:inline-block;background:var(--acc);color:#1a0d05;font-weight:700;border-radius:12px;padding:10px 14px;font-size:13.5px;margin:10px 6px 0 0}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:500}
+@media (max-width:900px){.grid,.shop{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Byggverkstan – vägg, sänggavel och tak i samma verktyg</h1>
+<p class="lead">Skiss, inget byggt än. Du väljer en yta, bygger på den, och allt hamnar i 3D och i en gemensam inköpslista.</p>
+
+<div class="mock">
+  <h2>① Välj yta</h2>
+  <p class="why">Samma verktyg för alla ytor. Vägg och sänggavel ritas framifrån, taket uppifrån.</p>
+  <div class="surf"><span>📺 Tv-vägg · Vardagsrum</span><span>🛏️ Sänggavel · Sovrum</span><span class="on">⬆️ Tak · Sovrum</span><span>＋ Annan vägg</span></div>
+
+  <div class="grid">
+    <div class="box">
+      <h4>TAKET UPPIFRÅN · SOVRUM 450 × 450 CM</h4>
+      <svg viewBox="-20 -20 500 500" style="width:100%;display:block">
+        <rect x="0" y="0" width="450" height="450" fill="#20271f" stroke="#9aa39a" stroke-width="6"/>
+        <!-- sänkt del: kappa runt om 60 cm (ram) -->
+        <path d="M0 0 H450 V450 H0 Z M60 60 V390 H390 V60 Z" fill="rgba(255,122,47,.16)" fill-rule="evenodd" stroke="#ff7a2f" stroke-width="1.5"/>
+        <!-- reglar c/c 60 i kappan (tvärs) -->
+        <g stroke="#e0c27a" stroke-width="2" opacity=".85">
+          <line x1="0" y1="2" x2="450" y2="2"/><line x1="0" y1="58" x2="450" y2="58"/><line x1="0" y1="392" x2="450" y2="392"/><line x1="0" y1="448" x2="450" y2="448"/>
+          <line x1="2" y1="60" x2="2" y2="390"/><line x1="58" y1="60" x2="58" y2="390"/><line x1="392" y1="60" x2="392" y2="390"/><line x1="448" y1="60" x2="448" y2="390"/>
+        </g>
+        <g stroke="#e0c27a" stroke-width="1.2" opacity=".55">
+          <line x1="60" y1="0" x2="60" y2="60"/><line x1="120" y1="0" x2="120" y2="60"/><line x1="180" y1="0" x2="180" y2="60"/><line x1="240" y1="0" x2="240" y2="60"/><line x1="300" y1="0" x2="300" y2="60"/><line x1="360" y1="0" x2="360" y2="60"/>
+          <line x1="60" y1="390" x2="60" y2="450"/><line x1="120" y1="390" x2="120" y2="450"/><line x1="180" y1="390" x2="180" y2="450"/><line x1="240" y1="390" x2="240" y2="450"/><line x1="300" y1="390" x2="300" y2="450"/><line x1="360" y1="390" x2="360" y2="450"/>
+          <line x1="0" y1="120" x2="60" y2="120"/><line x1="0" y1="180" x2="60" y2="180"/><line x1="0" y1="240" x2="60" y2="240"/><line x1="0" y1="300" x2="60" y2="300"/><line x1="0" y1="360" x2="60" y2="360"/>
+          <line x1="390" y1="120" x2="450" y2="120"/><line x1="390" y1="180" x2="450" y2="180"/><line x1="390" y1="240" x2="450" y2="240"/><line x1="390" y1="300" x2="450" y2="300"/><line x1="390" y1="360" x2="450" y2="360"/>
+        </g>
+        <!-- LED i kappans kant -->
+        <rect x="60" y="60" width="330" height="330" fill="none" stroke="#ffd27a" stroke-width="2.5" stroke-dasharray="1 0" style="filter:drop-shadow(0 0 4px #ffd27a)"/>
+        <!-- spotlights i kappan -->
+        <g fill="#ffd27a" stroke="#1a0d05" stroke-width="1.5">
+          <circle cx="30" cy="30" r="6"/><circle cx="150" cy="30" r="6"/><circle cx="300" cy="30" r="6"/><circle cx="420" cy="30" r="6"/>
+          <circle cx="30" cy="420" r="6"/><circle cx="150" cy="420" r="6"/><circle cx="300" cy="420" r="6"/><circle cx="420" cy="420" r="6"/>
+          <circle cx="30" cy="150" r="6"/><circle cx="30" cy="300" r="6"/><circle cx="420" cy="150" r="6"/><circle cx="420" cy="300" r="6"/>
+        </g>
+        <!-- säng -->
+        <rect x="145" y="250" width="160" height="200" rx="4" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.25)"/>
+        <text x="225" y="355" fill="#8f9a8b" font-size="13" text-anchor="middle">säng</text>
+        <text x="225" y="53" fill="#ffb27f" font-size="12" text-anchor="middle">kappa 60 cm · sänkt 15 cm</text>
+        <text x="225" y="215" fill="#ffd27a" font-size="12" text-anchor="middle">indirekt LED runt om</text>
+      </svg>
+      <div class="note">🟠 sänkt del (kappa) · <span style="color:var(--bygg)">━ reglar c/c 60</span> · <span style="color:var(--el)">● spotlight</span> · <span style="color:var(--el)">━ LED</span></div>
+    </div>
+    <div class="box">
+      <h4>FORM</h4>
+      <div class="chips"><span>Hela taket</span><span class="on">Kappa runt om</span><span>Kappa på en sida</span><span>Tak-ö över sängen</span><span>Rita fritt</span></div>
+      <h4>MÅTT</h4>
+      <div class="row"><span>Sänkning</span><b>15 cm</b></div>
+      <div class="row"><span>Kappans bredd</span><b>60 cm</b></div>
+      <div class="row"><span>Kvar till golvet</span><b>235 cm ✅</b></div>
+      <h4>BELYSNING</h4>
+      <div class="chips"><span class="on">💡 Spotlights · auto-placera</span><span class="on">✨ Indirekt LED</span><span>🔆 Dimmer</span></div>
+      <div class="row"><span>Spotlights</span><b>12 st · ca 120 cm isär, 30 cm från väggen</b></div>
+      <div class="row"><span>Styrs som</span><b>💡 Sovrum tak · 💡 Sovrum LED</b></div>
+      <h4>SNITT</h4>
+      <svg viewBox="0 0 300 90" style="width:100%">
+        <rect x="0" y="0" width="300" height="10" fill="#555"/><text x="150" y="8" fill="#ccc" font-size="7" text-anchor="middle">befintligt tak</text>
+        <rect x="10" y="10" width="8" height="34" fill="#e0c27a"/><rect x="70" y="10" width="8" height="34" fill="#e0c27a"/>
+        <rect x="0" y="44" width="90" height="5" fill="#f2f2f0"/><text x="45" y="62" fill="#8f9a8b" font-size="7" text-anchor="middle">gips 12,5 mm</text>
+        <rect x="88" y="10" width="4" height="39" fill="#f2f2f0"/>
+        <line x1="96" y1="46" x2="120" y2="46" stroke="#ffd27a" stroke-width="2"/><text x="135" y="49" fill="#ffd27a" font-size="7">LED</text>
+        <circle cx="40" cy="49" r="3" fill="#ffd27a"/>
+        <line x1="210" y1="10" x2="210" y2="49" stroke="#8f9a8b"/><text x="216" y="32" fill="#8f9a8b" font-size="7">15 cm</text>
+      </svg>
+    </div>
+  </div>
+  <div class="warn">⚠️ Fast elinstallation (nya spotlights, dosor och dimmer) ska göras av en behörig elinstallatör. Appen ger en ritning och en lista som du kan visa elektrikern.</div>
+</div>
+
+<div class="mock">
+  <h2>② En gemensam inköpslista – uppdelad per ställe</h2>
+  <p class="why">Allt du byggt i hela hemmet, eller bara ett projekt. Antalen räknas ut från ritningen, med lite marginal för spill.</p>
+  <div class="chips" style="margin-bottom:10px"><span class="on">Hela hemmet</span><span>📺 Tv-väggen</span><span>🛏️ Sovrummet</span></div>
+  <div class="shop">
+    <div class="store"><h3>🔵 IKEA <small>4 rader</small></h3>
+      <div class="row"><span>BESTÅ stomme 60×40×192</span><b>2</b></div><div class="row"><span>BESTÅ stomme 120×40×38</span><b>2</b></div>
+      <div class="row"><span>BESTÅ upphängningsskena</span><b>2</b></div><div class="row"><span>MALM sängbord</span><b>2</b></div></div>
+    <div class="store"><h3>🟫 Bygghandeln <small>7 rader</small></h3>
+      <div class="row"><span>Regel 45×45, 3,6 m</span><b>14</b></div><div class="row"><span>Takgips 12,5 · 900×2400</span><b>6</b></div>
+      <div class="row"><span>Gipsskruv 3,9×25 (500 st)</span><b>1</b></div><div class="row"><span>Spackel + skarvremsa</span><b>1</b></div>
+      <div class="row"><span>Passbit/MDF 16 mm</span><b>2</b></div><div class="row"><span>Ribbpanel 288×184</span><b>1</b></div><div class="row"><span>Ekskiva 248×42</span><b>1</b></div></div>
+    <div class="store"><h3>💡 El <small>4 rader</small></h3>
+      <div class="row"><span>Spotlight, infälld (håltag 68 mm)</span><b>12</b></div><div class="row"><span>LED-list 24 V, 5 m</span><b>3</b></div>
+      <div class="row"><span>LED-driver / dimmer</span><b>2</b></div><div class="row"><span>Smart dimmer (Home Assistant)</span><b>2</b></div></div>
+    <div class="store"><h3>🧰 Snickare / el <small>att visa</small></h3>
+      <div class="row"><span>📐 Ritning tv-vägg (mått)</span><b>PDF</b></div><div class="row"><span>📐 Regelplan tak</span><b>PDF</b></div>
+      <div class="row"><span>⚡ Belysningsritning</span><b>PDF</b></div></div>
+  </div>
+  <span class="btn">📋 Kopiera listan</span><span class="btn ghost">🖨 Skriv ut ritningar</span><span class="btn ghost">✅ Bocka av när du handlat</span>
+</div>
+
+<div class="mock">
+  <h2>③ Lamporna blir riktiga lampor i appen</h2>
+  <p class="why">Spotlights och LED du ritar in hamnar under 🏠 <b>Styr</b>, precis som dina andra lampor. Du kopplar dem till Home Assistant med ett klick, och då tänds de på riktigt och i 3D.</p>
+  <div class="chips"><span class="on">💡 Sovrum tak · 12 spots · 80 %</span><span class="on">✨ Sovrum LED · 40 %</span><span>💡 Tv-vägg LED · av</span></div>
+</div>
+</div></body></html>
