@@ -7,10 +7,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794408679';
-import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794408679';
-import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794408679';
-import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794408679';
+import { FURN, KMODS, KWIDTHS, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794409004';
+import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794409004';
+import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794409004';
+import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794409004';
 
 const $ = s => document.querySelector(s);
 const host = $('#stage');
@@ -263,6 +263,7 @@ function panel() {
       <div class="f"><label>Vinkel<b>${Math.round(it.rot * 180 / Math.PI) % 360}°</b></label><input type="range" data-rot="1" min="0" max="355" step="5" value="${Math.round(it.rot * 180 / Math.PI) % 360}"></div>
       ${vars.length > 1 ? `<div class="f"><label>Modell</label><select data-variant="1">${vars.map(v => `<option ${v.variant === it.preset ? 'selected' : ''}>${esc(v.variant)}</option>`).join('')}</select></div>` : ''}
       <div class="f"><label>Mått<b>${Math.round(it.w * 100)} × ${Math.round((it.type === 'soffa' && it.o.form && it.o.form !== 'rak' ? it.o.d2 : it.d) * 100)} × ${Math.round(it.h * 100)} cm</b></label></div>
+      ${(fam.dims || []).map(k => `<div class="f"><label>${{ w: 'Bredd', d: 'Djup', h: 'Höjd' }[k]}<b>${Math.round(it[k] * 100)} cm</b></label><input type="range" data-dim="${k}" min="${dims[k][0]}" max="${dims[k][1]}" step=".01" value="${it[k]}"></div>`).join('')}
       ${F.opts.filter(op => fam.opts?.includes(op.k) && (!op.if || op.if(it.o))).map(op => optField(op, it)).join('')}
       <h3>${fam.label.toUpperCase()}</h3>
       ${groups.map(g => `<div class="slot">${g ? `<h4>${esc(g)}</h4>` : ''}<div class="fam">${fam.choices.map((c, i) => (c.group || '') !== g ? '' :

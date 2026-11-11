@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794408679';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794409004';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -362,6 +362,30 @@ function bed(it, o, M) {
   if (o.overkast) { const oz0 = dz0 + .4; box(mw + .14, mt + .1 - .18, dz1 + .05 - oz0, M.overkast, 0, .18, (oz0 + dz1 + .05) / 2, .03, .006); }
 }
 
+// ---------- GARDIN ----------
+// längder i sammet/tyg som hänger i veck från en stång. Platt bredd per längd (t.ex. 135 cm) samlas ihop till veck.
+function curtain(it, o, M) {
+  const W = it.w, top = it.h, n = Math.max(1, o.langder | 0), flat = o.bredd || 1.35, mat = ds(M.tyg);
+  const hang = top - .03, L = Math.min(o.langd, hang), pool = Math.max(0, o.langd - hang);   // för lång gardin lägger sig på golvet
+  if (o.stang) {
+    tube([[-W / 2 - .04, top, 0], [W / 2 + .04, top, 0]], .011, M.stang);
+    for (const s of [-1, 1]) { sphere(.02, M.stang, s * (W / 2 + .05), top, 0); box(.02, .02, .16, M.stang, s * (W / 2 - .08), top - .01, -.08); }
+  }
+  const nl = Math.ceil(n / 2), pwOpen = Math.min(W / n, .2 + flat * .1);
+  for (let i = 0; i < n; i++) {
+    const pw = o.oppen ? pwOpen : W / n;
+    const cx = !o.oppen ? -W / 2 + (i + .5) * pw : i < nl ? -W / 2 + (i + .5) * pw : W / 2 - (n - i - .5) * pw;
+    const k = Math.max(3, Math.round(pw / .085)), lam = pw / k, r = Math.max(1.05, flat / pw);
+    const A = Math.min(.07, lam / Math.PI * Math.sqrt(r - 1) * .9);
+    const g = new THREE.PlaneGeometry(pw, L, k * 8, 12), P = g.attributes.position;
+    for (let j = 0; j < P.count; j++) { const x = P.getX(j), y = P.getY(j), t = (L / 2 - y) / L;   // t: 0 uppe → 1 nere
+      const a = A * (.75 + .45 * t) * (1 + pool * 3 * Math.max(0, t - .85) / .15);
+      P.setZ(j, a * Math.sin(2 * Math.PI * (x + pw / 2) / lam + i * 1.3) + Math.sin(x * 7 + i) * .004 * t); }
+    g.computeVertexNormals();
+    add(g, mat, cx, hang - L / 2, 0);
+  }
+}
+
 // ---------- GARDEROB ----------
 function wardrobe(it, o, M) {
   const W = it.w, D = it.d, H = it.h, pl = .08, n = o.dorrar || Math.max(1, Math.round(W / .5));
@@ -653,6 +677,12 @@ export const FURN = {
       { k: 'kuddar', t: 'num', label: 'Kuddar per sida', v: 2, min: 1, max: 3, step: 1 }, { k: 'overkast', t: 'bool', label: 'Överkast', v: true }],
     slots: [['kladsel', 'Sängkläder', 'textil', 'linne', '#e8e4dc'], ['overkast', 'Överkast', 'textil', 'tyg', '#9aa29a'], ['gavel', 'Gavel', 'textil', 'tyg', '#7d837a'], ['ram', 'Ram', 'stomme', 'ek'], ['ben', 'Ben', 'ben', 'ek']],
     build: bed, sync: (it, o) => { it.w = o.storlek / 100 + (o.typ === 'ram' ? .06 : 0); it.d = 2.04 + (o.gavel === 'ingen' ? 0 : o.gavelT || .08); it.h = o.gavel === 'ingen' ? .6 : o.gavelH; } },
+  gardin: { name: 'Gardin', icon: '🪟', cat: 'vardag', w: 1.6, d: .32, h: 2.45, dims: { w: [.4, 6] },
+    opts: [{ k: 'langder', t: 'num', label: 'Antal längder', v: 2, min: 1, max: 8, step: 1 }, { k: 'bredd', t: 'sel', label: 'Bredd per längd (platt)', v: 1.35, o: [[1.2, '120 cm'], [1.35, '135 cm'], [1.4, '140 cm'], [1.5, '150 cm']] },
+      { k: 'langd', t: 'sel', label: 'Längd', v: 2.4, o: [[2.2, '220 cm'], [2.4, '240 cm'], [2.5, '250 cm'], [2.8, '280 cm'], [3.0, '300 cm']] },
+      { k: 'stangH', t: 'num', label: 'Stångens höjd', v: 2.45, min: 1.8, max: 3.2, step: .01, unit: 'm' },
+      { k: 'oppen', t: 'bool', label: 'Fördragen åt sidorna', v: true }, { k: 'stang', t: 'bool', label: 'Gardinstång', v: true }],
+    slots: [['tyg', 'Tyg', 'textil', 'sammet', '#6f6a62'], ['stang', 'Stång', 'metall', 'svartmetall']], build: curtain, sync: (it, o) => { it.h = o.stangH; } },
   garderob: { name: 'Garderob', icon: '🚪', cat: 'sov', w: 1.5, d: .6, h: 2.36, dims: { w: [.4, 4], d: [.35, .7], h: [1.8, 2.6] },
     opts: [{ k: 'typ', t: 'sel', label: 'Dörrar', v: 'gangjarn', o: [['gangjarn', 'Vanliga'], ['skjut', 'Skjutdörrar']] }, { k: 'dorrar', t: 'num', label: 'Antal dörrar', v: 3, min: 1, max: 8, step: 1 },
       { k: 'frontstil', t: 'sel', label: 'Front', v: 'slat', o: FRONT_STYLES.filter(f => f[0] !== 'greppfri') }, { k: 'handtag', t: 'sel', label: 'Handtag', v: 'list', o: HANDLES }, { k: 'spegel', t: 'bool', label: 'Spegeldörr', v: false }],
