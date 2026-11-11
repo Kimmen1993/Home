@@ -201,3 +201,16 @@ input[type=range]{padding:0;accent-color:var(--acc);border:0;background:none}
 .right .grp .cnt b{font-size:22px;min-width:24px;text-align:center}
 .right .grp .cnt span{color:var(--dim);font-size:12px}
 .right .grp .opt{flex-wrap:wrap}
+.tool.add{background:var(--acc);border-color:var(--acc);min-width:92px}
+.tool.add b{font-size:22px;font-weight:700;color:#1a0d05;line-height:1}
+.tool.add small{color:#1a0d05;font-weight:650}
+.tool.add.on{box-shadow:0 0 0 3px rgba(255,122,47,.35);background:var(--acc)}
+.moremenu{position:relative;display:inline-flex}
+.moremenu .menu{position:absolute;top:58px;left:0;z-index:20;background:var(--side);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:2px;min-width:230px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.moremenu .menu button{background:none;border:0;color:var(--text);text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13.5px}
+.moremenu .menu button:hover{background:rgba(255,255,255,.06)}
+.selbar{position:absolute;transform:translateX(-50%);display:flex;gap:4px;background:rgba(18,22,18,.94);border:1px solid var(--line);border-radius:12px;padding:4px;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.selbar button{width:36px;height:34px;border-radius:9px;border:0;background:none;color:var(--text);font-size:17px;cursor:pointer}
+.selbar button:hover{background:rgba(255,255,255,.08)}
+.selbar button.danger:hover{background:rgba(255,90,74,.25)}
+.right .shop .row{cursor:default}

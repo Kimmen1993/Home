@@ -1,16 +1,16 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794426087';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794426087';
-import { createPlan } from './plan2d.js?v=1794426087';
-import { createView } from './view3d.js?v=1794426087';
-import { createHA } from './ha.js?v=1794426087';
-import { detectPlan } from './autoplan.js?v=1794426087';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794426087';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794426087';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794426087';
-import { PRESETS, findPreset } from './presets.js?v=1794426087';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794426087';
-import { openElfaStudio } from './elfastudio.js?v=1794426087';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794426392';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794426392';
+import { createPlan } from './plan2d.js?v=1794426392';
+import { createView } from './view3d.js?v=1794426392';
+import { createHA } from './ha.js?v=1794426392';
+import { detectPlan } from './autoplan.js?v=1794426392';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794426392';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794426392';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794426392';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794426392';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794426392';
+import { openElfaStudio } from './elfastudio.js?v=1794426392';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -84,7 +84,8 @@ function renderTop() {
   $('#homeName').value = h.name;
   $('#topRight').innerHTML = `
     ${S.mode === 'bygg' ? `<div class="seg">${[['2d', '📐 2D'], ['split', '◫ Båda'], ['3d', '🧊 3D']].map(([k, l]) => `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
-    <div class="seg" title="Hur mycket av väggarna som syns">${[['hela', '▮', 'Hela'], ['halva', '▬', 'Halva'], ['golv', '▁', 'Golv'], ['rum', '⬚', 'Ett rum']].map(([k, i, l]) => `<button data-walls="${k}" class="${S.walls === k ? 'on' : ''}">${i} ${l}</button>`).join('')}</div>
+    ${(() => { const W = [['hela', '▮', 'Hela väggar'], ['halva', '▬', 'Halva väggar'], ['golv', '▁', 'Bara golv'], ['rum', '⬚', 'Ett rum']], i = Math.max(0, W.findIndex(x => x[0] === S.walls)), nx = W[(i + 1) % W.length];
+      return `<button class="ib" data-walls="${nx[0]}" title="Klicka för: ${nx[2]}">${W[i][1]} ${W[i][2]}</button>`; })()}
     ${S.walls === 'hela' ? `<button class="ib ${S.ceil === true ? 'on' : ''}" data-ceil title="Innertak">🏠 Tak ${S.ceil === true ? 'på' : 'av'}</button>` : ''}
     <button class="ib ${S.inside ? 'on' : ''}" data-eye title="Stå i rummet i ögonhöjd">${S.inside ? '🚪 Gå ut' : '🧍 Gå in'}</button>
     <button class="ib" data-day>${S.day ? '☀️ Dag' : '🌙 Kväll'}</button>
@@ -105,15 +106,21 @@ $('#topRight').addEventListener('click', e => {
   if (t.hasAttribute('data-day')) { S.day = !S.day; renderTop(); view.build(); }
   if (t.hasAttribute('data-cam')) { goOut(); plan.fit(); }
 });
-const TOOLS = [['select', '✋', 'Välj'], ['room', '⬜', 'Rum'], ['wall', '🧱', 'Vägg'], ['divider', '✂️', 'Rumsgräns'], ['add', '🛋️', 'Lägg till'], ['bild', '🖼️', 'Bild']];
+const TOOLS = [['select', '✋', 'Välj'], ['room', '⬜', 'Rum'], ['wall', '🧱', 'Vägg']];
+const MORE = [['divider', '✂️', 'Dela ett rum'], ['bild', '🖼️', 'Planritning som bild']];
 function renderToolbar() {
   if (S.mode !== 'bygg') { $('#toolbar').innerHTML = ''; return; }
   const cur = S.placing ? 'add' : S.tool;
   $('#toolbar').innerHTML = TOOLS.map(([k, i, l]) => `<button class="tool ${cur === k ? 'on' : ''}" data-tool="${k}">${i}<small>${l}</small></button>`).join('') +
-    `<span class="sep"></span><button class="tool ${S.snap === false ? '' : 'on'}" data-snap title="Fäst mot rutnät och raka vinklar (håll Alt för att rita fritt)">🧲<small>Rutnät ${S.snap === false ? 'av' : 'på'}</small></button><button class="tool" data-undo>↶<small>Ångra</small></button><button class="tool" data-redo>↷<small>Gör om</small></button>`;
+    `<button class="tool add ${cur === 'add' ? 'on' : ''}" data-tool="add"><b>＋</b><small>Lägg till</small></button><span class="sep"></span>
+    <button class="tool" data-undo title="Ångra (Ctrl+Z)">↶<small>Ångra</small></button><button class="tool" data-redo title="Gör om">↷<small>Gör om</small></button>
+    <span class="moremenu"><button class="tool ${MORE.some(m => m[0] === cur) ? 'on' : ''}" data-moremenu>⋯<small>Mer</small></button>${S.moreOpen ? `<div class="menu">${MORE.map(([k, i, l]) => `<button data-tool="${k}">${i} ${l}</button>`).join('')}
+      <button data-snap>🧲 Rutnät ${S.snap === false ? 'av – klicka för på' : 'på – klicka för av'}</button></div>` : ''}</span>`;
 }
 $('#toolbar').addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
+  if ('moremenu' in t.dataset) { S.moreOpen = !S.moreOpen; renderToolbar(); return; }
+  S.moreOpen = false;
   if (t.hasAttribute('data-snap')) { S.snap = S.snap === false; renderToolbar(); window.toast(S.snap ? '🧲 Fäster mot rutnät' : '✏️ Fri ritning – rita i vilken vinkel du vill'); return; }
   if (t.hasAttribute('data-undo')) return undo();
   if (t.hasAttribute('data-redo')) return redo();
@@ -143,7 +150,7 @@ $('#zoom2d').addEventListener('click', e => { const z = e.target.dataset.z; if (
 
 // ---------- högerpanel ----------
 function renderRight() {
-  const el = $('#right');
+  const el = $('#right'); if (S.sel?.type !== 'item') { const sb = document.querySelector('.selbar'); if (sb) sb.hidden = true; }
   if (S.mode === 'styr') { el.innerHTML = controlPanel(); return; }
   if (S.tool === 'bild') { el.innerHTML = bgPanel(); return; }
   if (S.tool === 'add' || S.placing) { el.innerHTML = catalogPanel(); return; }
@@ -163,6 +170,17 @@ const HANDLE_TYPES = ['underskap', 'diskho', 'spis', 'overskap', 'hogskap', 'kyl
 const handles = cur => `<label class="f">Handtag</label><div class="sws">${HANDLES.map(([c, n]) => `<button class="swc ${c === (cur || '#9aa0a6') ? 'on' : ''}" title="${n}" style="background:${c}" data-color="${c}" data-f="handleColor"></button>`).join('')}</div>`;
 const opt = (f, cur, list) => `<div class="opt">${list.map(([v, l]) => `<button data-opt="${f}" data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 
+// inköpslista: alla riktiga produkter i hemmet, med färg
+function shopList(h) {
+  const rows = new Map();
+  for (const it of h.items) { if (!it.family || !furnKey(it)) continue; const fam = FAMILIES[it.family]; let col = '';
+    if (fam) { const k0 = Object.keys(fam.choices[0].m)[0], c = fam.choices.find(c => (!c.when || c.when(it.o)) && Object.entries(c.m).every(([k, v]) => it.m[k]?.color === v.color && it.m[k]?.mat === v.mat)); col = c ? c.name : ''; void k0; }
+    const key = `${it.name || it.family}${col ? ' – ' + col : ''}`; rows.set(key, (rows.get(key) || 0) + 1); }
+  if (!rows.size) return '';
+  const txt = [...rows].map(([k, n]) => `${n} × ${k}`).join('\n');
+  return `<h3>🛒 INKÖPSLISTA</h3><div class="shop">${[...rows].map(([k, n]) => `<div class="row"><div class="l"><span>${esc(k)}</span></div><b>${n} st</b></div>`).join('')}</div>
+    <div class="btns" style="margin-bottom:10px"><button class="btn" data-copy="${esc(txt)}">📋 Kopiera listan</button></div>`;
+}
 function homePanel() {
   const h = home();
   return `<h2>${HOME_TYPES[h.type]?.icon || '🏡'} ${esc(h.name)}</h2>
@@ -183,6 +201,7 @@ function homePanel() {
     <div class="btns" style="margin-bottom:10px"><button class="btn" data-act="cleanwalls" title="Slår ihop raka väggbitar och tar bort småbitar från planritningen">🧹 Städa väggar</button></div>
     ${(h.ignore || []).length + h.rooms.filter(r => r.hidden).length ? `<div class="btns" style="margin-bottom:10px"><button class="btn" data-act="unignore">↩ Visa ${(h.ignore || []).length + h.rooms.filter(r => r.hidden).length} borttagna rum igen</button></div>` : ''}
     <label class="f">Rummen följer väggarna</label>${opt('home.autoRooms', h.autoRooms === false ? 'nej' : 'ja', [['ja', '🔄 Automatiskt'], ['nej', '✋ Manuellt']])}<div style="height:8px"></div>
+    ${shopList(h)}
     <div class="note">${h.rooms.filter(r => !r.outdoor && !r.hidden).length} rum · ${h.rooms.filter(r => !r.outdoor && !r.hidden).reduce((s, r) => s + polyArea(r.pts), 0).toFixed(0)} m² · ${h.items.length} saker</div>`;
 }
 // katalogens sak för en möbeltyp (för riktiga produkter ur sökningen)
@@ -384,6 +403,7 @@ bindFurnPanel(right, {
   redraw: () => renderRight(),
   act(a) { if (a === 'studio') openStudio(selected()); },
 });
+right.addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if (!b) return; navigator.clipboard?.writeText(b.dataset.copy.replace(/\\n/g, '\n')); window.toast('📋 Listan är kopierad'); });
 // grupper
 right.addEventListener('click', e => { const b = e.target.closest('[data-g],[data-gsel],[data-gfree]'); if (!b) return; const h = home(), it = selected(); if (!it) return;
   if (b.dataset.gsel) { S.sel = { type: 'item', id: b.dataset.gsel }; emit('sel'); return; }
@@ -470,7 +490,7 @@ right.addEventListener('click', e => {
   if (act === 'pdup') { commit(); const p0 = obj.panels.find(p => p.id === S.panelSel); const p = { ...p0, id: uid(), s: p0.s + p0.w, window: null }; obj.panels.push(p); S.panelSel = p.id; emit('full'); return; }
   if (act === 'delpt') return deletePoint();
   if (act === 'del') return deleteSel();
-  if (act === 'dup') { commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); delete c.grp; delete c.gtag; c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); return; }
+  if (act === 'dup') return dupSel();
   if (act === 'test') return onDevice({ type: 'item', id: obj.id }, true);
   if (act === 'testdoor') return onDevice({ type: 'opening', id: obj.id }, true);
   if (act === 'sameboth') { commit(); obj.colorN = obj.colorP || obj.color; obj.matN = obj.matP; emit('full'); return; }
@@ -533,6 +553,15 @@ function deletePoint() {
   if (r.pts.length <= 3) return window.toast('Ett rum behöver minst 3 hörn');
   commit(); if (!r.outdoor) r.custom = true; r.pts.splice(S.selPt.i, 1); S.selPt = null; emit('full');
 }
+function dupSel() { const h = home(), obj = selected(); if (!obj || S.sel?.type !== 'item') return; commit(); const c = JSON.parse(JSON.stringify(obj)); c.id = uid(); delete c.grp; delete c.gtag; c.x += .3; c.y += .3; h.items.push(c); S.sel = { type: 'item', id: c.id }; emit('full'); }
+function rotSel(d) { const obj = selected(); if (!obj || S.sel?.type !== 'item') return; commit(); obj.rot = ((obj.rot + d) % 360 + 360) % 360; emit('full', 'panel'); }
+// liten flytande meny vid det man valt (i 2D)
+const selbar = document.createElement('div'); selbar.className = 'selbar'; selbar.hidden = true; $('#pane2d').appendChild(selbar);
+selbar.innerHTML = '<button data-sb="rl" title="Vrid åt vänster">⟲</button><button data-sb="rr" title="Vrid åt höger">⟳</button><button data-sb="dup" title="Kopiera">⧉</button><button data-sb="del" title="Ta bort" class="danger">🗑</button>';
+selbar.addEventListener('pointerdown', e => e.stopPropagation());
+selbar.addEventListener('click', e => { const b = e.target.closest('[data-sb]'); if (!b) return; const k = b.dataset.sb;
+  if (k === 'rl') rotSel(-90); if (k === 'rr') rotSel(90); if (k === 'dup') dupSel(); if (k === 'del') deleteSel(); });
+ui.selbar = p => { if (!p || S.mode !== 'bygg') { selbar.hidden = true; return; } selbar.hidden = false; selbar.style.left = p.x + 'px'; selbar.style.top = Math.max(6, p.y) + 'px'; };
 function deleteSel() {
   const h = home(), s = S.sel; if (!s) return; commit();
   if (s.type === 'item') h.items = h.items.filter(i => i.id !== s.id);
