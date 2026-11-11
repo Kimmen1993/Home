@@ -1,10 +1,10 @@
 // Möbelpanelen (gemensam för demon och huvudappen): mått, val, riktiga produkter (låsta färger/storlekar), material och RAL-färger.
 // Värden ändras direkt på möbeln; värden (host) ritar om 3D via changed().
-import { FURN, KMODS, KWIDTHS, ELFA_SYS, elfaSys, syncFurniture } from './furniture.js?v=1794429615';
-import { MATS, GROUPS, swatch } from './materials.js?v=1794429615';
-import { ralSearch, ralFind, ralOf } from './ral.js?v=1794429615';
-import { FAMILIES, variantsOf } from './presets.js?v=1794429615';
-import { elevationSvg } from './elfastudio.js?v=1794429615';
+import { FURN, KMODS, KWIDTHS, ELFA_SYS, elfaSys, syncFurniture } from './furniture.js?v=1794431659';
+import { MATS, GROUPS, swatch } from './materials.js?v=1794431659';
+import { ralSearch, ralFind, ralOf } from './ral.js?v=1794431659';
+import { FAMILIES, variantsOf } from './presets.js?v=1794431659';
+import { elevationSvg } from './elfastudio.js?v=1794431659';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const QUICK = ['9010', '9001', '1013', '1015', '7044', '7035', '7016', '7021', '9005', '6021', '5014', '3012', '8017', '1019'].map(c => ralFind(c));

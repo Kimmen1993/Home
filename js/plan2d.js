@@ -1,8 +1,8 @@
 // 2D-ritningen: rita rum/väggar, placera och dra saker, kalibrera bakgrundsbild.
 import { S, home, emit, commit, proj, addWall, addRoom, findWall, snapToWall, makeItem, makeOpening, movePoint,
-  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794429615';
-import { footShape } from './furnbridge.js?v=1794429615';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794429615';
+  polyArea, centroid, inPoly, wallLen, splitWalls, rebuildRooms, touchRooms, trackAt, trackProj, panelS, trackLen, curtainParts } from './store.js?v=1794431659';
+import { footShape } from './furnbridge.js?v=1794431659';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794431659';
 
 export function createPlan(canvas, ui) {
   const ctx = canvas.getContext('2d');

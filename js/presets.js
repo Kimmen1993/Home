@@ -78,7 +78,7 @@ const rkM = RK_EK.find(c => c.name === 'Grafitsvart').m;
 for (const d of [1.0, 1.1, 1.2, 1.3, 1.4, 1.5]) for (const n of [0, 1, 2, 3])
   list.push(B(`Rustikunik runt matbord, täta ribbor Ø${Math.round(d * 100)}${n ? `, ${n} iläggsskiv${n > 1 ? 'or' : 'a'}` : ''}`, 'matbord', d, d, .74, { form: 'rund', ben: 'ribbor', tjocklek: .04, ilagg: n, utdragen: false }, rkM, 'rustikunik'));
 for (const w of [.9, 1.0, 1.1, 1.2, 1.3, 1.4]) for (const dd of [.5, .6, .7, .8])
-  list.push(B(`Rustikunik rektangulärt soffbord, kub ${Math.round(w * 100)}×${Math.round(dd * 100)}`, 'soffbord', w, dd, .48, { form: 'rekt', ben: 'kub', tjocklek: .04, hylla: false }, rkM, 'rustikunik'));
+  list.push(B(`Rustikunik rektangulärt soffbord, kub ${Math.round(w * 100)}×${Math.round(dd * 100)}`, 'soffbord', w, dd, .48, { form: 'rekt', ben: 'kub', ribbor: true, tjocklek: .04, hylla: false }, rkM, 'rustikunik'));
 // Hemtex Mali sammet: 135 cm bred per längd, 240 eller 300 cm lång, multiband. 1 längd per förpackning.
 const MALI = [['beige', '#a29081'], ['grå', '#413f3b'], ['ljusgrå', '#848285'], ['taupe', '#7a6f6b'], ['valnöt', '#4e3d35'], ['grön', '#585447'], ['mörkgrön', '#334343'], ['mörkblå', '#2a2f3c'], ['svart', '#222121']]
   .map(([n, hex]) => { const c = lift(hex, 1.2); return { name: n, hex: c, m: { tyg: { mat: 'sammet', color: c } } }; });
@@ -168,7 +168,7 @@ export const FAMILIES = {
   'ILVA Dahl':   { label: 'Klädsel', choices: DAHL_CHOICES },
   'Hemtex Mali': { label: 'Färg', choices: MALI, opts: ['oppen', 'stangH'], dims: ['w'], fixed: [['Tyg', 'Sammet, 100 % polyester'], ['Upphängning', 'Multiband']] },
   'Rustikunik matbord': { label: 'Träslag & kulör', choices: RK_EK, opts: ['utdragen'], fixed: [['Skiva', 'Massiv ek, 4 cm'], ['Höjd', '74 cm']] },
-  'Rustikunik soffbord': { label: 'Träslag & kulör', choices: RK_EK, fixed: [['Skiva', 'Massiv ek, 4 cm']] },
+  'Rustikunik soffbord': { label: 'Träslag & kulör', choices: RK_EK, opts: ['ribbor'], fixed: [['Skiva', 'Massiv ek, 4 cm']] },
   'Elfa': { label: 'Färg', choices: ELFA_COL, groupIf: { 'Trä': o => o.system === 'decor' || (o.system === 'topp' && o.decor) }, opts: ['mods', 'klader'] },
   'Elfa skjutdörrar': { label: 'Profil & fyllning', choices: ELFA_DOOR, groupIf: { 'Fyllning 2': o => o.modell !== 'plain' && !o.samma }, dims: ['w', 'h'], opts: ['dorrar', 'samma', 'oppen'],
     fixed: [['Måttbeställd', 'Bredd och höjd efter din öppning, upp till 270 cm'], ['Skenor', 'Tvåspårig överskena 10 cm + golvskena']] },

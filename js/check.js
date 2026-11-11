@@ -1,7 +1,7 @@
 // Rumskontroll: hittar sådant man lätt missar när man möblerar.
 // Dörrar som slår i möbler, för lite plats bakom matstolar, trånga sängsidor och smala passager.
 // Måtten är vanliga riktvärden: 75 cm bakom stolar, 50–60 cm vid sängen, 60 cm för att gå förbi.
-import { ITEMS } from './catalog.js?v=1794429615';
+import { ITEMS } from './catalog.js?v=1794431659';
 
 const cm = v => Math.round(v * 100);
 const ext = it => { const r = it.rot * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)); return { ex: c * it.w / 2 + s * it.d / 2, ey: s * it.w / 2 + c * it.d / 2 }; };

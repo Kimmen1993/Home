@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794429615';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794431659';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -164,8 +164,14 @@ function table(it, o, M) {
     for (let i = 0; i < n; i++) { const an = i / n * Math.PI * 2, s = box(.024, h, .022, M.ben, 0, 0, 0, .003);
       s.position.set(Math.sin(an) * (rp - .011), h / 2, Math.cos(an) * (rp - .011)); s.rotation.y = an; }
     cyl(rp - .03, rp - .03, .02, M.ben, 0, h - .02, 0, 32);
-  } else if (o.ben === 'kub') {   // kubfot: indragen massiv låda
-    box(Math.max(.3, W * .55), legH, Math.max(.25, D * .6), M.ben, 0, 0, 0, .004);
+  } else if (o.ben === 'kub') {   // kubfot: indragen låda, slät eller klädd med täta ribbor runt om (som matbordets fot)
+    const bw = Math.max(.3, W * .55), bd = Math.max(.25, D * .6);
+    if (!o.ribbor) box(bw, legH, bd, M.ben, 0, 0, 0, .004);
+    else { box(bw - .03, legH - .01, bd - .03, dark(), 0, 0, 0); const sw = .024, gap = .012, P = sw + gap;
+      for (const [len, along, off] of [[bw, 'x', bd / 2 - .011], [bw, 'x', -(bd / 2 - .011)], [bd, 'z', bw / 2 - .011], [bd, 'z', -(bw / 2 - .011)]]) {
+        const n = Math.max(2, Math.floor((len - .02) / P)), st = (len - n * P + gap) / 2;
+        for (let i = 0; i < n; i++) { const c = -len / 2 + st + i * P + sw / 2; along === 'x' ? box(sw, legH, .022, M.ben, c, 0, off, .003) : box(.022, legH, sw, M.ben, off, 0, c, .003); } }
+      box(bw - .03, .02, bd - .03, M.ben, 0, legH - .02, 0); }
   } else if (o.ben === '4ben' || o.ben === 'konisk' || o.ben === 'hårnål') {
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       if (o.ben === '4ben') box(.045, legH, .045, M.ben, sx * (lx - .0225), 0, sz * (lz - .0225));
@@ -952,11 +958,13 @@ export const FURN = {
   soffbord: { name: 'Soffbord', icon: '▭', cat: 'vardag', w: 1.2, d: .6, h: .42, dims: { w: [.4, 1.8], d: [.4, 1.2], h: [.3, .55] },
     opts: [{ k: 'form', t: 'sel', label: 'Form', v: 'rekt', o: [['rekt', 'Rektangulär'], ['oval', 'Oval'], ['rund', 'Rund']] },
       { k: 'ben', t: 'sel', label: 'Ben', v: 'konisk', o: [['konisk', 'Koniska'], ['4ben', 'Raka'], ['hårnål', 'Hårnål'], ['pelare', 'Pelarfot'], ['kub', 'Kubfot'], ['ribbor', 'Ribbad cylinder'], ['ram', 'Ram']] },
+      { k: 'ribbor', t: 'bool', label: 'Täta ribbor på foten', v: false, if: o => o.ben === 'kub' },
       { k: 'tjocklek', t: 'sel', label: 'Skiva', v: .025, o: [[.012, '12 mm'], [.025, '25 mm'], [.04, '40 mm']] }, { k: 'hylla', t: 'bool', label: 'Hylla under', v: true }],
     slots: [['skiva', 'Skiva', 'skiva', 'ek'], ['ben', 'Ben', 'ben', 'ek']], build: table, sync: (it, o) => { if (o.form === 'rund') it.d = it.w; } },
   matbord: { name: 'Matbord', icon: '🍽️', cat: 'kok', w: 1.8, d: .9, h: .74, dims: { w: [.7, 3.2], d: [.7, 1.2], h: [.7, 1.1] },
     opts: [{ k: 'form', t: 'sel', label: 'Form', v: 'rekt', o: [['rekt', 'Rektangulär'], ['oval', 'Oval'], ['rund', 'Rund']] },
       { k: 'ben', t: 'sel', label: 'Ben', v: '4ben', o: [['4ben', 'Raka'], ['konisk', 'Koniska'], ['bock', 'Bockben'], ['pelare', 'Pelarfot'], ['ribbor', 'Ribbad cylinder'], ['kub', 'Kubfot'], ['ram', 'Metallram']] },
+      { k: 'ribbor', t: 'bool', label: 'Täta ribbor på foten', v: false, if: o => o.ben === 'kub' },
       { k: 'tjocklek', t: 'sel', label: 'Skiva', v: .03, o: [[.02, '20 mm'], [.03, '30 mm'], [.04, '40 mm'], [.045, '45 mm']] },
       { k: 'ilagg', t: 'num', label: 'Iläggsskivor (50 cm)', v: 0, min: 0, max: 3, step: 1, if: o => o.form === 'rund' },
       { k: 'utdragen', t: 'bool', label: 'Iläggsskivorna isatta', v: false, if: o => o.form === 'rund' && o.ilagg > 0 }, { k: 'stolar', t: 'num', label: 'Platser (60 cm/person)', v: 6, min: 0, max: 12, step: 1, info: 1 }],
