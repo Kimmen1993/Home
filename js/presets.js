@@ -51,11 +51,15 @@ const ROSSI_CHOICES = Object.entries(ROSSI_TYG).flatMap(([q, [typ, mat, cols]]) 
   return { name: `${q} ${n}`, group: `${q} · ${typ}`, hex: c, m: { kladsel: { mat, color: c }, kuddar: { mat, color: c } } }; }));
 const rossiM = { ...ROSSI_CHOICES.find(c => c.name === 'Alex offwhite').m, ben: { mat: 'matt', color: '#3a2c22' } };
 for (const [n, w, sits, extra, kw] of [['Rossi 1,5-sits', 1.38, 1, {}, ''], ['Rossi 2-sits', 1.58, 1, {}, ''], ['Rossi 3-sits', 2.42, 2, {}, ''], ['Rossi 3-sits hel dyna', 2.42, 1, {}, ''],
-  ['Rossi 4-sits', 2.82, 2, {}, ''], ['Rossi 2-sits med schäslong XL vänster', 2.84, 2, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 2-sits med schäslong XL höger', 2.84, 2, { form: 'schH', d2: 1.9 }, 'divan'],
-  ['Rossi 2-sits med schäslong vänster', 2.64, 2, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 2-sits med schäslong höger', 2.64, 2, { form: 'schH', d2: 1.9 }, 'divan'],
-  ['Rossi 3-sits med schäslong XL vänster', 3.68, 3, { form: 'schV', d2: 1.9 }, 'divan'], ['Rossi 3-sits med schäslong XL höger', 3.68, 3, { form: 'schH', d2: 1.9 }, 'divan'],
-  ['Rossi hörnsoffa vänster', 2.32, 1, { form: 'hornV', d2: 2.32 }, 'horn'], ['Rossi hörnsoffa höger', 2.32, 1, { form: 'hornH', d2: 2.32 }, 'horn']])
+  ['Rossi 4-sits', 2.82, 2, {}, ''], ['Rossi hörnsoffa vänster', 2.32, 1, { form: 'hornV', d2: 2.32 }, 'horn'], ['Rossi hörnsoffa höger', 2.32, 1, { form: 'hornH', d2: 2.32 }, 'horn']])
   list.push(B('MIO ' + n, 'soffa', w, 1.12, .86, { ...ROSSI, sits, form: 'rak', ...extra }, rossiM, kw));
+// Rossi med schäslong byggs av moduler (mio.se): schäslong 122 / schäslong XL 142 cm (190 djup) + ev. mittdel utan armstöd
+// (1,5-sits 106 / 2-sits 126) + ändmodul med armstöd (1,5-sits 122 / 2-sits 142). Sittplatser räknas som MIO: schäslong 1, 1,5-sits 1, 2-sits 2.
+for (const [side, sk] of [['vänster', 'schV'], ['höger', 'schH']]) for (const [cw, xl] of [[1.22, false], [1.42, true]]) for (const mid of [null, ['1,5-sits', 1.06, 1], ['2-sits', 1.26, 2]]) for (const [en, ew, es] of [['1,5-sits', 1.22, 1], ['2-sits', 1.42, 2]]) {
+  const W = +(cw + (mid ? mid[1] : 0) + ew).toFixed(2), seats = 1 + (mid ? mid[2] : 0) + es, parts = [`schäslong${xl ? ' XL' : ''}`, ...(mid ? [mid[0] + ' utan armstöd'] : []), en];
+  const name = `MIO Rossi ${seats}-sits med schäslong${xl ? ' XL' : ''} ${side}, ${Math.round(W * 100)} cm`; if (list.some(p => p.name === name)) continue;
+  list.push({ ...B(name, 'soffa', W, 1.12, .86, { ...ROSSI, sits: 2 + (mid ? 1 : 0), form: sk, d2: 1.9 }, rossiM,
+    `divan ${parts.join(' + ')}${xl && !mid && ew > 1.3 ? ' 2-sits soffa med schäslong xl' : ''}`), hk: 1 }); }
 // ILVA Dahl matstol (helklädd karmstol 60×61×80, sitthöjd 49)
 const DAHL_CHOICES = [['Austin Antelope (gråbrun)', '#8a7763'], ['Grön', '#3d4636']].map(([name, hex]) => ({ name, hex, m: { sits: { mat: 'tyg', color: hex }, stomme: { mat: 'tyg', color: hex } } }));
 list.push(B('ILVA Dahl matstol', 'stol', .6, .61, .8, { stil: 'karm', sitth: .49, armH: .66 }, DAHL_CHOICES[0].m, 'karmstol'));
@@ -130,7 +134,7 @@ for (const [ser, mods] of [['Artic', ['plain', 'trio', 'quattro', 'penta']], ['V
     { profil: ELFA_DOOR[0].m.profil, fyll1: ELFA_DOOR.find(c => c.name === 'Vit melamin').m.fyll1, fyll2: ELFA_DOOR.find(c => c.group === 'Fyllning 2').m.fyll2 }, 'elfa skjutdorr garderobsdorr spegeldorr spegel'));
 
 export const PRESETS = list.map(p => ({ ...p,
-  label: `${p.name} ${/^(MIO|ILVA|Rustikunik|Hemtex|Elfa) /.test(p.name) ? '' : p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA|Rustikunik|Hemtex) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn|vadero ställbar|rustikunik|gardin|elfa|garderobsinredning|kladkammare|skjutdorr|garderobsdorr|spegeldorr|spegel/g, '')}`.replace(/\s+/g, ' ').trim(),
+  label: `${p.name} ${/^(MIO|ILVA|Rustikunik|Hemtex|Elfa) /.test(p.name) ? '' : p.type === 'sang' ? p.o.storlek + '×200' : p.name === 'KALLAX' || /^(MIO|ILVA|Rustikunik|Hemtex) /.test(p.name) ? '' : p.size.w ? Math.round(p.size.w * 100) + '×' + Math.round(p.size.h * 100) : ''} ${p.hk ? '' : p.kw.replace('besta', '').replace('divan', '').replace(/oronlapp|öronlapp|kok|kök|karmstol|horn|vadero ställbar|rustikunik|gardin|elfa|garderobsinredning|kladkammare|skjutdorr|garderobsdorr|spegeldorr|spegel/g, '')}`.replace(/\s+/g, ' ').trim(),
   dims: p.size.w ? `${Math.round(p.size.w * 100)}×${Math.round((p.o.d2 || p.size.d) * 100)}×${Math.round(p.size.h * 100)} cm` : '' }))
   .map(p => { if (!p.size.w) delete p.size; return p; });
 
