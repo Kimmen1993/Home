@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemma – skisser</title>
+<style>
+:root{--bg:#0e110e;--panel:#161b16;--line:rgba(190,210,175,.16);--text:#e9ede6;--dim:#8f9a8b;--acc:#ff7a2f;--ok:#7bd88f;--blue:#7fb2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px 16px 60px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:28px;margin:0 0 4px}
+.lead{color:var(--dim);margin:0 0 28px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin:0 0 34px}
+.mock h2{margin:0 0 4px;font-size:22px}
+.mock .why{color:var(--dim);margin:0 0 16px;font-size:15px}
+.steps{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.steps span{padding:7px 14px;border-radius:99px;border:1px solid var(--line);color:var(--dim);font-size:14px}
+.steps span.on{background:var(--acc);color:#1a0d05;border-color:var(--acc);font-weight:650}
+.steps span.done{color:var(--ok);border-color:rgba(123,216,143,.4)}
+.grid3{display:grid;grid-template-columns:170px 1fr 200px;gap:12px}
+.box{background:#0f130f;border:1px solid var(--line);border-radius:12px;padding:12px}
+.box h4{margin:0 0 8px;font-size:12px;letter-spacing:.12em;color:var(--dim);font-weight:600}
+.pal{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pal div{border:1px solid var(--line);border-radius:10px;padding:8px 2px;text-align:center;font-size:22px;background:var(--panel)}
+.pal div small{display:block;font-size:10.5px;color:var(--dim);margin-top:2px}
+.pal div.drag{border-color:var(--acc);box-shadow:0 0 0 2px rgba(255,122,47,.25)}
+.big{width:100%;display:block}
+.btn{display:inline-block;background:var(--acc);color:#1a0d05;font-weight:700;border-radius:12px;padding:12px 18px;font-size:15px}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:500}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;background:#0f130f;margin:0 6px 6px 0}
+.chip b{font-size:18px}
+.note{font-size:13px;color:var(--dim);margin-top:8px}
+.arrow{color:var(--acc);font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 280px;gap:12px}
+.pn .line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pn .line:last-child{border:0}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg span{border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;color:var(--dim)}
+.seg span.on{border-color:var(--acc);color:var(--text);background:rgba(255,122,47,.12)}
+.pm{display:inline-flex;align-items:center;gap:8px}.pm i{font-style:normal;border:1px solid var(--line);border-radius:7px;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:#0f130f;border:1px solid var(--line);border-radius:14px;padding:14px}
+.card .ic{font-size:40px}
+.card h3{margin:6px 0 8px;font-size:17px}
+.card ul{margin:0;padding:0;list-style:none;font-size:14px;color:var(--dim)}
+.card li{padding:4px 0}
+.card li b{color:var(--text);font-weight:600}
+.card.mix{border-color:var(--acc)}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;margin-left:4px}
+.tag.f{background:rgba(255,192,97,.15);color:#ffc061}.tag.s{background:rgba(127,178,255,.15);color:var(--blue)}
+@media (max-width:820px){.grid3,.grid2,.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Tre idéer, som skisser</h1>
+<p class="lead">Inget av detta är byggt än. Säg vad du gillar och vad som ska ändras.</p>
+
+<!-- 1. ELFA -->
+<div class="mock">
+  <h2>① Elfa-verkstan, i stort format</h2>
+  <p class="why">Som Elfas egen planerare: du väljer en vägg, bygger på stor yta och trycker på en knapp. Sedan sätts inredningen på rätt plats i 3D.</p>
+  <div class="steps"><span class="done">✓ 1 Välj vägg</span><span class="on">2 Bygg</span><span>3 Sätt in i rummet</span></div>
+  <div class="grid3">
+    <div class="box">
+      <h4>DRA IN PÅ VÄGGEN</h4>
+      <div class="pal">
+        <div>▭<small>Hylla</small></div><div class="drag">🗄️<small>Låda 18</small></div>
+        <div>👔<small>Klädstång</small></div><div>🗄️<small>Låda 28</small></div>
+        <div>👟<small>Skohylla</small></div><div>👖<small>Byxhängare</small></div>
+        <div>▬<small>Slät hylla</small></div><div>🗄️<small>Låda 8</small></div>
+      </div>
+      <h4 style="margin-top:14px">ELLER BÖRJA MED</h4>
+      <div class="pal"><div>🧥<small>Långt häng</small></div><div>👕<small>Dubbelhäng</small></div></div>
+    </div>
+    <div class="box">
+      <h4>VÄGG B · 248 CM · TAKHÖJD 250 CM</h4>
+      <svg class="big" viewBox="0 0 640 400">
+        <rect x="0" y="0" width="640" height="400" fill="#1d231d"/>
+        <rect x="0" y="384" width="640" height="16" fill="#3a2f22"/>
+        <!-- bärlist + grenar -->
+        <rect x="30" y="40" width="580" height="7" fill="#c9cfc6"/>
+        <g fill="#9aa39a"><rect x="30" y="40" width="6" height="330"/><rect x="172" y="40" width="6" height="330"/><rect x="316" y="40" width="6" height="330"/><rect x="460" y="40" width="6" height="330"/><rect x="604" y="40" width="6" height="330"/></g>
+        <!-- sektion 1 dubbelhäng -->
+        <g stroke="#e8ece6" stroke-width="5"><line x1="36" x2="172" y1="62" y2="62"/><line x1="36" x2="172" y1="214" y2="214"/></g>
+        <g stroke="#c9cbcd" stroke-width="4"><line x1="40" x2="168" y1="78" y2="78"/><line x1="40" x2="168" y1="230" y2="230"/></g>
+        <g fill="#5c6f8a" opacity=".55"><rect x="44" y="82" width="120" height="110" rx="4"/><rect x="44" y="234" width="120" height="120" rx="4"/></g>
+        <!-- sektion 2 lådor -->
+        <line x1="178" x2="316" y1="62" y2="62" stroke="#e8ece6" stroke-width="5"/>
+        <line x1="182" x2="312" y1="78" y2="78" stroke="#c9cbcd" stroke-width="4"/><rect x="186" y="82" width="122" height="120" rx="4" fill="#8a5c5c" opacity=".5"/>
+        <line x1="178" x2="316" y1="226" y2="226" stroke="#e8ece6" stroke-width="5"/>
+        <g fill="#cfd6cb"><rect x="186" y="236" width="122" height="34" rx="3"/><rect x="186" y="276" width="122" height="34" rx="3"/><rect x="186" y="316" width="122" height="34" rx="3"/></g>
+        <!-- sektion 3: håller på att dra in en låda -->
+        <line x1="322" x2="460" y1="62" y2="62" stroke="#e8ece6" stroke-width="5"/>
+        <g stroke="#e8ece6" stroke-width="5"><line x1="322" x2="460" y1="150" y2="150"/></g>
+        <g fill="#cfd6cb"><rect x="330" y="300" width="122" height="34" rx="3"/></g>
+        <rect x="330" y="246" width="122" height="34" rx="3" fill="none" stroke="#ff7a2f" stroke-width="3" stroke-dasharray="7 5"/>
+        <text x="391" y="268" fill="#ff7a2f" font-size="14" text-anchor="middle" font-weight="700">släpp här</text>
+        <g stroke="#ff7a2f" stroke-width="1.5" opacity=".55"><line x1="322" x2="460" y1="246" y2="246"/></g>
+        <!-- sektion 4 hyllor -->
+        <g stroke="#e8ece6" stroke-width="5"><line x1="466" x2="604" y1="62" y2="62"/><line x1="466" x2="604" y1="140" y2="140"/><line x1="466" x2="604" y1="218" y2="218"/><line x1="466" x2="604" y1="296" y2="296"/></g>
+        <!-- mått -->
+        <g fill="#8f9a8b" font-size="13" text-anchor="middle"><text x="104" y="378">60</text><text x="247" y="378">60</text><text x="391" y="378">60</text><text x="535" y="378">60</text></g>
+        <g fill="#ff7a2f" font-size="12"><text x="456" y="240" text-anchor="end">142 cm</text></g>
+      </svg>
+      <div class="note">Allt syns stort. Det du drar in hoppar till närmaste hål, och mått och krockar syns direkt. Klicka på en del för att flytta den eller ta bort den.</div>
+    </div>
+    <div class="box">
+      <h4>VÄLJ VÄGG</h4>
+      <svg class="big" viewBox="0 0 200 150">
+        <rect x="20" y="15" width="160" height="120" fill="#141914" stroke="#9aa39a" stroke-width="5"/>
+        <line x1="20" y1="15" x2="180" y2="15" stroke="#ff7a2f" stroke-width="8"/>
+        <text x="100" y="40" fill="#ff7a2f" font-size="14" text-anchor="middle" font-weight="700">B</text>
+        <g fill="#8f9a8b" font-size="13" text-anchor="middle"><text x="8" y="80">A</text><text x="192" y="80">C</text><text x="100" y="128">D</text></g>
+        <rect x="70" y="129" width="40" height="11" fill="#141914"/><text x="90" y="113" fill="#8f9a8b" font-size="11" text-anchor="middle">dörr</text>
+      </svg>
+      <div class="note">Rummet tas från din ritning. Du kan också välja <b>2 eller 3 väggar</b>, så blir det en hörn- eller U-klädkammare.</div>
+      <h4 style="margin-top:12px">FÄRG</h4>
+      <span class="chip">⬜ Vit</span><span class="chip">◻️ Platina</span><span class="chip">⬛ Grafit</span>
+      <h4 style="margin-top:8px">LISTA</h4>
+      <div class="note" style="margin:0">4 grenar, 9 konsoler, 6 hyllor, 2 klädstänger, 4 lådor … + pris</div>
+    </div>
+  </div>
+  <div class="row"><span class="btn ghost">◀ Byt vägg</span><span class="btn">✓ Klar – sätt in på vägg B</span></div>
+  <div class="note"><span class="arrow">→</span> Inredningen hamnar i 3D, i rätt rum och mot rätt vägg. Du kan även lägga till skjutdörrar framför på samma sätt.</div>
+</div>
+
+<!-- 2. GRUPPER + GENVÄGAR -->
+<div class="mock">
+  <h2>② Grupper och snabbknappar</h2>
+  <p class="why">Markera bordet och stolarna och tryck <b>Gruppera</b>. Då blir de en matgrupp, och stolarna ställer sig själva jämnt runt bordet. Alla detaljinställningar finns kvar.</p>
+  <div class="grid2">
+    <div class="box">
+      <svg class="big" viewBox="0 0 560 300">
+        <rect width="560" height="300" fill="#1d231d"/>
+        <!-- före -->
+        <text x="130" y="28" fill="#8f9a8b" font-size="14" text-anchor="middle">Före: stolarna står huller om buller</text>
+        <circle cx="130" cy="160" r="62" fill="#3a2f22" stroke="#6b5a48" stroke-width="3"/>
+        <g fill="#8a7763"><rect x="40" y="110" width="34" height="34" rx="6" transform="rotate(20 57 127)"/><rect x="190" y="70" width="34" height="34" rx="6" transform="rotate(-35 207 87)"/><rect x="200" y="200" width="34" height="34" rx="6"/><rect x="70" y="232" width="34" height="34" rx="6" transform="rotate(50 87 249)"/></g>
+        <text x="280" y="165" fill="#ff7a2f" font-size="34" text-anchor="middle">→</text>
+        <!-- efter -->
+        <text x="430" y="28" fill="#7bd88f" font-size="14" text-anchor="middle">Efter: en grupp, jämnt fördelat</text>
+        <circle cx="430" cy="160" r="62" fill="#3a2f22" stroke="#6b5a48" stroke-width="3"/>
+        <g fill="#8a7763">
+          <rect x="413" y="62" width="34" height="34" rx="6"/><rect x="413" y="224" width="34" height="34" rx="6"/>
+          <rect x="332" y="143" width="34" height="34" rx="6"/><rect x="494" y="143" width="34" height="34" rx="6"/>
+        </g>
+        <rect x="320" y="50" width="220" height="220" rx="14" fill="none" stroke="#ff7a2f" stroke-width="2" stroke-dasharray="8 6"/>
+        <text x="535" y="66" fill="#ff7a2f" font-size="13" text-anchor="end">🔗 Matgrupp</text>
+      </svg>
+    </div>
+    <div class="box pn">
+      <h4>🔗 MATGRUPP</h4>
+      <div class="line"><span>🍽️ Rustikunik Ø120</span><span class="note" style="margin:0">bord</span></div>
+      <div class="line"><span>🪑 ILVA Dahl</span><span class="pm"><i>−</i><b>4</b><i>+</i></span></div>
+      <div class="line" style="display:block"><div style="margin-bottom:6px">Placering</div><div class="seg"><span class="on">Jämnt runt</span><span>Långsidorna</span><span>En sida</span></div></div>
+      <div class="line"><span>Iläggsskivor isatta</span><span>→ 6 stolar får plats</span></div>
+      <div class="line"><span>Flytta, vrid, kopiera</span><span>hela gruppen</span></div>
+      <div class="line"><span class="note" style="margin:0">✏️ Klicka på en enskild stol för att ändra just den</span></div>
+    </div>
+  </div>
+  <h4 style="margin:18px 0 8px;font-size:12px;letter-spacing:.12em;color:var(--dim)">FLER GENVÄGAR (SOM ANDRA PROGRAM HAR)</h4>
+  <span class="chip"><b>🧲</b> Snäpper mot vägg</span>
+  <span class="chip"><b>📏</b> Avstånd till väggar visas när du drar</span>
+  <span class="chip"><b>⎯</b> Linjerar med möbeln bredvid</span>
+  <span class="chip"><b>🎯</b> Mitt i rummet / mitt på väggen</span>
+  <span class="chip"><b>⧉</b> Kopiera i rad (t.ex. 3 skåp)</span>
+  <span class="chip"><b>🛏️</b> Säng + 2 sängbord som grupp</span>
+  <span class="chip"><b>🛋️</b> Soffgrupp: soffa + bord + matta</span>
+  <span class="chip"><b>⇋</b> Spegla vänster/höger</span>
+  <span class="chip"><b>🔒</b> Lås på plats</span>
+  <span class="chip"><b>⚠️</b> Varning om gången blir för smal</span>
+</div>
+
+<!-- 3. DATA -->
+<div class="mock">
+  <h2>③ Möbler och smarta saker är olika saker, men kan kopplas ihop</h2>
+  <p class="why">De flesta möbler är bara möbler. Därför ska de inte ha smarta inställningar. Smarta saker kan vara små och sakna form. En lampa kan vara båda.</p>
+  <div class="cards">
+    <div class="card"><div class="ic">🛋️</div><h3>Möbel <span class="tag f">form</span></h3>
+      <ul><li><b>Vad:</b> Rossi 3-sits</li><li><b>Mått:</b> 242 × 112 × 86</li><li><b>Tyg/färg:</b> Alex medium grey</li><li><b>Var:</b> Vardagsrum, mot vägg A</li></ul></div>
+    <div class="card"><div class="ic">📡</div><h3>Smart sak <span class="tag s">Homey</span></h3>
+      <ul><li><b>Vad:</b> Rörelsesensor</li><li><b>Koppling:</b> Homey-enhet</li><li><b>Visar:</b> rörelse, temp, batteri</li><li><b>Syns som:</b> liten ikon på väggen/taket</li></ul></div>
+    <div class="card mix"><div class="ic">🪔</div><h3>Möbel + smart <span class="tag f">form</span><span class="tag s">Homey</span></h3>
+      <ul><li><b>Möbeln:</b> golvlampa, mässing</li><li><b>＋ Koppla till Homey</b> (valfritt)</li><li><b>Då:</b> tänd/släck i 3D, lyser på riktigt i bilden</li><li>Utan koppling = vanlig möbel</li></ul></div>
+  </div>
+  <div class="note" style="margin-top:12px"><span class="arrow">→</span> Alla möbler kan <b>få</b> en smart koppling, till exempel en lampa, tv:n, ett fönster med sensor eller en motoriserad gardin. Men det är bara ett tillägg, och de flesta möbler har ingen.</div>
+</div>
+</div></body></html>
