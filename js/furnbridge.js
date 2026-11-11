@@ -1,7 +1,7 @@
 // Bryggan mellan huvudappens saker (plan-koordinater x/y, rot i grader) och möbelmotorn (FURN).
 // En sak i appen som har en möbel bakom sig får it.o (val) och it.m (material) – samma som i demon.
-import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794434861';
-import { ITEMS } from './catalog.js?v=1794434861';
+import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794438173';
+import { ITEMS } from './catalog.js?v=1794438173';
 
 export const furnKey = it => ITEMS[it.type]?.furn || null;
 const hashSeed = id => { let s = 7; for (const c of String(id)) s = (s * 31 + c.charCodeAt(0)) % 9973; return s + 1; };
@@ -32,8 +32,8 @@ export function buildF(it, ceil = 2.5) {
 }
 // saker som står på något (bordslampa, tv på bänk): höjden på det de står på
 export function onTopElev(it, items) {
-  const k = furnKey(it); if (!k || !FURN[k].onTop) return null; let best = 0;
-  for (const o of items) { if (o === it) continue; const ok = furnKey(o); if (!ok || FURN[ok].onTop || FURN[ok].flat || FURN[ok].ceil || ok === 'soffa' || ok === 'fatolj') continue;
+  const k = furnKey(it); if (!k || !FURN[k].onTop || it.grp || (k === 'tv' && it.o?.montering === 'vagg')) return null; let best = 0;
+  for (const o of items) { if (o === it) continue; const ok = furnKey(o); if (!ok || FURN[ok].onTop || FURN[ok].flat || FURN[ok].ceil || ['soffa', 'fatolj', 'platsbyggt', 'elfa', 'skjutdorr'].includes(ok)) continue;
     const dx = it.x - o.x, dy = it.y - o.y, a = o.rot * Math.PI / 180, lx = dx * Math.cos(a) + dy * Math.sin(a), ly = -dx * Math.sin(a) + dy * Math.cos(a);
     if (Math.abs(lx) <= o.w / 2 && Math.abs(ly) <= o.d / 2) best = Math.max(best, ok === 'kok' ? (o.o.bankH || .9) : o.h); }
   return best;

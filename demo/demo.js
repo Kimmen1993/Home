@@ -7,11 +7,11 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { FURN, KMODS, KWIDTHS, ELFA_SYS, elfaSys, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794434861';
-import { openElfaStudio, elevationSvg } from '../js/elfastudio.js?v=1794434861';
-import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794434861';
-import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794434861';
-import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794434861';
+import { FURN, KMODS, KWIDTHS, ELFA_SYS, elfaSys, newFurniture, syncFurniture, buildFurniture } from '../js/furniture.js?v=1794438173';
+import { openElfaStudio, elevationSvg } from '../js/elfastudio.js?v=1794438173';
+import { MATS, GROUPS, makeMat, swatch, worldUV } from '../js/materials.js?v=1794438173';
+import { RAL, ralSearch, ralFind, ralOf } from '../js/ral.js?v=1794438173';
+import { PRESETS, findPreset, FAMILIES, variantsOf } from '../js/presets.js?v=1794438173';
 
 const $ = s => document.querySelector(s);
 const host = $('#stage');
@@ -384,7 +384,7 @@ function setColorSoft(key, hex, box) {
 }
 
 // ---------- sidomeny ----------
-$('#cat').innerHTML = Object.entries(FURN).map(([k, F]) => `<button data-add="${k}"><b>${F.icon}</b>${F.name.split(' ')[0]}</button>`).join('');
+$('#cat').innerHTML = Object.entries(FURN).filter(([k]) => !['platsbyggt', 'innertak'].includes(k)).map(([k, F]) => `<button data-add="${k}"><b>${F.icon}</b>${F.name.split(' ')[0]}</button>`).join('');
 $('#cat').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (!b) return; roomOpen = false; if (b.dataset.add === 'elfa') return openStudio(null); addItem(b.dataset.add); });
 $('#roomBtn').onclick = () => { roomOpen = true; select(null); };
 $('#reset').onclick = () => { if (!confirm('Börja om demorummet? Dina ändringar här försvinner.')) return; st = fresh(); buildRoom(); buildAll(); save(); select(null); };

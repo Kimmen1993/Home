@@ -3,10 +3,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794434861';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794434861';
-import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794434861';
-import { insideSign } from './plan2d.js?v=1794434861';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794438173';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794438173';
+import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794438173';
+import { insideSign } from './plan2d.js?v=1794438173';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -28,8 +32,17 @@ export function createView(host, api) {
   const world = new THREE.Group(); scene.add(world);
   // reflektioner bara för möblerna från möbelmotorn (metall, glas, lack ska glänsa)
   const envTex = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), .04).texture;
+  scene.environment = envTex;   // mjukt rumsljus och reflektioner på allt (väggar, golv, möbler)
+  // mjuka skuggor i hörn och under möbler (samma som demon)
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType }));
+  composer.addPass(new RenderPass(scene, cam));
+  const gtao = new GTAOPass(scene, cam, 1, 1); gtao.blendIntensity = .85;
+  gtao.updateGtaoMaterial({ radius: .4, distanceExponent: 1.5, thickness: 1, scale: 1.2, samples: 12 });
+  composer.addPass(gtao); composer.addPass(new OutputPass());
+  const envK = () => S.day ? .5 : .06;
+  const setEnv = root => root.traverse(o => { const m = o.material; if (!m) return; for (const x of Array.isArray(m) ? m : [m]) if ('envMapIntensity' in x && !x.userData?.ownEnv) x.envMapIntensity = envK(); });
   let refs = { items: {}, openings: {}, pick: [] };
-  let selBox = null, built = false, need = false, lastSig = '';
+  let selBox = null, built = false, need = false, lastSig = '', buildCut = 0;
 
   // ---------- material & texturer ----------
   const mats = new Map();
@@ -147,8 +160,10 @@ export function createView(host, api) {
   function buildItem(it) {
     if (furnKey(it)) {   // möbel från möbelmotorn (samma som demon)
       const e = onTopElev(it, home().items); if (e !== null) it.elev = e;
-      const g = new THREE.Group(), { g: inner, lights, glows } = buildF(it, home().ceiling || 2.5); g.add(inner);
-      inner.traverse(o => { const m = o.material; if (m && m.isMeshStandardMaterial && !m.envMap && !o.isReflector) { m.envMap = envTex; m.envMapIntensity = S.day ? .55 : .2; } });
+      let src = it;
+      if (it.type === 'platsbyggt' && buildCut && it.o?.variants) {   // kapas på samma höjd som väggen det sitter på
+        const ai = it.o.active || 0; src = { ...it, o: { ...it.o, variants: it.o.variants.map((v, i) => i !== ai ? v : { ...v, parts: v.parts.filter(p => p.y < buildCut - .01).map(p => p.y + p.h > buildCut ? { ...p, h: buildCut - p.y } : p) }) } }; }
+      const g = new THREE.Group(), { g: inner, lights, glows } = buildF(src, home().ceiling || 2.5); g.add(inner);
       const ref = { group: g, it, flights: lights, fglows: glows };
       inner.traverse(o => { if (o.material?.userData?.screen) ref.screen = o; });
       g.position.set(it.x, it.elev || 0, it.y); g.rotation.y = -it.rot * Math.PI / 180;
@@ -549,7 +564,7 @@ export function createView(host, api) {
         c.userData.pick = { type: 'room', id: r.id }; layer.add(c);
         const top = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(gp.map(p => new THREE.Vector2(p.x, -p.y)))), M('#9a958f', { roughness: .9 })); top.rotation.x = -Math.PI / 2; top.position.y = (h.ceiling || 2.5) + .02 + ri * .0004; top.castShadow = true; layer.add(top); });
       // väggar
-      const cut = active ? cutV : 0;
+      const cut = active ? cutV : 0; buildCut = cut;
       joints = wallJoints(h.walls.filter(w => !w.virtual));
       for (const w of h.walls) { if (w.virtual || (focus && !nearFocus(w))) continue; buildWall(h, w, cut ? Math.min(cut, w.h) : w.h); }
       // saker
@@ -573,8 +588,9 @@ export function createView(host, api) {
 
   function setLighting() {
     const day = S.day;
-    hemi.intensity = day ? 1.1 : .3; amb.intensity = day ? .9 : .14; amb.color.set(day ? 0xffffff : 0x8a93b0); hemi.color.set(day ? 0xeef2ff : 0x6d82b8); hemi.groundColor.set(day ? 0x8c8a86 : 0x26262a);
+    hemi.intensity = day ? .75 : .22; amb.intensity = day ? .5 : .1; amb.color.set(day ? 0xffffff : 0x8a93b0); hemi.color.set(day ? 0xeef2ff : 0x6d82b8); hemi.groundColor.set(day ? 0x8c8a86 : 0x26262a);
     sun.intensity = day ? 2.6 : .35; sun.color.set(day ? 0xffe6c8 : 0x9fb4ff);
+    setEnv(world);
     const bg = day ? 0x1b2219 : 0x0c0f0c; scene.background = new THREE.Color(bg); scene.fog = new THREE.Fog(bg, bounds.size * 2.2, bounds.size * 5);
   }
 
@@ -668,17 +684,18 @@ export function createView(host, api) {
   }
 
   // ---------- loop ----------
-  function resize() { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  function resize() { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h); composer.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); }
   new ResizeObserver(resize).observe(host);
   let last = performance.now();
   renderer.setAnimationLoop(() => {
     const now = performance.now(), dt = (now - last) / 1000; last = now;
     if (!host.offsetParent) return;
     if (need) build();
-    animate(dt); controls.update(); if (selBox) selBox.update(); renderer.render(scene, cam);
+    animate(dt); controls.update(); if (selBox) selBox.update(); composer.render();
   });
 
   return {
+    cam, controls,
     build() { need = true; },
     buildNow: build,
     syncItem(id) { const r = refs.items[id]; if (!r) return; const it = r.it; if (furnKey(it)) { const e = onTopElev(it, home().items); if (e !== null) it.elev = e; } r.group.position.set(it.x, it.elev || 0, it.y); r.group.rotation.y = -it.rot * Math.PI / 180; },

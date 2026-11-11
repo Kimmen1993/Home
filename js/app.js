@@ -1,20 +1,20 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794434861';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794434861';
-import { createPlan } from './plan2d.js?v=1794434861';
-import { createView } from './view3d.js?v=1794434861';
-import { createHA } from './ha.js?v=1794434861';
-import { detectPlan } from './autoplan.js?v=1794434861';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794434861';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794434861';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794434861';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794434861';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794434861';
-import { checkHome } from './check.js?v=1794434861';
-import { openTakStudio, takList } from './tak.js?v=1794434861';
-import { openByggStudio } from './byggstudio.js?v=1794434861';
-import { byggList } from './bygg.js?v=1794434861';
-import { openElfaStudio } from './elfastudio.js?v=1794434861';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794438173';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794438173';
+import { createPlan } from './plan2d.js?v=1794438173';
+import { createView } from './view3d.js?v=1794438173';
+import { createHA } from './ha.js?v=1794438173';
+import { detectPlan } from './autoplan.js?v=1794438173';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794438173';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794438173';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794438173';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794438173';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794438173';
+import { checkHome } from './check.js?v=1794438173';
+import { openTakStudio, takList } from './tak.js?v=1794438173';
+import { openByggStudio } from './byggstudio.js?v=1794438173';
+import { byggList } from './bygg.js?v=1794438173';
+import { openElfaStudio } from './elfastudio.js?v=1794438173';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -810,6 +810,7 @@ $('#fileImg').addEventListener('change', async e => {
 // ---------- tangentbord ----------
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
+  if (document.querySelector('.es-ov')) return;   // en verkstad är öppen – tangenterna hör till den (annars raderas t.ex. vald vägg)
   if (e.key === 'Escape' && S.inside) { goOut(); return; }
   const mod = e.metaKey || e.ctrlKey;
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
@@ -854,7 +855,7 @@ requestAnimationFrame(() => { plan.resize(); plan.fit(); });
 window.addEventListener('resize', () => plan.resize());
 new ResizeObserver(() => plan.resize()).observe($('#pane2d'));
 if (S.ha.url && S.ha.token) ha.connect(S.ha.url, S.ha.token);
-window.__hemma = { S, home, emit, plan };
+window.__hemma = { S, home, emit, plan, view };
 window.addEventListener('pagehide', flushSave);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
 window.addEventListener('storage', e => { if (e.key === STORAGE_KEY && syncFromStorage(e.newValue)) { S.sel = null; renderAll(); emit('full'); window.toast('🔄 Uppdaterat från en annan flik'); } });

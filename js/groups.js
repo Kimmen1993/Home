@@ -1,9 +1,9 @@
 // Smarta grupper: en "förälder" (bord, säng, soffa) äger sina delar (stolar, sängbord, soffbord, matta).
 // Delarna placeras automatiskt och följer med när föräldern flyttas, vrids eller ändras.
 // Plan-koordinater: x, y (y = djupet i 3D), rot i grader. Möblernas framsida är lokal +y.
-import { makeItem } from './store.js?v=1794434861';
-import { syncF } from './furnbridge.js?v=1794434861';
-import { PRESETS } from './presets.js?v=1794434861';
+import { makeItem } from './store.js?v=1794438173';
+import { syncF } from './furnbridge.js?v=1794438173';
+import { PRESETS } from './presets.js?v=1794438173';
 
 const D2R = Math.PI / 180;
 const toWorld = (p, lx, ly) => { const r = p.rot * D2R, c = Math.cos(r), s = Math.sin(r); return { x: p.x + lx * c - ly * s, y: p.y + lx * s + ly * c }; };
@@ -40,7 +40,7 @@ function slots(p) {
     const parts = p.o?.variants?.[p.o.active || 0]?.parts || [], W = p.w, D = p.d;
     for (const q of parts) {
       if (q.k === 'led') out.push({ key: 'ledlist', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + (q.z ?? .02) + .012, rot: 0, w: q.w, d: .025, elev: q.y });
-      if (q.k === 'tv') out.push({ key: 'tv', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + .125, rot: 0, o: { montering: 'vagg', tum: q.inch, hojd: q.y }, elev: 0 }); }
+      if (q.k === 'tv') out.push({ key: 'tv', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + .125 + .045, rot: 0, o: { montering: 'vagg', tum: q.inch, hojd: q.y }, elev: 0 }); }
     return out; }
   if (groupKind(p) === 'tak') {   // takverkstan: spotlights och LED-list blir riktiga lampor
     const o = p.o || {}, W = p.w, D = p.d, H = o.H || 2.5, at = (x, y) => (o.areas || []).find(a => x >= a.x - .001 && x <= a.x + a.w + .001 && y >= a.y - .001 && y <= a.y + a.d + .001);

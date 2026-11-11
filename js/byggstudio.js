@@ -1,8 +1,8 @@
 // Byggverkstan: 1) välj vägg + börja tomt eller från ett förslag  2) bygg väggen framifrån (dra, snäpp, ändra storlek)
 // 3) inköpslista + sätt in. Varianter A/B/C av samma vägg. Samma utseende som Elfa-verkstan.
-import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794434861';
-import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794434861';
-import { MATS, GROUPS, swatch } from './materials.js?v=1794434861';
+import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794438173';
+import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794438173';
+import { MATS, GROUPS, swatch } from './materials.js?v=1794438173';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -36,7 +36,7 @@ export function wallSvg(parts, m, { crop = null, L, H, win = [], doors = [], ite
   let out = `<rect x="0" y="0" width="${X(L)}" height="${X(H)}" fill="#2a312a"/><rect x="0" y="${X(H)}" width="${X(L)}" height="8" fill="#4a3a28"/>`;
   for (const [a, w, s, h] of win) out += `<rect x="${X(a)}" y="${Y(s + h)}" width="${X(w)}" height="${X(h)}" fill="#2a3b4c" stroke="#7f9fbf" stroke-width="1.5"/>`;
   for (const [a, w, h] of doors) out += `<rect x="${X(a)}" y="${Y(h)}" width="${X(w)}" height="${X(h)}" fill="#151a15" stroke="#6b7a68" stroke-width="1.5"/>`;
-  for (const [a, w, top, bot, nm] of items) out += `<rect x="${X(a)}" y="${Y(top)}" width="${X(w)}" height="${X(top - bot)}" fill="rgba(160,170,160,.18)" stroke="rgba(200,210,200,.45)" stroke-dasharray="4 3"/><text x="${X(a + w / 2)}" y="${Y(top) - 4}" fill="#9aa39a" font-size="10" text-anchor="middle">${esc(nm)}</text>`;
+  for (const [a, w, top, bot, nm] of items) out += `<rect x="${X(a)}" y="${Y(top)}" width="${X(w)}" height="${X(top - bot)}" fill="rgba(160,170,160,.18)" stroke="rgba(200,210,200,.45)" stroke-dasharray="4 3"/>` + (w > .45 ? `<text x="${X(a + w / 2)}" y="${Y(top) - 4}" fill="#9aa39a" font-size="10" text-anchor="middle">${esc(nm)}</text>` : '');
   for (const p of [...parts].sort((a, b) => ORDER.indexOf(a.k) - ORDER.indexOf(b.k))) {
     const on = sel === p.id, x = X(p.x), y = Y(p.y + p.h), w = Math.max(1, X(p.w)), h = Math.max(1, X(p.h)), ik = isIkea(p), bad = !hangOk(p);
     let g = '';
