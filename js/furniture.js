@@ -4,8 +4,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { PARTS as BPARTS } from './bygg.js?v=1794487840';
-import { makeMat, worldUV, MATS } from './materials.js?v=1794487840';
+import { PARTS as BPARTS, frontOf } from './bygg.js?v=1794501654';
+import { makeMat, worldUV, MATS } from './materials.js?v=1794501654';
 
 // ---------- byggklossar ----------
 let G = null;   // gruppen som byggs just nu
@@ -724,13 +724,29 @@ function cabinet(p, cx, z0, M, o) {
   const cols = Math.max(1, Math.round(p.w / ikeaW)), rows = p.h > 1.5 ? 3 : p.h > 1 ? 2 : 1, cw = p.w / cols, rh = p.h / rows;
   if (p.front === 'oppen') { box(p.w - .04, p.h - .04, .004, dark(), cx, p.y + .02, z0 + .01); const n = Math.max(2, Math.round(p.h / .32));
     for (let r = 1; r < n; r++) box(p.w - .036, .016, carc - .01, M.stomme, cx, p.y + r * p.h / n, z0 + carc / 2); return; }
-  const glass = makeMat('rokglas', '#5b5650');
-  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) { const x = cx - p.w / 2 + (c + .5) * cw, y = p.y + r * rh;
-    if (p.front === 'lador') { front(o.frontstil || 'slat', M.front, cw, rh / 2, x, y, fz, M.stomme); front(o.frontstil || 'slat', M.front, cw, rh / 2, x, y + rh / 2, fz, M.stomme); }
-    else if (p.front === 'glas') { const f = front('ram', M.front, cw, rh, x, y, fz, M.stomme); box(f.w - .13, f.h - .13, .004, glass, x, f.y + .065, f.z - .002); }
-    else front(o.frontstil || 'slat', M.front, cw, rh, x, y, fz, M.stomme); }
+  // fronten: serie + färg per skåp (gamla byggen utan serie använder väggens gemensamma frontfärg)
+  const F = frontOf(p), fm = p.fs || p.fc != null || p.front === 'glas' ? makeMat(F.mat, F.mat === 'matt' || F.mat === 'lack' ? F.color : null) : M.front;
+  const st = p.fs || p.front === 'glas' ? (F.stil === 'grepp' ? 'greppfri' : F.stil) : (o.frontstil || 'slat'), hm = makeMat('pulver', '#8d8f8f');
+  const glass = makeMat('rokglas', '#5b5650'), hd = p.hd || 'tryck';
+  const grip = (f, x, vertical, hinge) => { if (hd === 'tryck' || st === 'greppfri') return;
+    if (vertical) handle(hd, hm, x - hinge * (f.w / 2 - .045), f.y + f.h - .14, f.z, true, .16); else handle(hd, hm, x, f.y + f.h - Math.min(.07, f.h / 2), f.z, false, .16); };
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) { const x = cx - p.w / 2 + (c + .5) * cw, y = p.y + r * rh, hinge = c % 2 ? 1 : -1;
+    if (p.front === 'lador') { grip(front(st, fm, cw, rh / 2, x, y, fz, M.stomme), x, false); grip(front(st, fm, cw, rh / 2, x, y + rh / 2, fz, M.stomme), x, false); }
+    else if (p.front === 'glas') { const f = front('ram', fm, cw, rh, x, y, fz, M.stomme); box(f.w - .13, f.h - .13, .004, glass, x, f.y + .065, f.z - .002); grip(f, x, true, hinge); }
+    else grip(front(st, fm, cw, rh, x, y, fz, M.stomme), x, true, hinge); }
 }
-const ORDER = ['farg', 'panel', 'gips', 'sockel', 'passbit', 'kappa', 'besta', 'metod', 'skiva'];
+// ram/nisch runt t.ex. tv:n – fyra lister med ett frästa spår i innerkanten där LED-listen sitter
+function ram(p, cx, z0, M) {
+  const t = p.t || .05, d = p.d, sd = p.sides || {}, gm = dark();
+  box(p.w, t, d, M.front, cx, p.y + p.h - t, z0 + d / 2, .002); box(p.w, t, d, M.front, cx, p.y, z0 + d / 2, .002);
+  box(t, p.h - 2 * t, d, M.front, cx - p.w / 2 + t / 2, p.y + t, z0 + d / 2, .002); box(t, p.h - 2 * t, d, M.front, cx + p.w / 2 - t / 2, p.y + t, z0 + d / 2, .002);
+  const iw = p.w - 2 * t, ih = p.h - 2 * t, gz = z0 + d - .03;   // spåret (syns som mörk skåra när listen är släckt)
+  if (sd.top) box(iw, .004, .012, gm, cx, p.y + p.h - t - .004, gz);
+  if (sd.bottom) box(iw, .004, .012, gm, cx, p.y + t, gz);
+  if (sd.left) box(.004, ih, .012, gm, cx - p.w / 2 + t + .002, p.y + t, gz);
+  if (sd.right) box(.004, ih, .012, gm, cx + p.w / 2 - t - .002, p.y + t, gz);
+}
+const ORDER = ['farg', 'panel', 'gips', 'sockel', 'passbit', 'kappa', 'ram', 'besta', 'metod', 'skiva'];
 function platsbyggt(it, o, M) {
   const parts = (o.variants?.[o.active || 0]?.parts || []).filter(p => BPARTS[p.k] && p.k !== 'led' && p.k !== 'tv'), W = it.w, zb = -it.d / 2;
   for (const p of [...parts].sort((a, b) => ORDER.indexOf(a.k) - ORDER.indexOf(b.k))) {
@@ -747,6 +763,7 @@ function platsbyggt(it, o, M) {
     else if (p.k === 'sockel') box(p.w, p.h, p.d, dark(), cx, p.y, z0 + p.d / 2 - .02);
     else if (p.k === 'skiva') box(p.w, p.h, p.d, M.skiva, cx, p.y, z0 + p.d / 2, .002);
     else if (p.k === 'besta' || p.k === 'metod') cabinet(p, cx, z0, M, o);
+    else if (p.k === 'ram') ram(p, cx, z0, M);
   }
 }
 

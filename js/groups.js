@@ -1,9 +1,9 @@
 // Smarta grupper: en "förälder" (bord, säng, soffa) äger sina delar (stolar, sängbord, soffbord, matta).
 // Delarna placeras automatiskt och följer med när föräldern flyttas, vrids eller ändras.
 // Plan-koordinater: x, y (y = djupet i 3D), rot i grader. Möblernas framsida är lokal +y.
-import { makeItem } from './store.js?v=1794487840';
-import { syncF } from './furnbridge.js?v=1794487840';
-import { PRESETS } from './presets.js?v=1794487840';
+import { makeItem } from './store.js?v=1794501654';
+import { syncF } from './furnbridge.js?v=1794501654';
+import { PRESETS } from './presets.js?v=1794501654';
 
 const D2R = Math.PI / 180;
 const toWorld = (p, lx, ly) => { const r = p.rot * D2R, c = Math.cos(r), s = Math.sin(r); return { x: p.x + lx * c - ly * s, y: p.y + lx * s + ly * c }; };
@@ -39,7 +39,17 @@ function slots(p) {
   if (groupKind(p) === 'bygg') {   // byggverkstan: LED-listen och tv:n blir riktiga enheter som går att styra
     const parts = p.o?.variants?.[p.o.active || 0]?.parts || [], W = p.w, D = p.d;
     for (const q of parts) {
-      if (q.k === 'led') out.push({ key: 'ledlist', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + (q.z ?? .02) + .012, rot: 0, w: q.w, d: .025, elev: q.y });
+      // riktning i möbelns lokala ram: x = åt höger längs väggen, y = uppåt, z = ut från väggen
+      const DIR = { ned: [0, -1, 0], upp: [0, 1, 0], vagg: [0, 0, -1], fram: [0, 0, 1] };
+      if (q.k === 'led') out.push({ key: 'ledlist', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + (q.z ?? .02) + .012, rot: 0, w: q.w, d: .025, elev: q.y, lt: q.lt, o: { ldir: DIR[q.dir || 'ned'] } });
+      if (q.k === 'ram') { const sd = q.sides || {}, t = q.t || .05, x0 = q.x + t, x1 = q.x + q.w - t, y0 = q.y + t, y1 = q.y + q.h - t, z = -D / 2 + (q.z || 0) + q.d - .03;
+        const d = s => q.dir === 'vagg' ? [0, 0, -1] : q.dir === 'fram' ? [0, 0, 1] : ({ top: [0, -1, 0], bottom: [0, 1, 0], left: [1, 0, 0], right: [-1, 0, 0] })[s].map(v => v * (q.dir === 'ut' ? -1 : 1));
+        if (sd.top) out.push({ key: 'ledlist', tag: q.id + ':top', lx: -W / 2 + (x0 + x1) / 2, ly: z, rot: 0, w: x1 - x0, d: .02, elev: y1 - .008, lt: q.lt, o: { ldir: d('top') } });
+        if (sd.bottom) out.push({ key: 'ledlist', tag: q.id + ':bottom', lx: -W / 2 + (x0 + x1) / 2, ly: z, rot: 0, w: x1 - x0, d: .02, elev: y0 - .007, lt: q.lt, o: { ldir: d('bottom') } });
+        if (sd.left) out.push({ key: 'ledlist', tag: q.id + ':left', lx: -W / 2 + x0 + .008, ly: z, rot: 0, w: .015, d: .02, h: y1 - y0, elev: y0, lt: q.lt, o: { vert: 1, ldir: d('left') } });
+        if (sd.right) out.push({ key: 'ledlist', tag: q.id + ':right', lx: -W / 2 + x1 - .008, ly: z, rot: 0, w: .015, d: .02, h: y1 - y0, elev: y0, lt: q.lt, o: { vert: 1, ldir: d('right') } }); }
+      if ((q.k === 'kappa' || q.k === 'gips') && q.spots > 0) for (let i = 0; i < q.spots; i++)
+        out.push({ key: 'spot', tag: q.id + ':s' + i, lx: -W / 2 + q.x + q.w * (i + .5) / q.spots, ly: -D / 2 + (q.z || 0) + q.d / 2, rot: 0, elev: q.y - .039, lt: q.lt, o: { beam: q.beam || 36 } });
       if (q.k === 'tv') out.push({ key: 'tv', tag: q.id, lx: -W / 2 + q.x + q.w / 2, ly: -D / 2 + .125 + .045, rot: 0, o: { montering: 'vagg', tum: q.inch, hojd: q.y }, elev: 0 }); }
     return out; }
   if (groupKind(p) === 'tak') {   // takverkstan: spotlights och LED-list blir riktiga lampor
@@ -71,6 +81,8 @@ export function arrange(h, p) {
       if (s.key === 'stol' && ex.o) { it.o = { ...it.o, ...ex.o }; syncF(it); } }
     if (s.o) { it.o = { ...it.o, ...s.o }; syncF(it); }
     if (s.w) { it.w = s.w; it.d = s.d; }
+    if (s.h) it.h = s.h;
+    if (s.lt) it.lt = JSON.parse(JSON.stringify(s.lt));
     if (s.elev !== undefined) it.elev = s.elev;
     const w = toWorld(p, s.lx, s.ly); it.x = rnd(w.x); it.y = rnd(w.y);
     it.rot = s.face ? Math.round(faceTo(it, p)) : (p.rot + (s.rot || 0)) % 360; ids.push(it.id);

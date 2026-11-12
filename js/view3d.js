@@ -7,10 +7,11 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794487840';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794487840';
-import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794487840';
-import { insideSign } from './plan2d.js?v=1794487840';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794501654';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794501654';
+import { lightRGB, power } from './ljus.js?v=1794501654';
+import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794501654';
+import { insideSign } from './plan2d.js?v=1794501654';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -288,14 +289,19 @@ export function createView(host, api) {
         const cone = C(g, .05, w / 2, sh, shadeM, 0, sh / 2, 0, 28, true); cone.castShadow = false;
         const bulb = new THREE.Mesh(new THREE.SphereGeometry(.05, 16, 12), new THREE.MeshStandardMaterial({ color: 0x777777 })); bulb.position.y = .06; g.add(bulb);
         ref.bulb = bulb; ref.lightY = .0; ref.power = 14; break; }
-      case 'spot': { C(g, w / 2, w / 2, h, c, 0, h / 2, 0); const bulb = C(g, w / 2.6, w / 2.6, .005, new THREE.MeshStandardMaterial({ color: 0x777777 }), 0, -.001, 0); ref.bulb = bulb; ref.lightY = -.15; ref.power = 6; break; }
+      case 'spot': { C(g, w / 2, w / 2, h, c, 0, h / 2, 0); const bulb = C(g, w / 2.6, w / 2.6, .005, new THREE.MeshStandardMaterial({ color: 0x777777 }), 0, -.001, 0); ref.bulb = bulb; ref.lightY = -.02; ref.power = 6;
+        ref.aim = [0, -1, 0]; ref.beam = it.o?.beam || (it.lt ? 36 : 0); break; }
       case 'golvlampa': { C(g, .16, .18, .03, c, 0, .015, 0); C(g, .012, .012, h - .3, c, 0, (h - .3) / 2, 0);
         const sm = new THREE.MeshStandardMaterial({ color: new THREE.Color(c2), roughness: .9, side: THREE.DoubleSide, transparent: true, opacity: .96 });
         const s = C(g, .13, .2, .3, sm, 0, h - .15, 0, 28, true); s.castShadow = false; ref.shade = s; ref.lightY = h - .2; ref.power = 8; break; }
       case 'bordslampa': { C(g, .06, .08, .03, c, 0, .015, 0); C(g, .015, .015, h - .2, c, 0, (h - .2) / 2, 0);
         const sm = new THREE.MeshStandardMaterial({ color: new THREE.Color(c2), roughness: .9, side: THREE.DoubleSide });
         const s = C(g, .08, w / 2, .2, sm, 0, h - .1, 0, 24, true); s.castShadow = false; ref.shade = s; ref.lightY = h - .12; ref.power = 4; break; }
-      case 'ledlist': { const strip = B(g, w, .015, .025, new THREE.MeshStandardMaterial({ color: 0x777777 }), 0, 0, 0); strip.castShadow = false; ref.bulb = strip; ref.lightY = -.05; ref.power = 4; break; }
+      case 'ledlist': { const vert = it.o?.vert, ld = it.o?.ldir;
+        const strip = vert ? B(g, .012, h, .012, new THREE.MeshStandardMaterial({ color: 0x777777 }), 0, h / 2, 0) : B(g, w, .012, .012, new THREE.MeshStandardMaterial({ color: 0x777777 }), 0, 0, 0);
+        strip.castShadow = false; ref.bulb = strip; ref.power = 4;
+        if (ld) { ref.aim = ld; ref.beam = 150; ref.lightPos = [ld[0] * .02, (vert ? h / 2 : .006) + ld[1] * .02, ld[2] * .02]; } else ref.lightY = -.05;
+        break; }
       case 'tv': { B(g, w, h, .035, '#0b0b0b', 0, h / 2, -d / 2 + .02);
         const scr = new THREE.Mesh(new THREE.PlaneGeometry(w - .03, h - .03), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: .15, metalness: .2 }));
         scr.position.set(0, h / 2, -d / 2 + .039); g.add(scr); ref.screen = scr; break; }
@@ -400,7 +406,11 @@ export function createView(host, api) {
       default: B(g, w, h, d, c, 0, h / 2, 0);
     }
     if (cat.dev === 'light') {
-      const L = new THREE.PointLight(0xffb978, 0, it.type === 'utelampa' ? 6 : 9, 2); L.position.y = ref.lightY ?? h / 2; g.add(L); ref.light = L;
+      if (ref.aim && ref.beam) {   // riktat ljus: spotlight nedåt med rätt spridning, LED-list som lyser åt sitt håll
+        const L = new THREE.SpotLight(0xffb978, 0, 7, Math.min(1.45, ref.beam * 1.5 / 2 * Math.PI / 180), ref.beam > 90 ? 1 : .55, 2), p0 = ref.lightPos || [0, ref.lightY ?? 0, 0];
+        L.position.set(...p0); L.target.position.set(p0[0] + ref.aim[0], p0[1] + ref.aim[1], p0[2] + ref.aim[2]); g.add(L, L.target); ref.light = L;
+      } else { const L = new THREE.PointLight(0xffb978, 0, it.type === 'utelampa' ? 6 : 9, 2); L.position.y = ref.lightY ?? h / 2; g.add(L); ref.light = L; }
+      if (it.lt) { ref.rgb = lightRGB(it); ref.power = power(it) * (ref.beam && ref.beam < 90 ? 1.6 : 1); }
     }
     if (cat.dev === 'tv') { const L = new THREE.PointLight(0x7aa7ff, 0, 4, 2); L.position.set(0, h / 2, front + .3); g.add(L); ref.light = L; ref.power = 2; }
     handleC = null; g.position.set(it.x, it.elev || 0, it.y); g.rotation.y = -it.rot * Math.PI / 180;
@@ -647,7 +657,8 @@ export function createView(host, api) {
     const raw = home().__raw, h = { items: raw.levels.flatMap(L => L.items), openings: raw.levels.flatMap(L => L.openings) };
     for (const it of h.items) { const r = refs.items[it.id]; if (!r) continue; const st = it.state || {};
       if (r.tracks) r.tracks.forEach(tr => { const p = (it.panels || []).find(x => x.id === tr.pid); tr.target = p?.pos || 0; if (instant) { tr.cur = tr.target; tr.dirty = true; } });
-      r.target = ITEMS[it.type].dev === 'curtain' ? (st.pos ?? (st.on ? 1 : 0)) : st.on ? (st.bri ?? .8) : 0; if (instant) r.cur = r.target; }
+      r.target = ITEMS[it.type].dev === 'curtain' ? (st.pos ?? (st.on ? 1 : 0)) : st.on ? (st.bri ?? .8) : 0; if (instant) r.cur = r.target;
+      if (r.light && ITEMS[it.type].dev === 'light') { r.rgb = lightRGB(it); if (it.lt) r.power = power(it) * (r.beam && r.beam < 90 ? 1.6 : 1); r.cur = r.cur === r.target ? r.cur : r.cur + 1e-4; } }
     for (const o of h.openings) { const r = refs.openings[o.id]; if (!r) continue; r.tOpen = o.state?.open || 0; r.tBlind = o.state?.blind || 0;
       if (instant) { r.open = r.tOpen; r.blind = r.tBlind; } }
   }
@@ -656,10 +667,10 @@ export function createView(host, api) {
     for (const id in refs.items) { const r = refs.items[id]; if (r.target === undefined) continue;
       if ((r.curtains || r.tracks) && Math.abs(r.target - r.cur) > .002) shadowDirty = true;
       r.cur += (r.target - r.cur) * k; const v = r.cur, dev = ITEMS[r.it.type].dev;
-      if (r.light) r.light.intensity = v * (r.power || 10) * (dev === 'tv' ? 1 : 1);
+      if (r.light) { r.light.intensity = v * (r.power || 10); if (r.rgb) r.light.color.setRGB(...r.rgb); }
       if (r.flights) r.flights.forEach(L => L.intensity = v * (L.userData.power || 1) * (L.isSpotLight ? 40 : 7));
       if (r.fglows) r.fglows.forEach(m => m.emissiveIntensity = v * 2.2);
-      if (r.bulb) { r.bulb.material.emissive.setRGB(1, .72, .42); r.bulb.material.emissiveIntensity = v * 3; r.bulb.material.color.setScalar(v > .05 ? 1 : .45); }
+      if (r.bulb) { if (r.rgb) r.bulb.material.emissive.setRGB(...r.rgb); else r.bulb.material.emissive.setRGB(1, .72, .42); r.bulb.material.emissiveIntensity = v * 3; r.bulb.material.color.setScalar(v > .05 ? 1 : .45); }
       if (r.shade) { r.shade.material.emissive.setRGB(1, .7, .4); r.shade.material.emissiveIntensity = v * .9; }
       if (r.screen) { const m = r.screen.material; if (v > .05 && !m.emissiveMap) { m.emissiveMap = tvScreen(); m.emissive.set(0xffffff); m.needsUpdate = true; } m.emissiveIntensity = v * 1.2; }
       if (r.tracks) r.tracks.forEach(tr => { const old = tr.cur; tr.cur += (tr.target - tr.cur) * k; if (Math.abs(tr.cur - old) > 1e-4 || tr.dirty) { tr.dirty = false; updateTrackFabric(tr); } });

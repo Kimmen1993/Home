@@ -238,3 +238,8 @@ input[type=range]{padding:0;accent-color:var(--acc);border:0;background:none}
 .vtools .vsub{display:flex;flex-direction:column;gap:3px;padding:3px;border-radius:12px;background:rgba(60,32,14,.5)}
 .vtools .vsub button{width:52px;padding:4px 2px;border-radius:9px;border:1px solid var(--line);background:rgba(18,22,18,.92);color:var(--text);font-size:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center}
 .vtools .vsub button small{font-size:9px;color:var(--dim)}
+.tone{display:flex;gap:8px;align-items:center;margin:4px 0 8px;flex-wrap:wrap}.tone input{flex:1;min-width:120px;-webkit-appearance:none;appearance:none;height:10px;border-radius:5px;outline:none}
+.tone input.kel{background:linear-gradient(90deg,#ff9b3d,#ffc98a,#fff1dc,#f4f6ff,#cfdcff)}.tone input.hue{background:linear-gradient(90deg,red,#ff0,lime,cyan,blue,#f0f,red)}
+.tone input::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid #222;cursor:pointer}
+.tone input::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #222;cursor:pointer}
+.tone .opt{display:flex;gap:4px}.tone .opt button{background:#1c221c;border:1px solid #2c342c;color:#e9ede6;border-radius:8px;padding:4px 9px;font-size:12px;cursor:pointer}.tone .opt button.on{border-color:#ff7a2f}

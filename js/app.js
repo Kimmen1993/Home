@@ -1,20 +1,21 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794487840';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794487840';
-import { createPlan } from './plan2d.js?v=1794487840';
-import { createView } from './view3d.js?v=1794487840';
-import { createHA } from './ha.js?v=1794487840';
-import { detectPlan } from './autoplan.js?v=1794487840';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794487840';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794487840';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794487840';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794487840';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794487840';
-import { checkHome } from './check.js?v=1794487840';
-import { openTakStudio, takList } from './tak.js?v=1794487840';
-import { openByggStudio } from './byggstudio.js?v=1794487840';
-import { byggList } from './bygg.js?v=1794487840';
-import { openElfaStudio } from './elfastudio.js?v=1794487840';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794501654';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794501654';
+import { createPlan } from './plan2d.js?v=1794501654';
+import { createView } from './view3d.js?v=1794501654';
+import { createHA } from './ha.js?v=1794501654';
+import { detectPlan } from './autoplan.js?v=1794501654';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794501654';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794501654';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794501654';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794501654';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794501654';
+import { checkHome } from './check.js?v=1794501654';
+import { openTakStudio, takList } from './tak.js?v=1794501654';
+import { openByggStudio } from './byggstudio.js?v=1794501654';
+import { lt as ljusLt, lumen, ljusText, TYPER } from './ljus.js?v=1794501654';
+import { byggList } from './bygg.js?v=1794501654';
+import { openElfaStudio } from './elfastudio.js?v=1794501654';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -280,7 +281,8 @@ function itemPanel(it) {
     ${c.dev ? `<h3>SMART ENHET</h3>
       <label class="f">Koppling i Home Assistant<input data-f="entity" data-u="text" list="ents" value="${esc(it.entity)}" placeholder="${c.dev === 'light' ? 'light.vardagsrum' : c.dev === 'curtain' ? 'cover.gardiner (valfritt)' : 'media_player.tv'}"></label>
       <div class="btns"><button class="btn acc" data-act="test">${c.dev === 'curtain' ? (it.state?.on ? 'Dra ifrån' : 'Dra för') : it.state?.on ? 'Släck / stäng av' : 'Tänd / sätt på'}</button></div>
-      ${c.dev === 'light' && it.state?.on ? `<label class="f" style="margin-top:8px">Ljusstyrka<input type="range" min="5" max="100" value="${Math.round((it.state.bri ?? .8) * 100)}" data-bri="${it.id}"></label>` : ''}` : ''}
+      ${c.dev === 'light' && it.state?.on ? `<label class="f" style="margin-top:8px">Ljusstyrka<input type="range" min="5" max="100" value="${Math.round((it.state.bri ?? .8) * 100)}" data-bri="${it.id}"></label>${toneHtml(it)}` : ''}
+      ${c.dev === 'light' && it.lt ? `<p class="note">${esc(TYPER.find(t => t[0] === ljusLt(it).typ)?.[1] || '')} · ${ljusText(ljusLt(it))} · ${Math.round(lumen(it))} lm</p>` : ''}` : ''}
     <div class="btns" style="margin-top:14px"><button class="btn" data-act="dup">⧉ Kopiera</button><button class="btn danger" data-act="del">🗑 Ta bort</button></div>`;
 }
 // ---------- gardinskena ----------
@@ -409,7 +411,7 @@ function lightGroups(h, lights, src) {
   return [...groups].map(([k, g]) => { const n = g.list.filter(i => i.state.on).length, open = openRooms.has(k);
     return `<div class="row" data-group="${k}"><div class="l"><span>${open ? '▾' : '▸'} ${esc(g.name)}</span><em>${n} av ${g.list.length} tända</em></div><span class="sw ${n ? 'on' : ''}" data-gsw="${k}"></span></div>
     ${open ? g.list.map(i => `<div class="row" data-dev="item:${i.id}" style="padding-left:14px"><div class="l"><span>${ITEMS[i.type].icon} ${esc(i.name || ITEMS[i.type].name)}</span><em>${esc(src(i))}</em></div><span class="sw ${i.state?.on ? 'on' : ''}"></span></div>
-      ${i.state?.on ? `<input type="range" min="5" max="100" value="${Math.round((i.state.bri ?? .8) * 100)}" data-bri="${i.id}">` : ''}`).join('') : ''}`; }).join('');
+      ${i.state?.on ? `<input type="range" min="5" max="100" value="${Math.round((i.state.bri ?? .8) * 100)}" data-bri="${i.id}">${toneHtml(i)}` : ''}`).join('') : ''}`; }).join('');
 }
 
 // ---------- panel-händelser ----------
@@ -422,6 +424,7 @@ bindFurnPanel(right, {
   redraw: () => renderRight(),
   act(a) { if (a === 'studio') openStudio(selected()); if (a === 'bygg') openBygg(selected()); if (a === 'tak') openTak(selected()); },
 });
+right.addEventListener('click', e => { const b = e.target.closest('[data-trgb]'); if (!b) return; e.stopPropagation(); const [id, v] = b.dataset.trgb.split('|'), it = home().items.find(i => i.id === id); if (it) { lightTone(it, { rgb: v === "1" }); } });
 right.addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if (!b) return; navigator.clipboard?.writeText(b.dataset.copy.replace(/\\n/g, '\n')); window.toast('📋 Listan är kopierad'); });
 // grupper
 right.addEventListener('click', e => { const b = e.target.closest('[data-g],[data-gsel],[data-gfree]'); if (!b) return; const h = home(), it = selected(); if (!it) return;
@@ -612,6 +615,8 @@ right.addEventListener('input', e => {
   if (t.dataset.tpos) { const [iid, pid] = t.dataset.tpos.split(':'), it = home().items.find(i => i.id === iid), p = it?.panels?.find(x => x.id === pid); if (p) panelSet(it, p, t.value / 100); }
   if (t.dataset.cpos) { const it = home().items.find(i => i.id === t.dataset.cpos) || selected(); curtainSet(it, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Fördragna: ${t.value}%`; }
   if (t.dataset.bri) { const it = h.items.find(i => i.id === t.dataset.bri); lightSet(it, true, t.value / 100); }
+  if (t.dataset.tk) { const it = h.items.find(i => i.id === t.dataset.tk); lightTone(it, { k: +t.value, rgb: false }); }
+  if (t.dataset.thue) { const it = h.items.find(i => i.id === t.dataset.thue); lightTone(it, { hue: +t.value, rgb: true }); }
   if (t.dataset.blind) { const o = h.openings.find(i => i.id === t.dataset.blind); blindSet(o, t.value / 100); const lab = t.closest('label'); if (lab) lab.firstChild.textContent = `Nere: ${t.value}%`; }
   if (t.hasAttribute('data-bgop')) { h.bg.opacity = t.value / 100; plan.draw(); save(); }
 });
@@ -667,6 +672,14 @@ function lightSet(it, onOff, bri) {
     else ha.call(d, 'turn_on', d === 'light' && bri != null ? { entity_id: it.entity, brightness_pct: Math.round(bri * 100) } : { entity_id: it.entity }); }
   it.state.on = onOff; if (bri != null) it.state.bri = bri; emit('state');
 }
+// färgtemperatur / färg på lampor som kan det (justerbar vit eller RGB) – i 3D direkt och i Home Assistant om den är kopplad
+function lightTone(it, ch) { Object.assign(it.state, ch);
+  if (linked(it.entity) && dom(it.entity) === 'light') ha.call('light', 'turn_on', it.state.rgb ? { entity_id: it.entity, hs_color: [it.state.hue ?? 30, 100] } : { entity_id: it.entity, color_temp_kelvin: it.state.k ?? ljusLt(it).k });
+  emit('state'); }
+const toneHtml = i => { const L = ljusLt(i), st = i.state || {}; if (!i.lt || !st.on || (L.typ !== 'just' && L.typ !== 'rgb')) return '';
+  const rgb = L.typ === 'rgb' && st.rgb;
+  return `<div class="tone">${L.typ === 'rgb' ? `<span class="opt"><button data-trgb="${i.id}|0" class="${!rgb ? 'on' : ''}">Vitt</button><button data-trgb="${i.id}|1" class="${rgb ? 'on' : ''}">Färg</button></span>` : ''}
+    ${rgb ? `<input type="range" class="hue" min="0" max="359" value="${st.hue ?? L.hue ?? 30}" data-thue="${i.id}" title="Färg">` : `<input type="range" class="kel" min="2200" max="6500" step="100" value="${st.k ?? L.k}" data-tk="${i.id}" title="Färgtemperatur (kelvin)">`}</div>`; };
 const cycle3 = v => v < .25 ? .5 : v < .75 ? 1 : 0;
 const q3 = (key, cur) => `<div class="opt" style="margin:4px 0 8px">${[[0, 'Ifrån'], [.5, 'Halvt'], [1, 'För']].map(([v, l]) => `<button data-q3="${key}|${v}" class="${Math.abs(v - cur) < .02 ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const curtainPos = it => it.state?.pos ?? (it.state?.on ? 1 : 0);

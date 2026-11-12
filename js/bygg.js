@@ -13,15 +13,36 @@ export const PARTS = {
   metod:   { name: 'METOD överskåp', icon: '▭', cat: 'IKEA', ikea: 1, def: { w: .6, h: .6, d: .37, front: 'dorr' } },
   panel:   { name: 'Ribbpanel', icon: '|||', cat: 'Väggen', def: { w: 1.2, h: 2.0, d: .022, stil: 'akustik' } },
   farg:    { name: 'Färgyta', icon: '🎨', cat: 'Väggen', def: { w: 1.2, h: 2.0, d: .002, color: '#3b3f3a' } },
-  gips:    { name: 'Gipsinbyggnad', icon: '▒', cat: 'Väggen', def: { w: 1.2, h: .6, d: .3 } },
+  gips:    { name: 'Gipsinbyggnad', icon: '▒', cat: 'Väggen', def: { w: 1.2, h: .6, d: .3, spots: 0, beam: 36, lt: { typ: 'varm', k: 2700, lm: 350 } } },
   skiva:   { name: 'Skiva / hylla', icon: '▬', cat: 'Inbyggt', def: { w: 1.2, h: .03, d: .25 } },
   passbit: { name: 'Passbit', icon: '▕', cat: 'Inbyggt', def: { w: .06, h: 1.92, d: .4 } },
-  kappa:   { name: 'Kappa till taket', icon: '▔', cat: 'Inbyggt', def: { w: 1.2, h: .3, d: .4 } },
+  kappa:   { name: 'Kappa till taket', icon: '▔', cat: 'Inbyggt', def: { w: 1.2, h: .3, d: .4, spots: 0, beam: 36, lt: { typ: 'varm', k: 2700, lm: 350 } } },
+  ram:     { name: 'Ram / nisch', icon: '🖼', cat: 'Inbyggt', def: { w: 2.0, h: 1.4, d: .1, t: .05, sides: { top: 1, bottom: 1, left: 1, right: 1 }, dir: 'in', lt: { typ: 'varm', k: 2700, lm: 600 } } },
   sockel:  { name: 'Sockel', icon: '▁', cat: 'Inbyggt', def: { w: 1.2, h: .1, d: .37 } },
-  led:     { name: 'LED-list', icon: '💡', cat: 'Ljus & media', def: { w: 1.2, h: .012, d: .015, z: .02 } },
+  led:     { name: 'LED-list', icon: '💡', cat: 'Ljus & media', def: { w: 1.2, h: .012, d: .015, z: .02, dir: 'ned', lt: { typ: 'varm', k: 2700, lm: 600 } } },
   tv:      { name: 'TV på väggen', icon: '📺', cat: 'Ljus & media', def: { inch: 65 } },
 };
 export const CATS = ['IKEA', 'Väggen', 'Inbyggt', 'Ljus & media'];
+// BESTÅ-fronter så som IKEA säljer dem (namn, färgnamn, färg, material i 3D). EGEN = snickrad/beställd front i valfri kulör.
+export const FRONT_SERIES = {
+  LAPPVIKEN: { stil: 'slat', farger: [['vit', '#f1f0ec', 'matt'], ['svartbrun', '#2e2a27', 'matt'], ['vitbets ekmönstrad', '#d9cdb7', 'ljusek'], ['ljus gråbeige', '#cfc6b8', 'matt'], ['brun valnötsmönstrad', '#6b4a33', 'valnot']] },
+  SELSVIKEN: { stil: 'slat', farger: [['högglans vit', '#fbfbf9', 'lack'], ['högglans svart', '#151515', 'lack'], ['högglans beige', '#e3d6c2', 'lack']] },
+  HANVIKEN:  { stil: 'ram', farger: [['vit', '#efeeea', 'matt'], ['svartbrun', '#2f2b28', 'matt'], ['vitbets ekmönstrad', '#d6cab4', 'ljusek']] },
+  VÄSTERVIKEN: { stil: 'grepp', farger: [['vit', '#efefec', 'matt']] },
+  EGEN:      { stil: 'slat', egen: 1, farger: [['vit', '#f2f2f0', 'matt'], ['benvit', '#e8e2d6', 'matt'], ['ljusgrå', '#c9c4ba', 'matt'], ['grågrön', '#8a8f87', 'matt'], ['mörkgrön', '#3e4a3f', 'matt'], ['blå', '#3b4656', 'matt'], ['antracit', '#4a4f4a', 'matt'], ['svart', '#2b2b2b', 'matt'], ['ek', '#b48a5c', 'ek'], ['valnöt', '#5c3d27', 'valnot']] },
+};
+export const GLASS_SERIES = { name: 'SINDVIK', farger: [['vit', '#eceae5', 'matt'], ['svartbrun', '#2e2a27', 'matt'], ['mörkgrå', '#4a4c4d', 'matt'], ['vitbets ekmönstrad', '#d6cab4', 'ljusek']] };
+export const HANDTAG = [['tryck', 'Tryck-öppna'], ['bygel', 'Bygelhandtag'], ['knopp', 'Knopp']];
+// frontens serie/färg för en del (glasdörrar är alltid SINDVIK, METOD har bara egna fronter här)
+export function frontOf(p) {
+  if (p.front === 'glas') { const f = GLASS_SERIES.farger[Math.min(p.fc || 0, GLASS_SERIES.farger.length - 1)]; return { serie: 'SINDVIK', namn: f[0], color: f[1], mat: f[2], stil: 'ram', glas: 1 }; }
+  const key = p.k === 'metod' ? 'EGEN' : (FRONT_SERIES[p.fs] ? p.fs : 'LAPPVIKEN'), S = FRONT_SERIES[key], f = S.farger[Math.min(p.fc || 0, S.farger.length - 1)];
+  return { serie: key, namn: f[0], color: f[1], mat: f[2], stil: S.stil, egen: !!S.egen }; }
+// LED i ramens innerkant: vart den lyser
+export const RAM_DIR = [['in', '↘ In mot mitten'], ['ut', '↖ Ut mot ramen'], ['vagg', '◫ Mot väggen'], ['fram', '⦿ Rakt fram']];
+export const LED_DIR = [['ned', '↓ Nedåt'], ['upp', '↑ Uppåt'], ['vagg', '◫ Mot väggen'], ['fram', '⦿ Rakt fram']];
+export const SPOT_BEAM = [[24, '24° smal'], [36, '36° normal'], [60, '60° bred']];
+export const lightParts = parts => parts.filter(p => p.k === 'led' || (p.k === 'ram' && Object.values(p.sides || {}).some(Boolean)) || ((p.k === 'kappa' || p.k === 'gips') && p.spots > 0));
 export const FRONTS = [['dorr', 'Dörrar'], ['lador', 'Lådor'], ['glas', 'Glasdörrar'], ['oppen', 'Öppen']];
 export const PANEL_STIL = [['akustik', 'Ribbor på filt'], ['ribbor', 'Ribbor'], ['slat', 'Slät skiva']];
 // tv-storlek → mått (16:9, ram 1 cm)
@@ -126,25 +147,37 @@ const cm = v => Math.round(v * 100);
 export function byggList(parts, o = {}) {
   const L = { IKEA: new Map(), Bygghandeln: new Map(), El: new Map(), Färg: new Map() }, add = (s, k, n = 1) => L[s].set(k, (L[s].get(k) || 0) + n);
   const own = o.fronter === 'egna';
-  let led = 0, nLed = 0, paint = 0, gipsM2 = 0, regel = 0;
+  let paint = 0, gipsM2 = 0, regel = 0; const leds = [];
   for (const p of parts) {
     if (p.k === 'besta') { add('IKEA', `BESTÅ stomme ${cm(p.w)}×${cm(p.d)}×${cm(p.h)}`); const cols = Math.max(1, Math.round(p.w / .6));
       if (p.y > .02) add('IKEA', 'BESTÅ upphängningsskena');
-      if (p.front !== 'oppen') { const rows = p.h > 1.5 ? 3 : p.h > 1 ? 2 : 1, fh = cm(p.h / rows), n = cols * rows * (p.front === 'lador' ? 2 : 1), dh = Math.round(fh / 2);
-        const nm = p.front === 'lador' ? `BESTÅ låda med lådfront 60×${dh}` : p.front === 'glas' ? `BESTÅ glasdörr 60×${fh}` : `BESTÅ dörr 60×${fh}`;
-        if (own && p.front !== 'glas') add('Bygghandeln', `Egen front 60×${p.front === 'lador' ? dh : fh} (snickras/beställs)`, n);
-        else add('IKEA', nm, n); } }
-    if (p.k === 'metod') { add('IKEA', `METOD överskåp ${cm(p.w)}×37×${cm(p.h)}`); add('IKEA', 'METOD upphängningsskena'); if (p.front !== 'oppen') add(own ? 'Bygghandeln' : 'IKEA', `${own ? 'Egen front' : 'METOD dörr'} ${cm(p.w)}×${cm(p.h)}`); }
+      if (p.front !== 'oppen') { const rows = p.h > 1.5 ? 3 : p.h > 1 ? 2 : 1, fh = cm(p.h / rows), n = cols * rows * (p.front === 'lador' ? 2 : 1), dh = Math.round(fh / 2), F = frontOf(p);
+        if (p.front === 'lador') add('IKEA', `BESTÅ lådstomme 60×40 (för lådfront)`, n);
+        const mt = `60×${p.front === 'lador' ? dh : fh}`;
+        if (F.egen || (own && !F.glas)) add('Bygghandeln', `Egen front ${mt}, ${F.namn} (snickras/beställs)`, n);
+        else add('IKEA', `${F.serie} ${p.front === 'glas' ? 'glasdörr' : p.front === 'lador' ? 'lådfront' : 'dörr'} ${mt}, ${F.namn}`, n);
+        if (p.hd === 'bygel') add('IKEA', 'Bygelhandtag', n); else if (p.hd === 'knopp') add('IKEA', 'Knopp', n); else if (p.front !== 'lador' && F.serie !== 'VÄSTERVIKEN') add('IKEA', 'Tryck-öppnare (för dörr)', n); } }
+    if (p.k === 'metod') { add('IKEA', `METOD överskåp ${cm(p.w)}×37×${cm(p.h)}`); add('IKEA', 'METOD upphängningsskena'); if (p.front !== 'oppen') add('Bygghandeln', `Egen front ${cm(p.w)}×${cm(p.h)}, ${frontOf(p).namn}`); }
+    if (p.k === 'ram') { const per = 2 * (p.w + p.h); add('Bygghandeln', `MDF 19 mm till ram ${cm(p.w)}×${cm(p.h)} cm, ${cm(p.t || .05)} cm bred, ${cm(p.d)} cm djup · ${per.toFixed(1)} löpmeter`);
+      const sd = p.sides || {}, lit = (sd.top ? p.w : 0) + (sd.bottom ? p.w : 0) + (sd.left ? p.h : 0) + (sd.right ? p.h : 0);
+      if (lit) { leds.push([lit, p.lt]); add('El', `Aluminiumprofil för infräst LED (opal kåpa) · 2 m`, Math.ceil(lit * 1.05 / 2)); add('Bygghandeln', 'Fräsning av spår 10 mm i ramens innerkant', 1); } }
+    if ((p.k === 'kappa' || p.k === 'gips') && p.spots > 0) { const L = { k: 2700, lm: 350, typ: 'varm', ...(p.lt || {}) };
+      add('El', `Infälld spotlight ⌀ 68 mm, ${L.lm} lm, ${p.beam || 36}°, ${L.typ === 'rgb' ? 'RGB+vit' : L.typ === 'just' ? 'justerbar vit' : L.k + ' K'} (smart/dimbar)`, p.spots); }
     if (p.k === 'panel') add('Bygghandeln', `${p.stil === 'akustik' ? 'Akustikpanel (ribbor på filt)' : p.stil === 'ribbor' ? 'Ribbpanel' : 'Skiva'} ${cm(p.w)}×${cm(p.h)} cm · ${(p.w * p.h).toFixed(1)} m²`);
     if (p.k === 'skiva') add('Bygghandeln', `Skiva/hylla ${cm(p.w)}×${cm(p.d)} cm, ${Math.round(p.h * 1000)} mm`);
     if (p.k === 'passbit' || p.k === 'kappa' || p.k === 'sockel') add('Bygghandeln', `${PARTS[p.k].name} ${cm(p.w)}×${cm(p.h)} cm (skiva 16–19 mm${p.k === 'kappa' ? ' + regel' : ''})`);
     if (p.k === 'gips') { const a = p.w * p.h + 2 * p.d * p.h + 2 * p.w * p.d; gipsM2 += a; regel += 2 * (p.w + p.h) * 2 + 4 * p.d * 2; }
-    if (p.k === 'led') { led += p.w; nLed++; }
+    if (p.k === 'led') { leds.push([p.w, p.lt]); }
     if (p.k === 'farg') paint += p.w * p.h;
     if (p.k === 'tv') add('El', `Väggfäste för tv ${p.inch}"`);
   }
   if (gipsM2) { add('Bygghandeln', 'Gipsskiva 12,5 mm · 900×2400', Math.ceil(gipsM2 * 1.15 / 2.16)); add('Bygghandeln', 'Regel 45×45 · 3,6 m', Math.ceil(regel * 1.1 / 3.6)); add('Bygghandeln', 'Gipsskruv 3,9×25 (paket)', 1); add('Bygghandeln', 'Spackel + skarvremsa', 1); }
-  if (led) { add('El', 'LED-list 24 V · rulle 5 m', Math.ceil(led / 5)); add('El', 'LED-drivare 24 V', nLed); add('El', 'Smart dimmer (Home Assistant)', 1); }
+  if (leds.length) { const by = new Map(); for (const [len, lt] of leds) { const L = { typ: 'varm', k: 2700, lm: 600, ...(lt || {}) };
+      const nm = L.typ === 'rgb' ? 'LED-list RGB+CCT 24 V' : L.typ === 'just' ? 'LED-list justerbar vit (CCT) 24 V' : `LED-list ${L.k} K 24 V`; by.set(nm, (by.get(nm) || 0) + len); }
+    for (const [nm, len] of by) add('El', `${nm} · rulle 5 m (${len.toFixed(1)} m)`, Math.ceil(len / 5));
+    const any = t => leds.some(([, lt]) => (lt?.typ || 'varm') === t);
+    add('El', 'LED-drivare 24 V', leds.length);
+    add('El', any('rgb') ? 'Smart LED-styrning RGB+CCT (Zigbee, Home Assistant)' : any('just') ? 'Smart LED-styrning CCT (Zigbee, Home Assistant)' : 'Smart dimmer (Home Assistant)', 1); }
   if (paint) { add('Färg', `Väggfärg ca ${Math.max(1, Math.ceil(paint * 2 / 8))} liter (${paint.toFixed(1)} m², 2 strykningar)`); add('Färg', 'Maskeringstejp + roller', 1); }
   return L;
 }
