@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Byggverkstan 2.0</title>
+<style>
+:root{--bg:#0d100d;--card:#151a15;--line:#262d26;--tx:#e9ede6;--mut:#8f9a8b;--or:#ff7a2f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{font-size:17px}
+.tabs{display:flex;gap:6px;margin-left:12px}
+.tabs button,.pill{background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:999px;padding:6px 14px;cursor:pointer;font:inherit}
+.tabs button.on,.pill.on{background:var(--or);border-color:var(--or);color:#111;font-weight:600}
+.sp{flex:1}
+main{flex:1;display:grid;grid-template-columns:76px 1fr 320px;gap:12px;padding:12px 16px;min-height:0}
+.rail{display:flex;flex-direction:column;gap:8px}
+.rail button{background:var(--card);border:1px solid var(--line);border-radius:14px;color:var(--tx);padding:9px 2px 7px;cursor:grab;font-size:10.5px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.rail button i{font-style:normal;font-size:22px}
+.stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.stage svg{width:100%;flex:1;display:block;min-height:0}
+.cap{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;padding:8px;color:var(--mut);font-size:13px;border-top:1px solid var(--line)}
+.cap b{color:var(--or)}
+.hit{cursor:pointer}
+.hit:hover .ol{stroke:#ffb27f;stroke-width:2}
+.sel .ol{stroke:var(--or)!important;stroke-width:2.5!important}
+/* bubbla vid det man klickat på */
+.bub{overflow:auto;min-height:0;background:#111511f2;backdrop-filter:blur(8px);border:1px solid #333c33;border-radius:16px;padding:12px 14px;box-shadow:0 12px 40px #0009;display:none}
+.bub.show{display:block}.bub.empty{display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut)}
+.bub h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:7px}
+.bub h3 span{margin-left:auto;font-size:11px;color:var(--mut);font-weight:400}
+.bub h5{margin:10px 0 5px;font-size:10.5px;letter-spacing:.08em;color:var(--mut)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips button{background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:5px 9px;font:12px system-ui;cursor:pointer}
+.chips button.on{border-color:var(--or);background:#2a1d14}
+.sw{display:flex;flex-wrap:wrap;gap:6px}
+.sw button{width:34px;height:34px;border-radius:9px;border:2px solid #0000;cursor:pointer;box-shadow:inset 0 0 0 1px #0004;position:relative}
+.sw button.on{border-color:var(--or)}
+.sw button[title]:hover::after{content:attr(title);position:absolute;bottom:40px;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:11px;padding:3px 7px;border-radius:6px;white-space:nowrap;z-index:3}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.row label{width:62px;color:var(--mut);font-size:12px}
+.row output{width:62px;text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
+input[type=range]{flex:1;accent-color:var(--or)}
+.kel{height:10px;border-radius:5px;background:linear-gradient(90deg,#ff9b3d,#ffc98a,#fff1dc,#f4f6ff,#cfdcff);margin:-2px 0 2px 70px;width:calc(100% - 140px)}
+.hue{height:10px;border-radius:5px;background:linear-gradient(90deg,red,#ff0,lime,cyan,blue,#f0f,red);margin:-2px 0 2px 70px;width:calc(100% - 140px)}
+.dir{display:grid;grid-template-columns:repeat(3,38px);gap:4px;justify-content:start}
+.dir button{height:34px;background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:8px;cursor:pointer;font-size:15px}
+.dir button.on{border-color:var(--or);background:#2a1d14}
+.note{font-size:11.5px;color:var(--mut);margin-top:8px}
+.foot{display:flex;gap:8px;margin-top:10px}
+.foot button{flex:1;background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:6px;cursor:pointer;font:12px system-ui}
+.tip{position:absolute;left:14px;top:12px;background:#0009;border:1px solid #333c33;border-radius:999px;padding:5px 12px;font-size:12.5px;color:#cfd6cb}
+.mock{position:fixed;right:12px;bottom:12px;background:#2a1d14;border:1px solid var(--or);color:#ffd2b5;border-radius:10px;padding:6px 10px;font-size:12px}
+@media (max-width:900px){body{height:auto;overflow:auto}main{grid-template-columns:1fr}.stage svg{height:60vh}.rail{flex-direction:row;overflow-x:auto}.rail button{min-width:64px}.tabs{margin-left:0}}
+</style>
+</head>
+<body>
+<header>
+  <b>🛠 Byggverkstan</b>
+  <div class="tabs"><button class="on">Förslag A</button><button>Förslag B</button><button>＋</button></div>
+  <span class="sp"></span>
+  <button class="pill" id="dayBtn">☀️ Dag</button><button class="pill on" id="nightBtn">🌙 Kväll</button>
+  <button class="pill">3D</button>
+</header>
+<main>
+  <div class="rail">
+    <button><i>🗄</i>Skåp</button>
+    <button><i>🖼</i>Ram / nisch</button>
+    <button><i>⬛</i>Kappa</button>
+    <button><i>║</i>Ribbor</button>
+    <button><i>🔆</i>Spot</button>
+    <button><i>💡</i>LED</button>
+    <button><i>📺</i>TV</button>
+  </div>
+  <div class="stage" id="stage">
+    <svg id="svg" viewBox="0 0 760 590" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="cap" id="cap"></div>
+    <div class="tip" id="tip">👆 Klicka på något i bilden</div>
+    </div>
+  <div class="bub show empty" id="bub">👆 Klicka på ett skåp, ramen, kappan eller tv:n i bilden</div>
+</main>
+<div class="mock">Skiss – testa att klicka</div>
+<script>
+// ---- modell (cm). Väggen 320 × 250 cm ----
+const S=2.1,OX=44,FL=560,X=v=>OX+v*S,Y=v=>FL-v*S;
+const FRONTS={
+  'LAPPVIKEN':[['vit','#f1f0ec'],['svartbrun','#2e2a27'],['vitbets ekmönstrad','#d9cdb7'],['ljus gråbeige','#cfc6b8'],['brun valnötsmönstrad','#6b4a33']],
+  'SELSVIKEN':[['högglans vit','#fbfbf9'],['högglans svart','#141414'],['högglans beige','#e3d6c2']],
+  'HANVIKEN':[['vit','#efeeea'],['svartbrun','#2f2b28'],['vitbets ekmönstrad','#d6cab4']],
+  'VÄSTERVIKEN':[['vit','#efefec']],
+  'SINDVIK glas':[['vit','#eceae5'],['svartbrun','#2e2a27'],['mörkgrå','#4a4c4d']],
+};
+const M={
+  front:{left:['LAPPVIKEN',1],right:['LAPPVIKEN',1],bench:['LAPPVIKEN',1]},
+  handle:'push',
+  frame:{sides:{top:1,left:1,right:1,bottom:1},dir:'in',mode:'vit',k:2700,lm:600,hue:30,on:1,depth:2},
+  spots:{n:3,k:3000,lm:350,beam:36,on:1,mode:'vit',hue:200},
+  bench:{k:2700,lm:300,on:1,mode:'vit',hue:280},
+  panel:'ek', night:true, sel:null
+};
+const PANEL={ek:['#b48a5c','Ek'],valnot:['#5c3d27','Valnöt'],svart:['#1d1d1d','Svart'],vit:['#e9e6df','Vit']};
+// kelvin → rgb (Tanner Helland-approximation)
+function kRGB(k){k/=100;let r,g,b;if(k<=66){r=255;g=99.47*Math.log(k)-161.12;b=k<=19?0:138.52*Math.log(k-10)-305.04}else{r=329.7*Math.pow(k-60,-.1332);g=288.12*Math.pow(k-60,-.0755);b=255}
+  const c=v=>Math.max(0,Math.min(255,v|0));return `rgb(${c(r)},${c(g)},${c(b)})`}
+const hsl=h=>`hsl(${h},100%,60%)`;
+const lc=L=>L.mode==='rgb'?hsl(L.hue):kRGB(L.k);
+const fcol=k=>{const [f,i]=M.front[k];return FRONTS[f][Math.min(i,FRONTS[f].length-1)][1]};
+const svg=document.getElementById('svg'),bub=document.getElementById('bub'),stage=document.getElementById('stage');
+
+function cab(key,x,y,w,h,rows,cols){ // BESTÅ-skåp med fronter
+  const f=M.front[key][0],c=fcol(key),glass=f.startsWith('SINDVIK');let s=`<g class="hit ${M.sel===key?'sel':''}" data-k="${key}">`;
+  s+=`<rect x="${X(x)}" y="${Y(y+h)}" width="${w*S}" height="${h*S}" fill="#e8e6e1"/>`;
+  const fw=w/cols,fh=h/rows;
+  for(let r=0;r<rows;r++)for(let q=0;q<cols;q++){const fx=X(x+q*fw)+1.2,fy=Y(y+h-r*fh)+1.2,ww=fw*S-2.4,hh=fh*S-2.4;
+    s+=`<rect x="${fx}" y="${fy}" width="${ww}" height="${hh}" rx="1" fill="${glass?'#3b3a38':c}"/>`+(f==='SELSVIKEN'?`<rect x="${fx}" y="${fy}" width="${ww}" height="${hh}" fill="url(#glossg)"/>`:'');
+    if(glass)s+=`<rect x="${fx+5}" y="${fy+5}" width="${ww-10}" height="${hh-10}" fill="#6d7a80" opacity=".55"/><rect x="${fx}" y="${fy}" width="${ww}" height="${hh}" fill="none" stroke="${c}" stroke-width="5"/>`;
+    if(f==='VÄSTERVIKEN')s+=`<rect x="${fx+ww/2-12}" y="${fy+4}" width="24" height="3" rx="1.5" fill="#0003"/>`;
+    if(M.handle==='bar')s+=`<rect x="${fx+ww/2-14}" y="${fy+8}" width="28" height="3" rx="1.5" fill="#9a9a9a"/>`;
+    if(M.handle==='knob')s+=`<circle cx="${fx+ww/2}" cy="${fy+12}" r="3" fill="#8b7355"/>`;
+    s+=`<rect x="${fx}" y="${fy}" width="${ww}" height="${hh}" fill="url(#shade)"/>`;}
+  s+=`<rect class="ol" x="${X(x)}" y="${Y(y+h)}" width="${w*S}" height="${h*S}" fill="none" stroke="#0000" stroke-width="2"/></g>`;
+  return s;
+}
+function glowLine(x1,y1,x2,y2,col,lm,dir,id){ // fräst LED-list + ljuskägla i riktningen den pekar
+  const a=Math.min(1,lm/900),len=34+lm/18;let g='';
+  const vert=x1===x2;let dx=0,dy=0;
+  if(dir==='in'){ if(vert)dx=(x1<X(160)?1:-1);else dy=(y1>Y(125)?-1:1);}
+  if(dir==='ut'){ if(vert)dx=(x1<X(160)?-1:1);else dy=(y1>Y(125)?1:-1);}
+  if(dir==='vagg'){ g+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="16" opacity="${.35*a}" filter="url(#blur8)"/>`; }
+  else if(dir==='fram'){ g+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="10" opacity="${.6*a}" filter="url(#blur4)"/>`; }
+  else { const px=vert?Math.min(x1,x1+dx*len):Math.min(x1,x2),py=vert?Math.min(y1,y2):Math.min(y1,y1+dy*len),w=vert?len:Math.abs(x2-x1),h=vert?Math.abs(y2-y1):len;
+    const gid='g'+id;g+=`<defs><linearGradient id="${gid}" x1="${dx<0?1:0}" y1="${dy<0?1:0}" x2="${dx>0?1:0}" y2="${dy>0?1:0}"><stop offset="0" stop-color="${col}" stop-opacity="${.75*a}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>`;
+    g+=`<rect x="${px}" y="${py}" width="${w}" height="${h}" fill="url(#${gid})" style="mix-blend-mode:screen"/>`;}
+  g+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>`;
+  return g;
+}
+function draw(){
+  const N=M.night,fr=M.frame,sp=M.spots,b=M.bench;let s=`<defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#000" stop-opacity=".09"/></linearGradient>
+    <linearGradient id="wallg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a423a"/><stop offset="1" stop-color="#2c332c"/></linearGradient>
+    <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter><filter id="blur8"><feGaussianBlur stdDeviation="8"/></filter><filter id="blur14"><feGaussianBlur stdDeviation="14"/></filter>
+    <linearGradient id="glossg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".35" stop-color="#fff" stop-opacity=".06"/><stop offset=".36" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".08"/></linearGradient><filter id="gloss"><feSpecularLighting surfaceScale="2" specularConstant=".5" specularExponent="18" lighting-color="#fff" result="s"><feDistantLight azimuth="235" elevation="55"/></feSpecularLighting><feComposite in="SourceGraphic" in2="s" operator="arithmetic" k2="1" k3=".35"/></filter>
+    <pattern id="slat" width="${3.2}" height="10" patternUnits="userSpaceOnUse"><rect width="3.2" height="10" fill="${PANEL[M.panel][0]}"/><rect x="2.2" width="1" height="10" fill="#0007"/></pattern>
+  </defs>`;
+  // vägg, golv, tak
+  s+=`<rect x="0" y="0" width="760" height="590" fill="#0f130f"/><rect x="${X(0)}" y="${Y(250)}" width="${320*S}" height="${250*S}" fill="url(#wallg)"/>`;
+  s+=`<rect x="${X(0)}" y="${FL}" width="${320*S}" height="14" fill="#6b5137"/><rect x="${X(0)}" y="${FL}" width="${320*S}" height="2" fill="#0005"/>`;
+  // kappa (sänkt tak) över hela väggen med spotlights
+  s+=`<g class="hit ${M.sel==='spots'?'sel':''}" data-k="spots"><rect x="${X(0)}" y="${Y(250)}" width="${320*S}" height="${32*S}" fill="#f2f1ee"/><rect x="${X(0)}" y="${Y(218)-3}" width="${320*S}" height="3" fill="#0002"/>`;
+  const sx=[];for(let i=0;i<sp.n;i++)sx.push(60+200*(i+.5)/sp.n);
+  sx.forEach(x=>s+=`<ellipse cx="${X(x)}" cy="${Y(218)}" rx="7" ry="2.4" fill="${N&&sp.on?'#fff':'#bdbab3'}" stroke="#999" stroke-width=".6"/>`);
+  s+=`<rect class="ol" x="${X(0)}" y="${Y(250)}" width="${320*S}" height="${32*S}" fill="none" stroke="#0000"/></g>`;
+  // nisch med ribbpanel och innerram
+  s+=`<g class="hit ${M.sel==='frame'?'sel':''}" data-k="frame"><rect x="${X(60)}" y="${Y(218)}" width="${200*S}" height="${158*S}" fill="url(#slat)"/>`;
+  const t=5;s+=`<path d="M${X(60)} ${Y(218)}h${200*S}v${158*S}h${-200*S}z M${X(60+t)} ${Y(218-t)}v${(158-2*t)*S}h${(200-2*t)*S}v${-(158-2*t)*S}z" fill-rule="evenodd" fill="#f2f1ee"/>`;
+  s+=`<rect x="${X(60+t)}" y="${Y(218-t)}" width="${(200-2*t)*S}" height="${(158-2*t)*S}" fill="none" stroke="#0004" stroke-width="2"/>`;
+  s+=`<rect class="ol" x="${X(60)}" y="${Y(218)}" width="${200*S}" height="${158*S}" fill="none" stroke="#0000"/></g>`;
+  // TV 65"
+  s+=`<g class="hit ${M.sel==='tv'?'sel':''}" data-k="tv"><rect x="${X(160-72)}" y="${Y(186)}" width="${144*S}" height="${83*S}" rx="2" fill="#0a0b0d" stroke="#333"/>
+     <rect x="${X(160-70)}" y="${Y(184)}" width="${140*S}" height="${79*S}" fill="${N?'url(#tvimg)':'#14161a'}"/>
+     <defs><linearGradient id="tvimg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b3a6b"/><stop offset=".5" stop-color="#e0754a"/><stop offset="1" stop-color="#2a1640"/></linearGradient></defs>
+     <rect class="ol" x="${X(160-72)}" y="${Y(186)}" width="${144*S}" height="${83*S}" fill="none" stroke="#0000"/></g>`;
+  // skåp: torn + vägghängd bänk
+  s+=cab('left',0,0,60,192,3,1)+cab('right',260,0,60,192,3,1)+cab('bench',70,22,180,38,2,3);
+  // KVÄLL: mörka ner och lägg ljus ovanpå
+  if(N){ s+=`<rect x="0" y="0" width="760" height="590" fill="#05070a" opacity=".74" pointer-events="none"/>`;
+    s+=`<g pointer-events="none" style="mix-blend-mode:screen">`;
+    if(M.night) s+=`<rect x="${X(90)}" y="${Y(184)}" width="${140*S}" height="${79*S}" fill="url(#tvimg)" opacity=".9"/><rect x="${X(80)}" y="${Y(195)}" width="${160*S}" height="${100*S}" fill="#e0754a" opacity=".12" filter="url(#blur14)"/>`;
+    if(sp.on){const col=lc(sp),a=Math.min(1,sp.lm/600),spread=Math.tan(sp.beam/2*Math.PI/180)*200;
+      sx.forEach((x,i)=>s+=`<defs><radialGradient id="sg${i}" cx=".5" cy="0" r="1"><stop offset="0" stop-color="${col}" stop-opacity="${.9*a}"/><stop offset=".55" stop-color="${col}" stop-opacity="${.22*a}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient></defs>
+        <path d="M${X(x)-5} ${Y(218)} L${X(x)+5} ${Y(218)} L${X(x)+spread*S*.5} ${Y(0)} L${X(x)-spread*S*.5} ${Y(0)}Z" fill="url(#sg${i})" filter="url(#blur8)"/>`);}
+    if(fr.on){const col=lc(fr),i=60+5+1,o=260-5-1,top=218-5-1,bot=60+5+1;let k=0;
+      if(fr.sides.top)s+=glowLine(X(i),Y(top),X(o),Y(top),col,fr.lm,fr.dir,k++);
+      if(fr.sides.bottom)s+=glowLine(X(i),Y(bot),X(o),Y(bot),col,fr.lm,fr.dir,k++);
+      if(fr.sides.left)s+=glowLine(X(i),Y(top),X(i),Y(bot),col,fr.lm,fr.dir,k++);
+      if(fr.sides.right)s+=glowLine(X(o),Y(top),X(o),Y(bot),col,fr.lm,fr.dir,k++);}
+    if(b.on){const col=lc(b),a=Math.min(1,b.lm/500);s+=`<defs><linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="${.8*a}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+      <rect x="${X(72)}" y="${Y(22)}" width="${176*S}" height="${22*S}" fill="url(#bg1)"/><line x1="${X(72)}" y1="${Y(22)+1}" x2="${X(248)}" y2="${Y(22)+1}" stroke="${col}" stroke-width="2"/>`;}
+    s+=`</g>`;
+    // klickytor ovanpå mörkret
+    s+=`<g opacity="0">${['spots','frame','tv','left','right','bench'].map(k=>{const r={spots:[0,218,320,32],frame:[60,60,200,158],tv:[88,103,144,83],left:[0,0,60,192],right:[260,0,60,192],bench:[70,22,180,38]}[k];return `<rect class="hit" data-k="${k}" x="${X(r[0])}" y="${Y(r[1]+r[3])}" width="${r[2]*S}" height="${r[3]*S}"/>`}).join('')}</g>`;
+    if(M.sel){const r={spots:[0,218,320,32],frame:[60,60,200,158],tv:[88,103,144,83],left:[0,0,60,192],right:[260,0,60,192],bench:[70,22,180,38]}[M.sel];
+      s+=`<rect x="${X(r[0])}" y="${Y(r[1]+r[3])}" width="${r[2]*S}" height="${r[3]*S}" fill="none" stroke="#ff7a2f" stroke-width="2.5" pointer-events="none"/>`;}
+  }
+  svg.innerHTML=s;cap();
+}
+const NAMES={left:'Vänster torn',right:'Höger torn',bench:'Vägghängd bänk',frame:'Nisch med innerram',spots:'Kappa med spotlights',tv:'TV 65"'};
+function cap(){const c=document.getElementById('cap');const k=M.sel;
+  const info={left:'↔ 60 · ↕ 192 cm · BESTÅ 60×40×192',right:'↔ 60 · ↕ 192 cm · BESTÅ 60×40×192',bench:'↔ 180 · ↕ 38 cm · 22 cm upp',frame:'↔ 200 · ↕ 158 cm · ram 5 cm',spots:`${M.spots.n} spotlights · kappa 32 cm`,tv:'↔ 144 · ↕ 83 cm · 103 cm upp'}[k];
+  c.innerHTML=(k?`<b>${NAMES[k]} · ${info}</b>`:'')+`<span>320 cm vägg · 250 cm till taket</span>`}
+function lightUI(L,key,extra=''){
+  return `<h5>LJUS</h5><div class="chips">${[['vit','Varmvit'],['kall','Kallvit'],['just','Justerbar vit'],['rgb','RGB']].map(([m,n])=>`<button data-lmode="${m}" data-l="${key}" class="${m===(L.mode==='rgb'?'rgb':L.k<3300?'vit':L.k>=4500?'kall':'just')?'on':''}">${n}</button>`).join('')}</div>
+   ${L.mode==='rgb'?`<div class="row"><label>Färg</label><input type="range" min="0" max="360" value="${L.hue}" data-lr="hue" data-l="${key}"><output>${L.hue}°</output></div><div class="hue"></div>`
+   :`<div class="row"><label>Kelvin</label><input type="range" min="2200" max="6500" step="100" value="${L.k}" data-lr="k" data-l="${key}"><output>${L.k} K</output></div><div class="kel"></div>`}
+   <div class="row"><label>Ljusstyrka</label><input type="range" min="50" max="1500" step="10" value="${L.lm}" data-lr="lm" data-l="${key}"><output>${L.lm} lm${extra}</output></div>
+   <div class="chips" style="margin-top:6px"><button data-ltog="${key}" class="${L.on?'on':''}">${L.on?'💡 Tänd':'⚫ Släckt'}</button><button>🔗 Styrs i Home Assistant</button></div>`;
+}
+function bubble(){const k=M.sel;if(!k){bub.className='bub show empty';bub.innerHTML='👆 Klicka på ett skåp, ramen, kappan eller tv:n i bilden';return}bub.className='bub show';
+  let h=`<h3>${{left:'🗄',right:'🗄',bench:'🗄',frame:'🖼',spots:'🔆',tv:'📺'}[k]} ${NAMES[k]}<span>✕</span></h3>`;
+  if(['left','right','bench'].includes(k)){const [f,i]=M.front[k];
+    h+=`<h5>FRONT</h5><div class="chips">${Object.keys(FRONTS).map(n=>`<button data-front="${n}" class="${n===f?'on':''}">${n}</button>`).join('')}</div>
+      <h5>FÄRG – SÅ SOM ${f.split(' ')[0]} SÄLJS</h5><div class="sw">${FRONTS[f].map(([n,c],j)=>`<button data-fc="${j}" class="${j===i?'on':''}" style="background:${c}" title="${n}"></button>`).join('')}</div>
+      <h5>HANDTAG</h5><div class="chips">${[['push','Tryck-öppna'],['bar','Bygelhandtag'],['knob','Knopp']].map(([v,n])=>`<button data-handle="${v}" class="${M.handle===v?'on':''}">${n}</button>`).join('')}</div>
+      <div class="chips" style="margin-top:8px"><button>Samma på alla skåp</button></div>`;
+    if(k==='bench')h+=`<h5>LJUS UNDER BÄNKEN</h5>`+lightUI(M.bench,'bench',' /m');}
+  if(k==='frame'){const F=M.frame;
+    h+=`<h5>FRÄST LED I INNERRAMEN</h5><div class="chips">${[['top','Överkant'],['left','Vänster'],['right','Höger'],['bottom','Nederkant']].map(([v,n])=>`<button data-side="${v}" class="${F.sides[v]?'on':''}">${n}</button>`).join('')}<button data-allsides>Runt om</button></div>
+      <h5>VART LYSER LISTEN?</h5><div class="chips">${[['in','↘ In mot TV:n'],['ut','↖ Ut mot ramen'],['vagg','◫ Mot väggen'],['fram','⦿ Rakt fram']].map(([v,n])=>`<button data-dir="${v}" class="${F.dir===v?'on':''}">${n}</button>`).join('')}</div>
+      <div class="note">Spår 10 mm, frästs ${F.depth} cm in i ramen · aluminiumprofil med opal kåpa</div>`+lightUI(F,'frame',' /m')+
+      `<h5>RIBBOR</h5><div class="sw">${Object.entries(PANEL).map(([v,[c,n]])=>`<button data-panel="${v}" class="${M.panel===v?'on':''}" style="background:${c}" title="${n}"></button>`).join('')}</div>`;}
+  if(k==='spots'){const P=M.spots;
+    h+=`<h5>ANTAL SPOTLIGHTS</h5><div class="chips">${[1,2,3,4,5,6].map(n=>`<button data-n="${n}" class="${P.n===n?'on':''}">${n}</button>`).join('')}</div>
+      <h5>SPRIDNING</h5><div class="chips">${[[24,'24° smal'],[36,'36°'],[60,'60° bred']].map(([v,n])=>`<button data-beam="${v}" class="${P.beam===v?'on':''}">${n}</button>`).join('')}</div>`+lightUI(P,'spots',' st')+
+      `<div class="note">Inbyggnadsdjup ca 6 cm – kappan är 32 cm, det räcker gott</div>`;}
+  if(k==='tv')h+=`<h5>STORLEK</h5><div class="chips">${['50"','55"','65"','75"','85"'].map(n=>`<button class="${n==='65"'?'on':''}">${n}</button>`).join('')}</div><div class="note">Dra tv:n i bilden för att flytta – den snäpper mot nischens mitt</div>`;
+  h+=`<div class="foot"><button>⧉ Kopiera</button><button>↔ Spegla</button><button>🗑 Ta bort</button></div>`;
+  bub.innerHTML=h;bub.classList.add('show');
+}
+svg.addEventListener('click',e=>{const t=e.target.closest('[data-k]');M.sel=t?t.dataset.k:null;document.getElementById('tip').style.display='none';draw();bubble()});
+bub.addEventListener('click',e=>{const b=e.target.closest('button,span');if(!b)return;const d=b.dataset,k=M.sel;
+  if(b.tagName==='SPAN'){M.sel=null}
+  if(d.front){M.front[k]=[d.front,0]} if(d.fc){M.front[k][1]=+d.fc} if(d.handle)M.handle=d.handle;
+  if(b.textContent==='Samma på alla skåp')for(const q of ['left','right','bench'])M.front[q]=[...M.front[k]];
+  if(d.side)M.frame.sides[d.side]^=1; if('allsides' in d)M.frame.sides={top:1,left:1,right:1,bottom:1};
+  if(d.dir)M.frame.dir=d.dir; if(d.panel)M.panel=d.panel; if(d.n)M.spots.n=+d.n; if(d.beam)M.spots.beam=+d.beam;
+  if(d.lmode){const L=M[d.l==='frame'?'frame':d.l];if(d.lmode==='rgb')L.mode='rgb';else{L.mode='vit';L.k=d.lmode==='kall'?5000:d.lmode==='vit'?2700:4000}}
+  if(d.ltog){const L=M[d.ltog];L.on^=1}
+  draw();bubble()});
+bub.addEventListener('input',e=>{const d=e.target.dataset;if(!d.lr)return;const L=M[d.l];L[d.lr]=+e.target.value;e.target.nextElementSibling.textContent=d.lr==='k'?L.k+' K':d.lr==='hue'?L.hue+'°':L.lm+' lm';draw();
+  const el=svg.querySelector(`[data-k="${M.sel}"]`);});
+document.getElementById('dayBtn').onclick=()=>{M.night=false;dayBtn.classList.add('on');nightBtn.classList.remove('on');draw();bubble()};
+document.getElementById('nightBtn').onclick=()=>{M.night=true;nightBtn.classList.add('on');dayBtn.classList.remove('on');draw();bubble()};
+draw();
+</script>
+</body>
+</html>
