@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bygg vad som helst</title>
+<style>
+:root{--bg:#0d100d;--card:#151a15ee;--line:#2b332b;--tx:#e9ede6;--mut:#8f9a8b;--or:#ff7a2f}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}
+#c{position:fixed;inset:0;touch-action:none}
+.top{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:none;flex-wrap:wrap}
+.top>*{pointer-events:auto}
+.pill{background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:999px;padding:7px 14px;font:inherit;cursor:pointer;backdrop-filter:blur(8px)}
+.pill.on{background:var(--or);border-color:var(--or);color:#111;font-weight:600}
+.sp{flex:1}
+.title{font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+.tools{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:7px;backdrop-filter:blur(10px);max-width:calc(100% - 24px);overflow-x:auto}
+.tools button{background:none;border:1px solid transparent;color:var(--tx);border-radius:14px;padding:7px 10px 6px;min-width:74px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font:11.5px system-ui}
+.tools button i{font-style:normal;font-size:24px;line-height:1}
+.tools button.on{background:#2a1d14;border-color:var(--or)}
+.tools .sep{width:1px;background:var(--line);margin:4px 2px}
+.hint{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);background:#000b;border:1px solid #333c33;border-radius:999px;padding:7px 16px;font-size:13.5px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.panel{position:fixed;right:12px;top:64px;width:320px;max-width:calc(100% - 24px);max-height:calc(100% - 190px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;backdrop-filter:blur(10px);display:none}
+.panel.show{display:block}
+.panel h3{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}.panel h3 button{margin-left:auto;background:none;border:none;color:var(--mut);cursor:pointer;font-size:16px}
+.panel h5{margin:12px 0 6px;font-size:10.5px;letter-spacing:.08em;color:var(--mut)}
+.types{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.types button{background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:8px 2px;cursor:pointer;font:11.5px system-ui;display:flex;flex-direction:column;align-items:center;gap:3px}
+.types button i{font-style:normal;font-size:22px}.types button.on{border-color:var(--or);background:#2a1d14}
+.ch{display:flex;flex-wrap:wrap;gap:5px}.ch button{background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:5px 9px;font:12px system-ui;cursor:pointer}.ch button.on{border-color:var(--or);background:#2a1d14}
+.rw{display:flex;align-items:center;gap:8px;margin:5px 0}.rw label{width:62px;color:var(--mut);font-size:12px}.rw output{width:64px;text-align:right;font-size:12.5px}
+input[type=range]{flex:1;accent-color:var(--or);min-width:0}
+.kel{height:8px;border-radius:4px;background:linear-gradient(90deg,#ff9b3d,#ffc98a,#fff1dc,#f4f6ff,#cfdcff);margin:-3px 72px 2px 70px}
+.note{color:var(--mut);font-size:12px;margin-top:6px}
+.acts{display:flex;gap:6px;margin-top:12px}.acts button{flex:1;background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:7px;cursor:pointer;font:12px system-ui}
+.list div{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #ffffff10;font-size:12.5px}.list b{white-space:nowrap}
+.list h4{margin:10px 0 2px;font-size:13px}
+.mock{position:fixed;left:12px;bottom:14px;background:#2a1d14;border:1px solid var(--or);color:#ffd2b5;border-radius:10px;padding:6px 10px;font-size:12px}
+@media (max-width:760px){.mock{display:none}.hint{bottom:96px;font-size:12px}.tools button{min-width:60px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top"><span class="title">🛠 Bygg · Hus & tomt</span><span class="sp"></span>
+  <button class="pill" data-go="inne">🛋 Inne</button><button class="pill" data-go="ute">🌳 Ute</button><button class="pill" data-go="allt">🏡 Allt</button>
+  <button class="pill on" id="day">☀️ Dag</button><button class="pill" id="night">🌙 Kväll</button></div>
+<div class="tools" id="tools">
+  <button data-t="valj" class="on"><i>👆</i>Välj & dra</button>
+  <span class="sep"></span>
+  <button data-t="rekt"><i>⬛</i>Rita ruta</button>
+  <button data-t="fri"><i>✏️</i>Rita fritt</button>
+  <span class="sep"></span>
+  <button data-t="ljus"><i>💡</i>Ljus</button>
+  <button data-t="prod"><i>📦</i>Produkt</button>
+  <span class="sep"></span>
+  <button data-t="lista"><i>🧾</i>Inköpslista</button>
+</div>
+<div class="hint" id="hint"></div>
+<div class="panel" id="panel"></div>
+<div class="mock">Skiss – samma verktyg för allt</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- värld: ett hus (vardagsrum utan framvägg) + tomt ----------
+const HW = 6, HD = 4.5, CH = 2.5;            // rummet: x 0..6, z 0..4.5
+const cv = document.getElementById('c'), R = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+R.setPixelRatio(Math.min(2, devicePixelRatio)); R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(46, 1, .05, 120);
+const envTex = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), .04).texture;
+const ctl = new OrbitControls(cam, cv); ctl.enableDamping = true; ctl.maxPolarAngle = Math.PI * .49;
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .85, ...o });
+const box = (w, h, d, m, x, y, z, par = scene) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; par.add(b); return b; };
+const tex = (draw, rep) => { const c = document.createElement('canvas'); c.width = c.height = 256; draw(c.getContext('2d')); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.colorSpace = THREE.SRGBColorSpace; return t; };
+const grassT = tex(g => { g.fillStyle = '#5f7f3e'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 2500; i++) { g.fillStyle = `hsl(${85 + Math.random() * 20},40%,${25 + Math.random() * 20}%)`; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 3); } }, 14);
+const woodT = tex(g => { g.fillStyle = '#c9a77c'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 4; i++) for (let j = -1; j < 3; j++) { g.fillStyle = `hsl(32,${30 + Math.random() * 8}%,${56 + Math.random() * 10}%)`; g.fillRect(i * 64, j * 100 + (i % 2) * 40, 64, 100); g.strokeStyle = '#0002'; g.strokeRect(i * 64, j * 100 + (i % 2) * 40, 64, 100); } }, 3);
+const trallT = tex(g => { g.fillStyle = '#8a6a48'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 8; i++) { g.fillStyle = `hsl(28,${28 + Math.random() * 10}%,${36 + Math.random() * 8}%)`; g.fillRect(0, i * 32 + 2, 256, 28); } }, 1);
+const plattT = tex(g => { g.fillStyle = '#7d7a74'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { g.fillStyle = `hsl(40,4%,${52 + Math.random() * 8}%)`; g.fillRect(i * 64 + 2, j * 64 + 2, 60, 60); } }, 1);
+const stenT = tex(g => { g.fillStyle = '#6d655c'; g.fillRect(0, 0, 256, 256); for (let j = 0; j < 8; j++) for (let i = -1; i < 5; i++) { g.fillStyle = `hsl(30,${8 + Math.random() * 8}%,${38 + Math.random() * 14}%)`; g.fillRect(i * 64 + (j % 2) * 32 + 2, j * 32 + 2, 60, 28); } }, 1);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), mat(0xffffff, { map: grassT })); ground.rotation.x = -Math.PI / 2; ground.position.set(3, -.02, 8); ground.receiveShadow = true; scene.add(ground);
+const floor = box(HW, .04, HD, mat(0xffffff, { map: woodT, roughness: .7 }), HW / 2, -.02, HD / 2);
+const wallM = mat(0xe9e6df, { roughness: .95 }), extM = mat(0xb9b2a6, { roughness: 1 });
+box(HW + .3, CH, .15, wallM, HW / 2, CH / 2, -.075); box(.15, CH, HD, wallM, -.075, CH / 2, HD / 2); box(.15, CH, HD, wallM, HW + .075, CH / 2, HD / 2);
+// framväggen (mot tomten) med en stor öppning/skjutdörr så man ser in – kapad halvhög för överblick
+box(1.6, 1.0, .15, extM, .8, .5, HD + .075); box(1.6, 1.0, .15, extM, HW - .8, .5, HD + .075);
+const glas = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.0, .02), mat(0xbfd8e0, { transparent: true, opacity: .25, roughness: .05 })); glas.position.set(HW / 2, .5, HD + .075); scene.add(glas);
+// tv-vägg och soffa så man känner igen sig
+box(1.46, .84, .04, mat(0x0b0b0b), 3, 1.4, .04); box(1.8, .38, .4, mat(0xf1f0ec, { roughness: .5 }), 3, .44, .2);
+box(2.3, .42, .9, mat(0x6f7468), 3, .21, 3.2); box(2.3, .4, .2, mat(0x6f7468), 3, .62, 3.55);
+const ceilEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(HW, .001, HD)), new THREE.LineBasicMaterial({ color: 0x8fa08b, transparent: true, opacity: .4 })); ceilEdge.position.set(HW / 2, CH, HD / 2); scene.add(ceilEdge);
+// ljus
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x4a3a28, .55); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dd, 2.4); sun.position.set(10, 12, 14); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14 }); sun.target.position.set(3, 0, 6); scene.add(sun, sun.target);
+let night = false;
+const kRGB = k => { k /= 100; let r, g, b; if (k <= 66) { r = 255; g = 99.47 * Math.log(k) - 161.12; b = k <= 19 ? 0 : 138.52 * Math.log(k - 10) - 305.04; } else { r = 329.7 * Math.pow(k - 60, -.1332); g = 288.12 * Math.pow(k - 60, -.0755); b = 255; } const c = v => Math.max(0, Math.min(255, v)) / 255; return new THREE.Color(c(r), c(g), c(b)); };
+function setNight(n) { night = n; scene.environment = n ? null : envTex; hemi.intensity = n ? .09 : .55; sun.intensity = n ? .12 : 2.4; sun.color.set(n ? 0x8fa6ff : 0xfff1dd); scene.background = new THREE.Color(n ? 0x05070b : 0x9fb9cf);
+  scene.fog = new THREE.Fog(scene.background, 30, 70); for (const o of things) o.refresh?.(); dayB.classList.toggle('on', !n); nightB.classList.toggle('on', n); }
+
+// ---------- vad en ritad form kan bli. Höjd + = upp, - = ner. Allt annat (material, konstruktion, lista) följer av typen ----------
+const TYPES = {
+  altan:  { name: 'Altan', icon: '🪵', where: 'mark', h: .35, mat: () => mat(0xffffff, { map: trallT, roughness: .8 }), side: () => mat(0x6a4f36), hs: [[.15, '15'], [.35, '35'], [.6, '60 cm']] },
+  plattor:{ name: 'Plattor', icon: '🔲', where: 'mark', h: .03, mat: () => mat(0xffffff, { map: plattT }), side: () => mat(0x6e6b66), hs: [[.03, 'i marknivå']] },
+  pool:   { name: 'Pool', icon: '🏊', where: 'mark', h: -1.4, pool: 1, mat: () => mat(0x3fa7c9, { transparent: true, opacity: .85, roughness: .05, metalness: .1 }), side: () => mat(0xd8e6ea), hs: [[-1.2, '120'], [-1.4, '140'], [-1.6, '160 cm djup']] },
+  eldstad:{ name: 'Eldstad', icon: '🔥', where: 'mark', h: .45, fire: 1, mat: () => mat(0xffffff, { map: stenT }), side: () => mat(0xffffff, { map: stenT }), hs: [[.35, '35'], [.45, '45'], [.6, '60 cm']] },
+  mur:    { name: 'Mur / bänk', icon: '🧱', where: 'alla', h: .45, mat: () => mat(0xffffff, { map: stenT }), side: () => mat(0xffffff, { map: stenT }), hs: [[.45, 'sitthöjd'], [.9, '90'], [1.8, '180 cm']] },
+  rabatt: { name: 'Rabatt', icon: '🌷', where: 'mark', h: .25, mat: () => mat(0x3b2a1d, { roughness: 1 }), side: () => mat(0x5b4633), hs: [[.25, '25'], [.4, '40 cm']] },
+  podium: { name: 'Podium / sockel', icon: '▁', where: 'golv', h: .15, mat: () => mat(0xffffff, { map: woodT }), side: () => mat(0x2b2b2b), hs: [[.1, '10'], [.15, '15'], [.3, '30 cm']] },
+  bank:   { name: 'Platsbyggd bänk', icon: '🛋', where: 'golv', h: .45, mat: () => mat(0xf2f1ee, { roughness: .6 }), side: () => mat(0xf2f1ee), hs: [[.45, 'sitthöjd'], [.65, '65'], [.9, '90 cm']] },
+  tak:    { name: 'Sänkt tak', icon: '⬆️', where: 'tak', h: -.25, ceil: 1, mat: () => mat(0xf4f2ee, { roughness: .95 }), side: () => mat(0xf4f2ee), hs: [[-.15, '15'], [-.25, '25'], [-.35, '35 cm']] },
+};
+const typesFor = s => Object.entries(TYPES).filter(([, t]) => t.where === s || (t.where === 'alla' && s !== 'tak'));
+
+// ---------- saker ----------
+const things = []; let sel = null, tool = 'valj', drawing = null, drag = null;
+const hl = new THREE.BoxHelper(undefined, 0xff7a2f); hl.visible = false; scene.add(hl);
+function select(o) { sel = o; hl.visible = !!o; if (o) hl.setFromObject(o.g); arrow.visible = !!o && o.kind === 'form'; placeArrow(); showPanel(); }
+function remove(o) { scene.remove(o.g); things.splice(things.indexOf(o), 1); for (const s of things.filter(t => t.host === o)) remove(s); select(null); }
+// en form: polygon i planet + typ + höjd
+function addForm(pts, surf, base0 = 0) {
+  const g = new THREE.Group(); scene.add(g);
+  const tk = surf === 'tak' ? 'tak' : surf === 'golv' ? 'podium' : 'altan';
+  const o = { kind: 'form', g, pts, surf, base: base0, type: tk, h: TYPES[tk].h, cove: false, k: 2700, lm: 500, pick: [],
+    build() { g.clear(); o.pick = []; const T = TYPES[o.type], base = o.surf === 'tak' ? CH : (o.base || 0), h = o.h;
+      const shape = new THREE.Shape(o.pts.map(p => new THREE.Vector2(p.x, p.z))), depth = Math.max(.02, Math.abs(h));
+      const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }); geo.rotateX(Math.PI / 2);   // nu: från y=0 och ner till -depth
+      const top = T.mat(), side = T.side(), m = new THREE.Mesh(geo, [top, side]);
+      // ovansida = grupp 0 (fram/bak), sidor = grupp 1
+      if (T.pool) { m.position.y = 0; m.material = [mat(0x2e8fb5, { transparent: true, opacity: .0 }), side];
+        const water = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2), mat(0x3fa7c9, { transparent: true, opacity: .8, roughness: .05, metalness: .2 })); water.position.y = .012; g.add(water); o.pick.push(water); water.userData.thing = o;
+        
+        const rim = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(o.pts.map(p => new THREE.Vector2(p.x, p.z))), { depth: .05, bevelEnabled: false }).rotateX(Math.PI / 2), mat(0xd9d4cb)); rim.position.y = .045; rim.scale.set(1, 1, 1); rim.material.side = THREE.BackSide; rim.scale.set(1, 1, 1); g.add(rim); }
+      else if (h > 0) m.position.y = base + h; else m.position.y = base;
+      if (T.ceil) m.position.y = CH;
+      m.castShadow = m.receiveShadow = true; g.add(m); o.pick.push(m); m.userData.thing = o; o.mesh = m;
+      if (T.ceil) { m.position.y = CH; m.scale.y = 1; }
+      // eldstad: glöd i mitten
+      o.fire = null; if (T.fire) { const c = centroid(o.pts); const pit = new THREE.Mesh(new THREE.CylinderGeometry(.35, .3, .06, 24), mat(0x1a1a1a, { emissive: 0xff5a1a, emissiveIntensity: 0 })); pit.position.set(c.x, h + .03, c.z); g.add(pit);
+        const L = new THREE.PointLight(0xff8a3a, 0, 7, 2); L.position.set(c.x, h + .5, c.z); g.add(L); o.fire = { pit, L }; }
+      // LED i kanten (indirekt) – för sänkt tak, altan, bänk, podium
+      o.leds = []; o.edge = null;
+      if (o.cove) { const per = o.pts, y = T.ceil ? CH + h - .03 : base + h - .03; for (let i = 0; i < per.length; i++) { const a = per[i], b = per[(i + 1) % per.length], len = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.round(len / 1.2));
+          for (let j = 0; j < n; j++) { const t = (j + .5) / n, L = new THREE.PointLight(0xffffff, 0, 2.4, 2); L.position.set(a.x + (b.x - a.x) * t, y, a.z + (b.z - a.z) * t); g.add(L); o.leds.push(L); } }
+        const ring = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(o.pts.map(p => new THREE.Vector2(p.x, p.z))), { depth: .015, bevelEnabled: false }).rotateX(Math.PI / 2), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0 }));
+        ring.scale.set(1.004, 1, 1.004); ring.position.y = y + .02; g.add(ring); o.edge = ring; }
+      o.refresh(); },
+    refresh() { const on = night; if (o.fire) { o.fire.pit.material.emissiveIntensity = on ? 2.5 : .6; o.fire.L.intensity = on ? 6 : 0; }
+      const c = kRGB(o.k); for (const L of o.leds) { L.color.copy(c); L.intensity = on ? 1.4 * o.lm / 500 : 0; } if (o.edge) { o.edge.material.emissive.copy(c); o.edge.material.emissiveIntensity = on ? 2 : 0; } } };
+  o.build(); things.push(o); return o;
+}
+const centroid = P => ({ x: P.reduce((s, p) => s + p.x, 0) / P.length, z: P.reduce((s, p) => s + p.z, 0) / P.length });
+const area = P => Math.abs(P.reduce((s, p, i) => { const q = P[(i + 1) % P.length]; return s + p.x * q.z - q.x * p.z; }, 0) / 2);
+const perim = P => P.reduce((s, p, i) => { const q = P[(i + 1) % P.length]; return s + Math.hypot(q.x - p.x, q.z - p.z); }, 0);
+// ljus: infälld spot (tak / under sänkt tak / i trall), vägglampa, trädgårdsspot
+function addLight(pt, kind, y, host = null) {
+  const g = new THREE.Group(); g.position.set(pt.x, y, pt.z); scene.add(g); const up = kind === 'mark';
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .014, 24), mat(kind === 'mark' ? 0x2b2b2b : 0xf2efe9, { roughness: .4 })); body.position.y = up ? .007 : -.007; g.add(body);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(.03, 20), mat(0x888888)); lens.rotation.x = up ? -Math.PI / 2 : Math.PI / 2; lens.position.y = up ? .0145 : -.0145; g.add(lens);
+  const L = new THREE.SpotLight(0xffffff, 0, 8, 0, .5, 2); L.position.y = up ? .03 : -.03; L.target.position.set(0, up ? 1 : -1, 0); g.add(L, L.target); L.castShadow = true; L.shadow.mapSize.set(512, 512); L.shadow.bias = -.002;
+  const o = { kind: 'ljus', lk: kind, g, host, k: 2700, lm: kind === 'mark' ? 200 : 350, beam: 36, pick: [body, lens],
+    refresh() { const c = kRGB(o.k); L.color.copy(c); L.angle = o.beam * 1.4 / 2 * Math.PI / 180; L.intensity = night ? o.lm / 12 : 0; lens.material.emissive = c; lens.material.emissiveIntensity = night ? 3 : 0; lens.material.needsUpdate = true; } };
+  [body, lens].forEach(m => m.userData.thing = o); o.refresh(); things.push(o); return o;
+}
+// produkter (några exempel – i appen är det hela katalogen: IKEA, Elfa, Sonos, utemöbler …)
+const PRODS = [['skap', '🗄', 'BESTÅ 120'], ['sonos', '🔊', 'Sonos Era 100'], ['grill', '🍖', 'Grill'], ['solstol', '🏖', 'Solstol'], ['soffa', '🛋', 'Utesoffa'], ['parasoll', '⛱', 'Parasoll']];
+let prodKey = 'solstol';
+function addProd(key, pt, y) { const g = new THREE.Group(); g.position.set(pt.x, y, pt.z); scene.add(g); const o = { kind: 'prod', key, g, pick: [] }; const P = [];
+  if (key === 'skap') P.push(box(1.2, .38, .4, mat(0xf1f0ec, { roughness: .5 }), 0, .44, 0, g));
+  if (key === 'sonos') P.push(box(.12, .18, .12, mat(0x1b1b1b, { roughness: .4 }), 0, .09, 0, g));
+  if (key === 'grill') { P.push(box(.6, .5, .45, mat(0x222222, { metalness: .5, roughness: .4 }), 0, .7, 0, g)); P.push(box(.5, .45, .35, mat(0x333333), 0, .225, 0, g)); }
+  if (key === 'solstol') { P.push(box(.65, .12, 1.9, mat(0xd9cfbf), 0, .3, 0, g)); const b = box(.65, .08, .6, mat(0xd9cfbf), 0, .55, -.75, g); b.rotation.x = .7; P.push(b); }
+  if (key === 'soffa') { P.push(box(1.9, .4, .8, mat(0x8b8577), 0, .2, 0, g)); P.push(box(1.9, .35, .18, mat(0x8b8577), 0, .58, -.31, g)); }
+  if (key === 'parasoll') { P.push(box(.04, 2.3, .04, mat(0xdddddd), 0, 1.15, 0, g)); const c = new THREE.Mesh(new THREE.ConeGeometry(1.4, .4, 8, 1, true), mat(0xefe7d7, { side: THREE.DoubleSide })); c.position.y = 2.2; c.castShadow = true; g.add(c); P.push(c); }
+  P.forEach(m => m.userData.thing = o); o.pick = P; things.push(o); return o; }
+
+// ---------- start: lite så man ser idén direkt ----------
+addForm([{ x: .5, z: 5.2 }, { x: 4.5, z: 5.2 }, { x: 4.5, z: 8.2 }, { x: .5, z: 8.2 }], 'mark');                    // altan utanför skjutdörren
+addForm([{ x: .6, z: .5 }, { x: 5.4, z: .5 }, { x: 5.4, z: 1.2 }, { x: .6, z: 1.2 }], 'tak').type = 'tak';        // sänkt tak vid tv:n
+things.at(-1).h = -.25; things.at(-1).build(); [1.6, 3, 4.4].forEach(x => addLight({ x, z: .85 }, 'tak', CH - .25, things[1]));
+
+// ---------- ritande ----------
+const ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+function rayAt(e) { const r = cv.getBoundingClientRect(); mv.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mv, cam); }
+const planeHit = y => { const p = new THREE.Vector3(); return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), p) ? p : null; };
+const inside = p => p.x > 0 && p.x < HW && p.z > 0 && p.z < HD;
+// vilken yta pekar man på? taket (inne, sett underifrån eller ovan), golvet eller marken
+function surfAt() { const top = things.filter(t => t.kind === 'form' && t.h > 0 && !TYPES[t.type].pool).map(t => t.mesh), hit = ray.intersectObjects(top, false)[0];
+  if (hit && hit.face?.normal.y > .5) { const t = hit.object.userData.thing; return { surf: t.surf === 'golv' ? 'golv' : 'mark', y: hit.point.y, p: hit.point, on: t }; }
+  const c = planeHit(CH); if (onCeil && tool !== 'prod' && c && inside(c)) return { surf: 'tak', y: CH, p: c };
+  const f = planeHit(0); if (!f) return null; return { surf: inside(f) ? 'golv' : 'mark', y: 0, p: f }; }
+const snap = v => Math.round(v / .05) * .05;
+function tidy(P) { // fri hand → raka linjer 0/45/90°, 5 cm, stängd form
+  const rdp = (P, eps) => { if (P.length < 3) return P; const a = P[0], b = P.at(-1); let i0 = 0, md = 0; for (let i = 1; i < P.length - 1; i++) { const d = Math.abs((b.x - a.x) * (a.z - P[i].z) - (a.x - P[i].x) * (b.z - a.z)) / (Math.hypot(b.x - a.x, b.z - a.z) || 1); if (d > md) { md = d; i0 = i; } } return md > eps ? [...rdp(P.slice(0, i0 + 1), eps).slice(0, -1), ...rdp(P.slice(i0), eps)] : [a, b]; };
+  if (fritt === 'kurva') { const c = new THREE.CatmullRomCurve3(rdp(P, .04).map(p => new THREE.Vector3(p.x, 0, p.z)), true); return c.getPoints(40).map(v => ({ x: v.x, z: v.z })); }
+  const Q = rdp(P, .15), out = [{ x: snap(Q[0].x), z: snap(Q[0].z) }];
+  for (let i = 1; i < Q.length; i++) { const p = out.at(-1), dx = Q[i].x - p.x, dz = Q[i].z - p.z, len = snap(Math.hypot(dx, dz)); if (len < .1) continue; const st = fritt === 'rat' ? Math.PI / 2 : Math.PI / 4, a = Math.round(Math.atan2(dz, dx) / st) * st; out.push({ x: snap(p.x + Math.cos(a) * len), z: snap(p.z + Math.sin(a) * len) }); }
+  if (out.length > 2 && Math.hypot(out.at(-1).x - out[0].x, out.at(-1).z - out[0].z) < .5) out.pop(); return out; }
+let fritt = 'raka', onCeil = false;
+const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff7a2f, depthTest: false })); line.renderOrder = 9; scene.add(line);
+const ghost = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .02, 24), new THREE.MeshBasicMaterial({ color: 0xff7a2f, transparent: true, opacity: .85, depthTest: false })); ghost.renderOrder = 10; ghost.visible = false; scene.add(ghost);
+// höjdpil: dra upp/ner
+const arrow = new THREE.Group(); { const m = new THREE.MeshBasicMaterial({ color: 0xff7a2f, depthTest: false }); const s = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .35, 12), m); s.position.y = .25; const h1 = new THREE.Mesh(new THREE.ConeGeometry(.09, .16, 16), m); h1.position.y = .5; const h2 = new THREE.Mesh(new THREE.ConeGeometry(.09, .16, 16), m); h2.rotation.x = Math.PI; h2.position.y = .0; arrow.add(s, h1, h2); arrow.children.forEach(c => { c.renderOrder = 11; c.userData.arrow = 1; }); }
+arrow.visible = false; scene.add(arrow);
+function placeArrow() { if (!sel || sel.kind !== 'form') return; const c = centroid(sel.pts), T = TYPES[sel.type]; arrow.position.set(c.x, T.ceil ? CH + sel.h - .62 : T.pool ? .05 : Math.max(0, sel.h) + .05, c.z); }
+
+cv.addEventListener('pointerdown', e => { if (e.button !== 0) return; rayAt(e);
+  if (tool === 'rekt' || tool === 'fri') { const s = surfAt(); if (!s) return; drawing = { s, pts: [{ x: s.p.x, z: s.p.z }] }; ctl.enabled = false; cv.setPointerCapture(e.pointerId); return; }
+  if (tool === 'ljus') { const s = surfAt(); if (!s) return; const hostCeil = things.find(t => t.kind === 'form' && TYPES[t.type].ceil && ray.intersectObject(t.mesh)[0]);
+    const o = hostCeil ? addLight(s.p, 'tak', CH + hostCeil.h, hostCeil) : addLight(s.p, s.surf === 'tak' ? 'tak' : 'mark', s.y); select(o); return; }
+  if (tool === 'prod') { const s = surfAt(); if (!s) return; select(addProd(prodKey, s.p, s.y)); return; }
+  // välj, dra höjdpilen, eller flytta
+  if (sel?.kind === 'form' && ray.intersectObjects(arrow.children)[0]) { drag = { arrow: 1, y0: e.clientY, h0: sel.h }; ctl.enabled = false; cv.setPointerCapture(e.pointerId); return; }
+  const hit = ray.intersectObjects(things.flatMap(t => t.pick), false)[0], o = hit?.object.userData.thing; select(o || null);
+  if (o) { drag = { o, p0: hit.point.clone(), g0: o.g.position.clone(), pts0: o.pts?.map(p => ({ ...p })), y: hit.point.y }; ctl.enabled = false; cv.setPointerCapture(e.pointerId); } });
+cv.addEventListener('pointermove', e => { rayAt(e);
+  if (drawing) { const p = planeHit(drawing.s.y); if (!p) return; if (tool === 'rekt') { const a = drawing.pts[0]; drawing.b = { x: p.x, z: p.z }; const x0 = snap(Math.min(a.x, p.x)), x1 = snap(Math.max(a.x, p.x)), z0 = snap(Math.min(a.z, p.z)), z1 = snap(Math.max(a.z, p.z));
+      drawing.rect = [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }]; line.geometry.setFromPoints([...drawing.rect, drawing.rect[0]].map(q => new THREE.Vector3(q.x, drawing.s.y + .01, q.z)));
+      hint(`⬛ ${((x1 - x0) * 100).toFixed(0)} × ${((z1 - z0) * 100).toFixed(0)} cm`); }
+    else { drawing.pts.push({ x: p.x, z: p.z }); line.geometry.setFromPoints(drawing.pts.map(q => new THREE.Vector3(q.x, drawing.s.y + .01, q.z))); } return; }
+  if (drag?.arrow) { const T = TYPES[sel.type], dy = (drag.y0 - e.clientY) / 160; let h = drag.h0 + dy; if (T.ceil) h = Math.min(-.05, Math.max(-.8, h)); else if (T.pool) h = Math.min(-.3, Math.max(-2.5, h)); else h = Math.max(.02, Math.min(3, h));
+    sel.h = Math.round(h / .01) * .01; sel.build(); for (const l of things.filter(t => t.host === sel)) l.g.position.y = CH + sel.h; placeArrow(); hl.setFromObject(sel.g); hint(`↕ ${Math.round(Math.abs(sel.h) * 100)} cm ${sel.h < 0 ? (T.ceil ? 'ner från taket' : 'djup') : 'hög'}`); return; }
+  if (drag) { const p = planeHit(drag.y); if (!p) return; const dx = snap(p.x - drag.p0.x), dz = snap(p.z - drag.p0.z), o = drag.o;
+    if (o.kind === 'form') { o.pts = drag.pts0.map(q => ({ x: q.x + dx, z: q.z + dz })); o.build(); for (const l of things.filter(t => t.host === o)) { l.g.position.x += 0; } placeArrow(); }
+    else o.g.position.set(drag.g0.x + dx, o.g.position.y, drag.g0.z + dz);
+    hl.setFromObject(o.g); return; }
+  if (tool === 'ljus' || tool === 'prod') { const s = surfAt(); ghost.visible = !!s; if (s) ghost.position.set(s.p.x, s.y, s.p.z); } });
+cv.addEventListener('pointerup', () => {
+  if (drawing) { ctl.enabled = true; line.geometry.setFromPoints([]); const d = drawing; drawing = null;
+    const pts = tool === 'rekt' ? d.rect : tidy(d.pts); if (!pts || pts.length < 3 || area(pts) < .05) { hint('Rita lite större – dra med musen'); return; }
+    const o = addForm(pts, d.s.surf, d.s.surf === 'tak' ? 0 : d.s.y);   // ritat ovanpå något (t.ex. bänk på altanen) → står på det
+    if (night) o.refresh(); select(o); setTool('valj'); hint('✔ Välj vad det ska bli till höger · dra den orange pilen för att ändra höjd'); return; }
+  if (drag) { ctl.enabled = true; drag = null; showPanel(); } });
+
+// ---------- panel ----------
+const P = document.getElementById('panel'), hintEl = document.getElementById('hint'), hint = t => hintEl.textContent = t;
+const HINTS = { valj: '👆 Klicka på något för att ändra det · dra för att flytta · dra i bakgrunden för att snurra', rekt: '⬛ Dra en ruta på golvet, marken eller i taket', fri: '✏️ Rita fritt med musen – formen rätas ut och snäpper 5 cm', ljus: '💡 Klicka där lampan ska sitta: i taket, i altanen, i marken …', prod: '📦 Välj en produkt till höger och klicka där den ska stå', lista: '🧾 Allt du byggt, räknat till en inköpslista' };
+function setTool(t) { if (t !== tool) onCeil = t === 'ljus'; tool = t; document.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === t)); ghost.visible = false; if (t !== 'valj') select(null); hint(HINTS[t]); showPanel(); }
+document.getElementById('tools').onclick = e => { const b = e.target.closest('[data-t]'); if (b) setTool(b.dataset.t); };
+const ch = (attr, list, cur) => `<div class="ch">${list.map(([v, n]) => `<button data-${attr}="${v}" class="${String(v) === String(cur) ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+const lightUI = o => `${ch('typ', [[2700, 'Varmvit'], [4000, 'Kallvit'], [3000, 'Justerbar']], o.k === 2700 || o.k === 4000 ? o.k : 3000)}
+  <div class="rw"><label>Kelvin</label><input type="range" min="2200" max="6500" step="100" value="${o.k}" data-r="k"><output>${o.k} K</output></div><div class="kel"></div>
+  <div class="rw"><label>Ljusflöde</label><input type="range" min="50" max="1500" step="10" value="${o.lm}" data-r="lm"><output>${o.lm} lm</output></div>`;
+function showPanel() {
+  const where = `<h5>RITA PÅ</h5>${ch('ceil', [[0, '⬇️ Golv & mark'], [1, '⬆️ Taket']], onCeil ? 1 : 0)}`;
+  if (tool === 'fri') { P.innerHTML = `<h3>✏️ Rita fritt</h3>${where}<h5>FORMEN FÖLJER</h5>${ch('pat', [['raka', 'Raka + 45°'], ['rat', 'Bara 90°'], ['kurva', 'Mjuk kurva']], fritt)}<div class="note">Rita slarvigt – den blir rak, snäpper 5 cm och sluts automatiskt.</div>`; P.classList.add('show'); return; }
+  if (tool === 'rekt') { P.innerHTML = `<h3>⬛ Rita ruta</h3>${where}<div class="note">Dra från ett hörn till det andra. Måtten syns medan du drar.</div>`; P.classList.add('show'); return; }
+  if (tool === 'ljus') { P.innerHTML = `<h3>💡 Ljus</h3>${where.replace('RITA PÅ', 'SÄTT I')}<div class="note">Klicka där lampan ska sitta. I taket blir det en infälld spot, i golv/altan/mark en markspot.</div>`; P.classList.add('show'); return; }
+  if (tool === 'prod') { P.innerHTML = `<h3>📦 Produkter</h3><div class="types">${PRODS.map(([k, i, n]) => `<button data-prod="${k}" class="${prodKey === k ? 'on' : ''}"><i>${i}</i>${n}</button>`).join('')}</div><div class="note">I appen: hela katalogen – IKEA, Elfa, Sonos, utemöbler, belysning …</div>`; P.classList.add('show'); return; }
+  if (tool === 'lista') { P.innerHTML = `<h3>🧾 Inköpslista</h3><div class="list">${shopList()}</div><div class="note">Ungefärliga mängder med spill. Allt räknas om när du ändrar något.</div>`; P.classList.add('show'); return; }
+  if (!sel) { P.classList.remove('show'); return; }
+  const o = sel; let h = '';
+  if (o.kind === 'form') { const T = TYPES[o.type], a = area(o.pts);
+    h = `<h3>${T.icon} ${T.name}<button data-x>✕</button></h3><div class="note" style="margin:0">${a.toFixed(1)} m² · ${Math.round(Math.abs(o.h) * 100)} cm ${o.h < 0 ? (T.ceil ? 'ner' : 'djup') : 'hög'}</div>
+      <h5>VAD SKA DET BLI?</h5><div class="types">${typesFor(o.surf).map(([k, t]) => `<button data-type="${k}" class="${o.type === k ? 'on' : ''}"><i>${t.icon}</i>${t.name}</button>`).join('')}</div>
+      <h5>${T.ceil ? 'HUR LÅNGT NER' : T.pool ? 'DJUP' : 'HÖJD'} <span style="text-transform:none;letter-spacing:0">– eller dra den orange pilen</span></h5>${ch('h', T.hs, o.h)}
+      ${T.fire ? '' : `<h5>LED I KANTEN</h5>${ch('cove', [[1, 'Ja'], [0, 'Nej']], o.cove ? 1 : 0)}${o.cove ? lightUI(o) : ''}`}
+      ${T.ceil ? `<h5>SPOTLIGHTS</h5>${ch('nsp', [[0, 'Inga'], [2, '2'], [3, '3'], [4, '4'], [6, '6']], things.filter(t => t.host === o).length)}<div class="note">Eller välj 💡 Ljus och klicka exakt där du vill ha dem.</div>` : ''}`; }
+  if (o.kind === 'ljus') h = `<h3>💡 ${o.lk === 'mark' ? 'Spot i mark/trall' : 'Infälld spotlight'}<button data-x>✕</button></h3><h5>SPRIDNING</h5>${ch('beam', [[24, '24° smal'], [36, '36°'], [60, '60° bred']], o.beam)}<h5>LJUS</h5>` + lightUI(o) + `<div class="note">Tryck 🌙 Kväll för att se ljuset</div>`;
+  if (o.kind === 'prod') h = `<h3>${PRODS.find(p => p[0] === o.key)[1]} ${PRODS.find(p => p[0] === o.key)[2]}<button data-x>✕</button></h3><div class="note">Dra för att flytta. I appen: alla mått, färger och varianter som finns att köpa.</div>`;
+  h += `<div class="acts"><button data-del>🗑 Ta bort</button></div>`; P.innerHTML = h; P.classList.add('show'); }
+P.onclick = e => { const b = e.target.closest('button'); if (!b) return; const d = b.dataset, o = sel;
+  if (d.ceil !== undefined) { onCeil = d.ceil === '1'; return showPanel(); }
+  if (d.pat) { fritt = d.pat; return showPanel(); } if (d.prod) { prodKey = d.prod; return showPanel(); }
+  if ('x' in d) return select(null); if (!o) return; if ('del' in d) return remove(o);
+  if (d.type) { o.type = d.type; o.h = TYPES[d.type].h; o.build(); }
+  if (d.h) { o.h = +d.h; o.build(); for (const l of things.filter(t => t.host === o)) l.g.position.y = CH + o.h; }
+  if (d.cove) { o.cove = d.cove === '1'; o.build(); }
+  if (d.typ) { o.k = +d.typ; o.refresh(); } if (d.beam) { o.beam = +d.beam; o.refresh(); }
+  if (d.nsp !== undefined) { for (const s of things.filter(t => t.host === o)) remove(s); select(o); const n = +d.nsp, xs = o.pts.map(p => p.x), zs = o.pts.map(p => p.z), x0 = Math.min(...xs), x1 = Math.max(...xs), z = (Math.min(...zs) + Math.max(...zs)) / 2;
+    for (let i = 0; i < n; i++) addLight({ x: x0 + (x1 - x0) * (i + .5) / n, z }, 'tak', CH + o.h, o); }
+  placeArrow(); hl.setFromObject(o.g); showPanel(); };
+P.oninput = e => { const t = e.target; if (!t.dataset.r || !sel) return; sel[t.dataset.r] = +t.value; t.nextElementSibling.textContent = t.dataset.r === 'k' ? t.value + ' K' : t.value + ' lm'; sel.refresh(); };
+// inköpslista: samma regler som en snickare räknar med
+function shopList() { const L = new Map(), add = (g, n, q, u = 'st') => { const k = g + '|' + n; L.set(k, [(L.get(k)?.[0] || 0) + q, u]); };
+  for (const o of things) {
+    if (o.kind === 'form') { const a = area(o.pts), per = perim(o.pts), T = o.type;
+      if (T === 'altan') { add('Altan', 'Trall 28×120 (löpmeter)', Math.ceil(a / .125 * 1.08), 'm'); add('Altan', 'Regel 45×145, c/c 60 (löpmeter)', Math.ceil(a / .6 * 1.1), 'm'); add('Altan', 'Plintar', Math.ceil(a / 1.6) + 4); add('Altan', 'Trallskruv (paket à 500)', Math.ceil(a / 12)); add('Altan', 'Sarg/kantbräda (löpmeter)', Math.ceil(per), 'm'); }
+      if (T === 'plattor') { add('Mark', 'Betongplattor 40×40', Math.ceil(a / .16 * 1.05)); add('Mark', 'Stenmjöl (ca 5 cm)', +(a * .05).toFixed(1), 'm³'); add('Mark', 'Bärlager 0–32 (ca 15 cm)', +(a * .15).toFixed(1), 'm³'); }
+      if (T === 'pool') { add('Pool', `Poolbygge ca ${a.toFixed(1)} m², ${Math.round(-o.h * 100)} cm djup`, 1); add('Pool', 'Vatten', Math.round(a * -o.h * .9 * 1000), 'liter'); add('Pool', 'Pump + sandfilter', 1); }
+      if (T === 'eldstad' || T === 'mur') { add('Mur', 'Murblock / natursten (m² yta)', +(per * o.h + a).toFixed(1), 'm²'); add('Mur', 'Murbruk 25 kg', Math.ceil((per * o.h + a) * 1.5)); if (T === 'eldstad') add('Mur', 'Eldfast stålring ⌀ 70', 1); }
+      if (T === 'rabatt') add('Mark', 'Planteringsjord', +(a * o.h).toFixed(1), 'm³');
+      if (T === 'podium' || T === 'bank') { add('Snickeri', 'Regel 45×70 (löpmeter)', Math.ceil(per * 2 + a / .6 * 1.1), 'm'); add('Snickeri', 'Spånskiva/MDF 18 mm (m²)', +(a + per * o.h).toFixed(1), 'm²'); }
+      if (T === 'tak') { add('Sänkt tak', 'Takprofil / regel c/c 40 (löpmeter)', Math.ceil(a / .4 * 1.1 + per), 'm'); add('Sänkt tak', 'Gips 12,5 mm 900×2400', Math.ceil((a + per * -o.h) / 2.16 * 1.15)); add('Sänkt tak', 'Spackel + skarvremsa', 1); }
+      if (o.cove) add('El', `LED-list ${o.k} K 24 V (löpmeter)`, Math.ceil(per), 'm'); }
+    if (o.kind === 'ljus') add('El', `${o.lk === 'mark' ? 'Markspot' : 'Infälld spotlight ⌀ 68'} ${o.lm} lm ${o.k} K`, 1);
+    if (o.kind === 'prod') add('Produkter', PRODS.find(p => p[0] === o.key)[2], 1); }
+  const groups = {}; for (const [k, v] of L) { const [g, n] = k.split('|'); (groups[g] = groups[g] || []).push([n, v]); }
+  return Object.entries(groups).map(([g, rows]) => `<h4>${g}</h4>` + rows.map(([n, [q, u]]) => `<div><span>${n}</span><b>${q} ${u}</b></div>`).join('')).join('') || '<div class="note">Bygg något först</div>'; }
+
+// ---------- kamera-snabbval, dag/kväll ----------
+const VIEWS = { inne: [[5.6, 2.3, 4.3], [2.6, .9, 1.2]], ute: [[9, 4.5, 13], [2.8, 0, 6.2]], allt: [[11, 9, 14], [3, 0, 4.5]] };
+function go(v) { const [p, t] = VIEWS[v]; cam.position.set(...p); ctl.target.set(...t); document.querySelectorAll('[data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === v)); }
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+const dayB = document.getElementById('day'), nightB = document.getElementById('night'); dayB.onclick = () => setNight(false); nightB.onclick = () => setNight(true);
+addEventListener('keydown', e => { if ((e.key === 'Delete' || e.key === 'Backspace') && sel) remove(sel); if (e.key === 'Escape') { select(null); setTool('valj'); } });
+function size() { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+addEventListener('resize', size); size(); setNight(false); go('allt'); setTool('valj');
+R.setAnimationLoop(() => { ctl.update(); R.render(scene, cam); });
+window.__ba = { things, setNight, setTool, go, select, addForm };
+</script>
+</body>
+</html>
