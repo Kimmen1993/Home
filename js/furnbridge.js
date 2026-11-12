@@ -1,7 +1,7 @@
 // Bryggan mellan huvudappens saker (plan-koordinater x/y, rot i grader) och möbelmotorn (FURN).
 // En sak i appen som har en möbel bakom sig får it.o (val) och it.m (material) – samma som i demon.
-import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794440427';
-import { ITEMS } from './catalog.js?v=1794440427';
+import { FURN, newFurniture, buildFurniture } from './furniture.js?v=1794479499';
+import { ITEMS } from './catalog.js?v=1794479499';
 
 export const furnKey = it => ITEMS[it.type]?.furn || null;
 const hashSeed = id => { let s = 7; for (const c of String(id)) s = (s * 31 + c.charCodeAt(0)) % 9973; return s + 1; };

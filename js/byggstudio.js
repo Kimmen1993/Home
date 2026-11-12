@@ -1,8 +1,8 @@
 // Byggverkstan: 1) välj vägg + börja tomt eller från ett förslag  2) bygg väggen framifrån (dra, snäpp, ändra storlek)
 // 3) inköpslista + sätt in. Varianter A/B/C av samma vägg. Samma utseende som Elfa-verkstan.
-import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794440427';
-import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794440427';
-import { MATS, GROUPS, swatch } from './materials.js?v=1794440427';
+import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794479499';
+import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794479499';
+import { MATS, GROUPS, swatch } from './materials.js?v=1794479499';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);

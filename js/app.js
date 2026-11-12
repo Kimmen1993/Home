@@ -1,20 +1,20 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794440427';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794440427';
-import { createPlan } from './plan2d.js?v=1794440427';
-import { createView } from './view3d.js?v=1794440427';
-import { createHA } from './ha.js?v=1794440427';
-import { detectPlan } from './autoplan.js?v=1794440427';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794440427';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794440427';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794440427';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794440427';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794440427';
-import { checkHome } from './check.js?v=1794440427';
-import { openTakStudio, takList } from './tak.js?v=1794440427';
-import { openByggStudio } from './byggstudio.js?v=1794440427';
-import { byggList } from './bygg.js?v=1794440427';
-import { openElfaStudio } from './elfastudio.js?v=1794440427';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794479499';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794479499';
+import { createPlan } from './plan2d.js?v=1794479499';
+import { createView } from './view3d.js?v=1794479499';
+import { createHA } from './ha.js?v=1794479499';
+import { detectPlan } from './autoplan.js?v=1794479499';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794479499';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794479499';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794479499';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794479499';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794479499';
+import { checkHome } from './check.js?v=1794479499';
+import { openTakStudio, takList } from './tak.js?v=1794479499';
+import { openByggStudio } from './byggstudio.js?v=1794479499';
+import { byggList } from './bygg.js?v=1794479499';
+import { openElfaStudio } from './elfastudio.js?v=1794479499';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -445,19 +445,27 @@ right.addEventListener('click', e => { const b = e.target.closest('[data-sres]')
 function roomWalls(h, r) {
   // Exakt inre väggyta: för varje kant i rummet letas den parallella väggen upp och dess inre yta räknas ut (oavsett om rummets
   // linje ligger i väggens mitt eller på dess yta, och oavsett väggtjocklek). Hörnen blir skärningen mellan två inre ytor.
-  const P = r.pts, n = P.length, solid = h.walls.filter(w => !w.virtual && wallLen(w) > .01);
-  const E = P.map((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
-    let nx = -uy, ny = ux; if (!inPoly({ x: (a.x + b.x) / 2 + nx * .05, y: (a.y + b.y) / 2 + ny * .05 }, P)) { nx = -nx; ny = -ny; }
-    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; let wall = null, off = 0, best = .45;
-    for (const w of solid) { const wl = wallLen(w), wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl; if (Math.abs(wx * uy - wy * ux) > .03) continue;
+  const P = r.pts, n = P.length, solid = h.walls.filter(w => !w.virtual && wallLen(w) > .01), D = .65;
+  // varje kant får sin riktiga väggyta (punkt p, riktning u, normal n in i rummet) – även när väggen är ritad lite snett
+  const E = P.map((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b.x - a.x, b.y - a.y), ex = (b.x - a.x) / L, ey = (b.y - a.y) / L;
+    let enx = -ey, eny = ex; if (!inPoly({ x: (a.x + b.x) / 2 + enx * .05, y: (a.y + b.y) / 2 + eny * .05 }, P)) { enx = -enx; eny = -eny; }
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; let face = null, best = .45;
+    for (const w of solid) { const wl = wallLen(w); let wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl; if (Math.abs(wx * ey - wy * ex) > .2) continue;   // upp till ~11° snett
+      if (wx * ex + wy * ey < 0) { wx = -wx; wy = -wy; }
+      let nx = -wy, ny = wx; if (nx * enx + ny * eny < 0) { nx = -nx; ny = -ny; }
       const t = (mx - w.a.x) * wx + (my - w.a.y) * wy; if (t < -.05 || t > wl + .05) continue;
-      const dc = (w.a.x - mx) * nx + (w.a.y - my) * ny;   // väggens mittlinje: + = inne i rummet
-      if (Math.abs(dc) < best) { best = Math.abs(dc); wall = w; off = dc + (w.t || .1) / 2; } }
-    return { a, b, ux, uy, nx, ny, wall, off: wall ? Math.max(0, off) : 0 }; });
-  const cross = (e1, e2) => { const p1 = { x: e1.a.x + e1.nx * e1.off, y: e1.a.y + e1.ny * e1.off }, p2 = { x: e2.a.x + e2.nx * e2.off, y: e2.a.y + e2.ny * e2.off }, den = e1.ux * e2.uy - e1.uy * e2.ux;
-    if (Math.abs(den) < 1e-6) return p2; const t = ((p2.x - p1.x) * e2.uy - (p2.y - p1.y) * e2.ux) / den; return { x: p1.x + e1.ux * t, y: p1.y + e1.uy * t }; };
-  return E.map((e, i) => { const c0 = cross(E[(i - 1 + n) % n], e), c1 = cross(e, E[(i + 1) % n]), { nx, ny, wall } = e;
-    const rx = ny, ry = -nx, [s0, s1] = e.ux * rx + e.uy * ry > 0 ? [c0, c1] : [c1, c0], len = Math.max(.2, Math.hypot(s1.x - s0.x, s1.y - s0.y));
+      const dc = (w.a.x - mx) * nx + (w.a.y - my) * ny;   // väggens mittlinje vid kantens mitt: + = inne i rummet
+      if (Math.abs(dc) < best) { best = Math.abs(dc); const th = (w.t || .1) / 2; face = { px: w.a.x + nx * th, py: w.a.y + ny * th, ux: wx, uy: wy, nx, ny }; } }
+    return face || { px: a.x, py: a.y, ux: ex, uy: ey, nx: enx, ny: eny }; });
+  // var linjen f skär linjen parallell med e på djupet d (mätt längs e:s riktning r)
+  const along = (e, f, d) => { const ox = e.px + e.nx * d, oy = e.py + e.ny * d, den = e.ux * f.uy - e.uy * f.ux;
+    if (Math.abs(den) < 1e-6) return null; const t = ((f.px - ox) * f.uy - (f.py - oy) * f.ux) / den; return t * (e.ux * e.ny - e.uy * e.nx); };
+  return E.map((e, i) => { const { nx, ny } = e, rx = ny, ry = -nx;
+    // ändarna: där sidoväggens yta möts – både vid väggen och 65 cm ut, så ett snett hörn aldrig ger glapp (biten går in i väggen istället)
+    const ends = [E[(i - 1 + n) % n], E[(i + 1) % n]].map(f => { const a0 = along(e, f, 0), aD = along(e, f, D); return a0 == null ? null : [a0, aD != null && Math.abs(aD - a0) < .3 ? aD : a0]; });
+    const [A, B] = ends[0] && ends[1] ? (ends[0][0] < ends[1][0] ? ends : [ends[1], ends[0]]) : [[0, 0], [1, 1]];
+    const lo = Math.min(...A), hi = Math.max(...B), len = Math.max(.2, hi - lo);
+    const s0 = { x: e.px + rx * lo, y: e.py + ry * lo };
     const x1 = s0.x, y1 = s0.y, win = [], doors = [];
     for (const o of h.openings) { const w = h.walls.find(x => x.id === o.wall); if (!w) continue;
       const wl = wallLen(w), cx = w.a.x + (w.b.x - w.a.x) / wl * o.t, cy = w.a.y + (w.b.y - w.a.y) / wl * o.t, along = (cx - x1) * rx + (cy - y1) * ry;
@@ -892,7 +900,7 @@ vt.addEventListener('click', e => { const b = e.target.closest('button'); if (!b
   if (d.vdel !== undefined) { commit(); home().views.splice(+d.vdel, 1); save(); renderVtools(); } });
 window.addEventListener('keydown', e => { if (e.target.matches('input,textarea') || document.querySelector('.es-ov') || e.metaKey || e.ctrlKey) return; const k = e.key.toLowerCase();
   if (k === 'h' && e.shiftKey) view.tools.showAll(); else if (k === 'h' && S.sel) { view.tools.hideSel(S.sel); S.sel = null; emit('sel'); } else if (k === 'i' && S.sel) view.tools.isoSel(S.sel); });
-window.__hemma = { S, home, emit, plan, view };
+window.__hemma = { S, home, emit, plan, view, roomWalls };
 window.addEventListener('pagehide', flushSave);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
 window.addEventListener('storage', e => { if (e.key === STORAGE_KEY && syncFromStorage(e.newValue)) { S.sel = null; renderAll(); emit('full'); window.toast('🔄 Uppdaterat från en annan flik'); } });
