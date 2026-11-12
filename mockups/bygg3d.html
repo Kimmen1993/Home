@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bygg i 3D</title>
+<style>
+:root{--bg:#0d100d;--card:#151a15ee;--line:#2b332b;--tx:#e9ede6;--mut:#8f9a8b;--or:#ff7a2f}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}
+#c{position:fixed;inset:0}
+.top{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:none}
+.top>*{pointer-events:auto}
+.pill{background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:999px;padding:7px 14px;font:inherit;cursor:pointer;backdrop-filter:blur(8px)}
+.pill.on{background:var(--or);border-color:var(--or);color:#111;font-weight:600}
+.sp{flex:1}
+.title{font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+/* verktyg längst ner – stora ikoner */
+.tools{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:7px;backdrop-filter:blur(10px);max-width:calc(100% - 24px);overflow-x:auto}
+.tools button{background:none;border:1px solid transparent;color:var(--tx);border-radius:14px;padding:7px 10px 6px;min-width:70px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font:11.5px system-ui}
+.tools button i{font-style:normal;font-size:24px;line-height:1}
+.tools button.on{background:#2a1d14;border-color:var(--or)}
+.tools .sep{width:1px;background:var(--line);margin:4px 2px}
+.hint{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);background:#000b;border:1px solid #333c33;border-radius:999px;padding:7px 16px;font-size:13.5px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.panel{position:fixed;right:12px;top:64px;width:300px;max-width:calc(100% - 24px);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;backdrop-filter:blur(10px);display:none}
+.panel.show{display:block}
+.panel h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}.panel h3 button{margin-left:auto;background:none;border:none;color:var(--mut);cursor:pointer;font-size:16px}
+.panel h5{margin:10px 0 5px;font-size:10.5px;letter-spacing:.08em;color:var(--mut)}
+.ch{display:flex;flex-wrap:wrap;gap:5px}.ch button{background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:5px 9px;font:12px system-ui;cursor:pointer}.ch button.on{border-color:var(--or);background:#2a1d14}
+.rw{display:flex;align-items:center;gap:8px;margin:5px 0}.rw label{width:62px;color:var(--mut);font-size:12px}.rw output{width:62px;text-align:right;font-size:12.5px}
+input[type=range]{flex:1;accent-color:var(--or);min-width:0}
+.kel{height:8px;border-radius:4px;background:linear-gradient(90deg,#ff9b3d,#ffc98a,#fff1dc,#f4f6ff,#cfdcff);margin:-3px 70px 2px 70px}
+.acts{display:flex;gap:6px;margin-top:12px}.acts button{flex:1;background:#1c221c;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:7px;cursor:pointer;font:12px system-ui}
+.mock{position:fixed;left:12px;bottom:14px;background:#2a1d14;border:1px solid var(--or);color:#ffd2b5;border-radius:10px;padding:6px 10px;font-size:12px}
+@media (max-width:760px){.mock{display:none}.hint{bottom:96px;font-size:12px}.tools button{min-width:58px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top"><span class="title">🛠 Bygg i 3D · Tv-rummet</span><span class="sp"></span>
+  <button class="pill on" id="day">☀️ Dag</button><button class="pill" id="night">🌙 Kväll</button></div>
+<div class="tools" id="tools">
+  <button data-t="valj" class="on"><i>👆</i>Välj & flytta</button>
+  <span class="sep"></span>
+  <button data-t="kappa"><i>✏️</i>Rita kappa</button>
+  <button data-t="sockel"><i>🖍</i>Rita sockel</button>
+  <button data-t="led"><i>〰️</i>Rita LED</button>
+  <span class="sep"></span>
+  <button data-t="spot"><i>🔆</i>Spotlight</button>
+  <button data-t="skap"><i>🗄</i>Skåp</button>
+</div>
+<div class="hint" id="hint">👆 Klicka på något för att ändra det · dra för att flytta · högerklick-dra = snurra</div>
+<div class="panel" id="panel"></div>
+<div class="mock">Skiss – testa fritt</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- rummet ----------
+const RW = 4.2, RD = 3.6, CH = 2.5;
+const cv = document.getElementById('c'), R = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+R.setPixelRatio(Math.min(2, devicePixelRatio)); R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(48, 1, .05, 60);
+const pm = new THREE.PMREMGenerator(R), envTex = pm.fromScene(new RoomEnvironment(), .04).texture;
+cam.position.set(3.9, 2.6, 5.4); const ctl = new OrbitControls(cam, cv); ctl.target.set(1.9, 1.1, .6); ctl.enableDamping = true;
+ctl.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, ...o });
+const box = (w, h, d, m, x, y, z, par = scene) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; par.add(b); return b; };
+// golv med plankor
+const fc = document.createElement('canvas'); fc.width = fc.height = 512; { const g = fc.getContext('2d'); g.fillStyle = '#c9a77c'; g.fillRect(0, 0, 512, 512); for (let i = 0; i < 8; i++) for (let j = -1; j < 3; j++) { g.fillStyle = `hsl(32,${30 + Math.random() * 8}%,${58 + Math.random() * 10}%)`; g.fillRect(i * 64, j * 171 + (i % 2) * 60, 64, 171); g.strokeStyle = '#0002'; g.strokeRect(i * 64, j * 171 + (i % 2) * 60, 64, 171); } }
+const ft = new THREE.CanvasTexture(fc); ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.repeat.set(3, 3); ft.colorSpace = THREE.SRGBColorSpace;
+const floor = box(RW, .02, RD, mat(0xffffff, { map: ft, roughness: .7 }), RW / 2, -.01, RD / 2); floor.userData.surf = 'golv';
+const wallM = mat(0xe9e6df, { roughness: .95 });
+const backW = box(RW + .1, CH, .1, wallM, RW / 2, CH / 2, -.05); backW.userData.surf = 'vagg';
+const leftW = box(.1, CH, RD, wallM, -.05, CH / 2, RD / 2); leftW.userData.surf = 'vagg';
+// tak (osynligt men går att rita/klicka på) + kant så man ser var taket är
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })); ceil.rotation.x = Math.PI / 2; ceil.position.set(RW / 2, CH, RD / 2); ceil.userData.surf = 'tak'; scene.add(ceil);
+const ceilEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(RW, .001, RD)), new THREE.LineBasicMaterial({ color: 0x8fa08b, transparent: true, opacity: .35 })); ceilEdge.position.set(RW / 2, CH, RD / 2); scene.add(ceilEdge);
+// tv-väggen: ribbor + tv
+const slatG = new THREE.Group(); scene.add(slatG); const slatM = mat(0xb48a5c, { roughness: .6 });
+for (let x = 1.0; x < 3.2; x += .04) box(.027, 2.0, .018, slatM, x, 1.0 + .0, .011, slatG);
+box(2.2, 2.0, .006, mat(0x1c1c1c), 2.1, 1.0, .003);
+const tvScr = mat(0x050505, { roughness: .15, metalness: .2 }); box(1.46, .84, .04, mat(0x0b0b0b), 2.1, 1.45, .06); const scr = box(1.43, .81, .005, tvScr, 2.1, 1.45, .083);
+// soffa (bara för att visa rummet)
+box(2.2, .42, .9, mat(0x6f7468), 2.1, .21, 3.0); box(2.2, .4, .2, mat(0x6f7468), 2.1, .62, 3.35);
+
+// ---------- ljus ----------
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x4a3a28, .5); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dd, 2.2); sun.position.set(6, 7, 6); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); scene.add(sun);
+let night = false;
+function setNight(n) { night = n; scene.environment = n ? null : envTex; hemi.intensity = n ? .02 : .5; sun.intensity = n ? 0 : 2.2; scene.background = new THREE.Color(n ? 0x050608 : 0x1b2219);
+  scr.material = n ? mat(0x000000, { emissive: 0x6688cc, emissiveIntensity: .6 }) : tvScr; for (const o of things) o.refresh?.();
+  document.getElementById('day').classList.toggle('on', !n); document.getElementById('night').classList.toggle('on', n); }
+const kRGB = k => { k /= 100; let r, g, b; if (k <= 66) { r = 255; g = 99.47 * Math.log(k) - 161.12; b = k <= 19 ? 0 : 138.52 * Math.log(k - 10) - 305.04; } else { r = 329.7 * Math.pow(k - 60, -.1332); g = 288.12 * Math.pow(k - 60, -.0755); b = 255; } const c = v => Math.max(0, Math.min(255, v)) / 255; return new THREE.Color(c(r), c(g), c(b)); };
+
+// ---------- saker man bygger ----------
+const things = []; let sel = null;
+const hl = new THREE.BoxHelper(undefined, 0xff7a2f); hl.visible = false; scene.add(hl);
+function select(o) { sel = o; hl.visible = !!o; if (o) hl.setFromObject(o.g); showPanel(); }
+function remove(o) { scene.remove(o.g); things.splice(things.indexOf(o), 1); for (const s of things.filter(t => t.host === o)) remove(s); select(null); }
+
+// spotlight: sitter i taket eller under en kappa
+function addSpot(x, z, y = CH, host = null) {
+  const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .012, 24), mat(0xf2efe9, { roughness: .4 })); ring.position.y = -.006; g.add(ring);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(.03, 20), mat(0x888888)); lens.rotation.x = Math.PI / 2; lens.position.y = -.013; g.add(lens);
+  const L = new THREE.SpotLight(0xffffff, 0, 6, 0, .5, 2); L.position.y = -.02; L.target.position.set(0, -1, 0); g.add(L, L.target); L.castShadow = true; L.shadow.mapSize.set(512, 512); L.shadow.bias = -.002;
+  const o = { kind: 'spot', g, host, k: 2700, lm: 350, beam: 36, on: true, pick: [ring, lens],
+    refresh() { const c = kRGB(o.k); L.color.copy(c); L.angle = o.beam * 1.4 / 2 * Math.PI / 180; L.intensity = night && o.on ? o.lm / 12 : 0; lens.material.emissive = c; lens.material.emissiveIntensity = night && o.on ? 3 : 0; lens.material.needsUpdate = true; } };
+  [ring, lens].forEach(m => m.userData.thing = o); o.refresh(); things.push(o); return o;
+}
+// band längs en ritad linje: kappa (från taket och ner), sockel (från golvet och upp), LED (tunn lysande list)
+function bandShape(pts, w) { // polygon runt linjen (gering i hörnen)
+  const L = [], Rr = [], n = pts.length;
+  for (let i = 0; i < n; i++) { const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let dx = b.x - a.x, dz = b.z - a.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; let nx = -dz, nz = dx;
+    if (i > 0 && i < n - 1) { const d1 = norm(p.x - a.x, p.z - a.z), d2 = norm(b.x - p.x, b.z - p.z), m = norm(-d1.z - d2.z, d1.x + d2.x), c = Math.max(.35, m.x * -d1.z + m.z * d1.x); nx = m.x / c; nz = m.z / c; }
+    L.push(new THREE.Vector2(p.x + nx * w / 2, p.z + nz * w / 2)); Rr.push(new THREE.Vector2(p.x - nx * w / 2, p.z - nz * w / 2)); }
+  return new THREE.Shape([...L, ...Rr.reverse()]); }
+const norm = (x, z) => { const l = Math.hypot(x, z) || 1; return { x: x / l, z: z / l }; };
+function addBand(kind, pts) {
+  const g = new THREE.Group(); scene.add(g);
+  const o = { kind, g, pts, w: kind === 'kappa' ? .45 : kind === 'sockel' ? .4 : .02, h: kind === 'kappa' ? .25 : kind === 'sockel' ? .12 : .01, k: 2700, lm: 600, on: true, cove: kind === 'kappa', pick: [],
+    build() { g.clear(); o.pick = [];
+      const geo = new THREE.ExtrudeGeometry(bandShape(o.pts, o.w), { depth: o.h, bevelEnabled: false }); geo.rotateX(Math.PI / 2);
+      const m = new THREE.Mesh(geo, kind === 'led' ? mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0 }) : mat(kind === 'sockel' ? 0x2b2b2b : 0xf2f1ee, { roughness: .9 }));
+      m.position.y = kind === 'kappa' ? CH : kind === 'sockel' ? o.h : .9; m.castShadow = m.receiveShadow = true; g.add(m); o.mesh = m; o.pick.push(m); m.userData.thing = o;
+      // LED-list i kappans kant (indirekt ljus upp mot taket) eller den ritade LED-listen
+      o.leds = []; const lit = kind === 'led' || (kind === 'kappa' && o.cove);
+      if (lit) for (let i = 0; i < o.pts.length - 1; i++) { const a = o.pts[i], b = o.pts[i + 1], len = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.round(len / .9));
+        for (let j = 0; j < n; j++) { const t = (j + .5) / n, L = new THREE.PointLight(0xffffff, 0, 2.2, 2); L.position.set(a.x + (b.x - a.x) * t, kind === 'led' ? .88 : CH - o.h - .05, a.z + (b.z - a.z) * t); g.add(L); o.leds.push(L); } }
+      if (kind === 'kappa' && o.cove) { const edge = new THREE.Mesh(new THREE.ExtrudeGeometry(bandShape(o.pts, o.w + .03), { depth: .012, bevelEnabled: false }).rotateX(Math.PI / 2), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0 }));
+        edge.position.y = CH - o.h + .006; g.add(edge); o.edge = edge; } else o.edge = null;
+      o.refresh(); },
+    refresh() { const c = kRGB(o.k), on = night && o.on; const per = o.lm / 600;
+      for (const L of o.leds || []) { L.color.copy(c); L.intensity = on ? 1.6 * per : 0; }
+      for (const m of [kind === 'led' ? o.mesh : null, o.edge]) if (m) { m.material.emissive.copy(c); m.material.emissiveIntensity = on ? 2.2 : 0; } } };
+  o.build(); things.push(o); return o;
+}
+// skåp: BESTÅ 120×40×38 som hängs på väggen
+function addCab(x, y = .25) {
+  const g = new THREE.Group(); g.position.set(x, y, 0); scene.add(g); const o = { kind: 'skap', g, color: 0xf1f0ec, pick: [], w: 1.2,
+    build() { g.clear(); o.pick = []; const m = mat(o.color, { roughness: .5 }); const c = box(o.w, .38, .4, m, 0, .19, .2, g); o.pick.push(c);
+      for (let i = 0; i < o.w / .6; i++) for (let r = 0; r < 2; r++) { const f = box(.594, .186, .02, m, -o.w / 2 + .3 + i * .6, .095 + r * .19, .41, g); o.pick.push(f); } o.pick.forEach(p => p.userData.thing = o); } };
+  o.build(); things.push(o); return o;
+}
+
+// ---------- start: en kappa längs tv-väggen med 3 spotlights ----------
+const k0 = addBand('kappa', [{ x: 0, z: .225 }, { x: RW, z: .225 }]);
+[1.4, 2.1, 2.8].forEach(x => addSpot(x, .225, CH - k0.h, k0));
+addCab(2.1, .25);
+
+// ---------- ritande med "snäpp till mönster" ----------
+let tool = 'valj', stroke = null, pattern = 'raka', ghost = null, drag = null;
+const ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+function rayAt(e) { const r = cv.getBoundingClientRect(); mv.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mv, cam); }
+const planeHit = y => { const p = new THREE.Vector3(); return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), p) ? p : null; };
+const inRoom = p => ({ x: Math.max(0, Math.min(RW, p.x)), z: Math.max(0, Math.min(RD, p.z)) });
+// förenkla handritad linje → raka bitar i 0/45/90°, 5 cm steg, och dra den mot väggen om den är nära
+function rdp(P, eps) { if (P.length < 3) return P; const a = P[0], b = P[P.length - 1]; let idx = 0, md = 0;
+  for (let i = 1; i < P.length - 1; i++) { const d = Math.abs((b.x - a.x) * (a.z - P[i].z) - (a.x - P[i].x) * (b.z - a.z)) / (Math.hypot(b.x - a.x, b.z - a.z) || 1); if (d > md) { md = d; idx = i; } }
+  return md > eps ? [...rdp(P.slice(0, idx + 1), eps).slice(0, -1), ...rdp(P.slice(idx), eps)] : [a, b]; }
+function tidy(P, w) {
+  if (pattern === 'fri') { const c = new THREE.CatmullRomCurve3(rdp(P, .03).map(p => new THREE.Vector3(p.x, 0, p.z))); return c.getPoints(Math.max(8, P.length / 2)).map(v => inRoom({ x: v.x, z: v.z })); }
+  let Q = rdp(P, .12), out = [{ ...Q[0] }];
+  for (let i = 1; i < Q.length; i++) { const p = out[out.length - 1], dx = Q[i].x - p.x, dz = Q[i].z - p.z, len = Math.round(Math.hypot(dx, dz) / .05) * .05; if (len < .05) continue;
+    const step = pattern === 'rat' ? Math.PI / 2 : Math.PI / 4, a = Math.round(Math.atan2(dz, dx) / step) * step; out.push({ x: p.x + Math.cos(a) * len, z: p.z + Math.sin(a) * len }); }
+  // mot väggen: bandets ytterkant läggs dikt an
+  const s = w / 2;
+  for (const p of out) { if (p.z < s + .2) p.z = s; if (p.x < s + .2) p.x = s; if (p.x > RW - s - .2) p.x = RW - s; if (p.z > RD - s - .2) p.z = RD - s; }
+  // börjar/slutar den nära en vägg? förläng ända fram
+  const ext = (p, q) => { if (Math.abs(p.z - q.z) < 1e-3 && (p.x < .35 || p.x > RW - .35)) p.x = p.x < .35 ? 0 : RW; if (Math.abs(p.x - q.x) < 1e-3 && (p.z < .35 || p.z > RD - .35)) p.z = p.z < .35 ? 0 : RD; };
+  if (out.length > 1) { ext(out[0], out[1]); ext(out[out.length - 1], out[out.length - 2]); }
+  return out.map(p => ({ x: +p.x.toFixed(3), z: +p.z.toFixed(3) })); }
+const strokeLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff7a2f })); strokeLine.renderOrder = 9; strokeLine.material.depthTest = false; scene.add(strokeLine);
+const surfY = () => tool === 'kappa' ? CH : tool === 'sockel' ? .002 : .9;
+
+cv.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return; rayAt(e);
+  if (['kappa', 'sockel', 'led'].includes(tool)) { const p = planeHit(surfY()); if (!p) return; stroke = [inRoom(p)]; ctl.enabled = false; cv.setPointerCapture(e.pointerId); return; }
+  if (tool === 'spot') { const t = spotTarget(); if (t) { const s = addSpot(t.x, t.z, t.y, t.host); select(s); } return; }
+  if (tool === 'skap') { const h = ray.intersectObject(backW)[0]; if (h) { const c = addCab(Math.max(.6, Math.min(RW - .6, h.point.x)), Math.max(0, Math.min(1.6, h.point.y - .19))); select(c); setTool('valj'); } return; }
+  // välj & flytta
+  const hits = ray.intersectObjects(things.flatMap(t => t.pick), false); const o = hits[0]?.object.userData.thing;
+  select(o || null); if (o) { drag = { o, start: hits[0].point.clone(), g0: o.g.position.clone(), pts0: o.pts?.map(p => ({ ...p })), sx: e.clientX, sy: e.clientY }; ctl.enabled = false; cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener('pointermove', e => { rayAt(e);
+  if (stroke) { const p = planeHit(surfY()); if (p) { stroke.push(inRoom(p)); strokeLine.geometry.setFromPoints(stroke.map(q => new THREE.Vector3(q.x, surfY() - .005, q.z))); } return; }
+  if (drag) { const o = drag.o;
+    if (o.kind === 'spot') { const t = spotTarget(o); if (t) { o.g.position.set(t.x, t.y, t.z); o.host = t.host; } }
+    else if (o.kind === 'skap') { const h = ray.intersectObject(backW)[0]; if (h) o.g.position.set(Math.max(o.w / 2, Math.min(RW - o.w / 2, drag.g0.x + h.point.x - drag.start.x)), Math.max(0, drag.g0.y + h.point.y - drag.start.y), 0); }
+    else { const y = o.kind === 'kappa' ? CH - o.h : o.kind === 'sockel' ? o.h : .9, p = planeHit(y); if (p) { const dx = Math.round((p.x - drag.start.x) / .05) * .05, dz = Math.round((p.z - drag.start.z) / .05) * .05;
+      o.pts = drag.pts0.map(q => ({ x: q.x + dx, z: q.z + dz })); o.build(); for (const s of things.filter(t => t.host === o)) s.g.position.set(s.g.position.x, s.g.position.y, s.g.position.z); } }
+    hl.setFromObject(o.g); return; }
+  if (tool === 'spot') { const t = spotTarget(); ghost.visible = !!t; if (t) ghost.position.set(t.x, t.y - .006, t.z); }
+});
+cv.addEventListener('pointerup', () => {
+  if (stroke) { ctl.enabled = true; const pts = tidy(stroke, tool === 'kappa' ? .45 : tool === 'sockel' ? .4 : .02); stroke = null; strokeLine.geometry.setFromPoints([]);
+    if (pts.length > 1 && Math.hypot(pts.at(-1).x - pts[0].x, pts.at(-1).z - pts[0].z) + pts.length > 1.2) { const o = addBand(tool, pts); if (night) o.refresh(); select(o); setTool('valj'); hint(`✔ Klart! Dra den för att flytta, eller ändra mått och ljus till höger`); } return; }
+  if (drag) { ctl.enabled = true; drag = null; showPanel(); }
+});
+// var kan en spot sitta? under en kappa, annars i taket
+function spotTarget(skip) { const kap = things.filter(t => t.kind === 'kappa' && t !== skip).map(t => t.mesh); const h = ray.intersectObjects(kap, false)[0];
+  if (h && h.face && h.face.normal.y < -.5 || h && Math.abs(h.point.y - (CH - h.object.userData.thing.h)) < .02) return { x: +h.point.x.toFixed(3), z: +h.point.z.toFixed(3), y: CH - h.object.userData.thing.h, host: h.object.userData.thing };
+  const p = planeHit(CH); if (p && p.x > .05 && p.x < RW - .05 && p.z > .05 && p.z < RD - .05) return { x: +p.x.toFixed(3), z: +p.z.toFixed(3), y: CH, host: null }; return null; }
+ghost = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .015, 24), new THREE.MeshBasicMaterial({ color: 0xff7a2f, transparent: true, opacity: .8, depthTest: false })); ghost.visible = false; ghost.renderOrder = 10; scene.add(ghost);
+
+// ---------- verktyg, tips, panel ----------
+const HINTS = { valj: '👆 Klicka på något för att ändra det · dra för att flytta · högerklick-dra = snurra',
+  kappa: '✏️ Rita i taket med musen – linjen rätas ut och läggs mot väggen. Högerklick-dra = snurra',
+  sockel: '🖍 Rita på golvet där sockeln/podiet ska gå – den följer mönstret du valt',
+  led: '〰️ Rita LED-listen där den ska sitta (90 cm upp, ändra höjden sen)',
+  spot: '🔆 Klicka i taket eller under en kappa för att sätta en spotlight', skap: '🗄 Klicka på tv-väggen där skåpet ska hänga' };
+const hintEl = document.getElementById('hint'); const hint = t => hintEl.textContent = t;
+function setTool(t) { tool = t; document.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === t)); ghost.visible = false; hint(HINTS[t]); showPanel(); }
+document.getElementById('tools').onclick = e => { const b = e.target.closest('[data-t]'); if (b) setTool(b.dataset.t); };
+const P = document.getElementById('panel');
+const ch = (attr, list, cur) => `<div class="ch">${list.map(([v, n]) => `<button data-${attr}="${v}" class="${String(v) === String(cur) ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+const lightUI = o => `<h5>LJUS</h5>${ch('typ', [[2700, 'Varmvit'], [4000, 'Kallvit'], [3000, 'Justerbar']], o.k === 2700 || o.k === 4000 ? o.k : 3000)}
+  <div class="rw"><label>Kelvin</label><input type="range" min="2200" max="6500" step="100" value="${o.k}" data-r="k"><output>${o.k} K</output></div><div class="kel"></div>
+  <div class="rw"><label>Ljusflöde</label><input type="range" min="50" max="1500" step="10" value="${o.lm}" data-r="lm"><output>${o.lm} lm</output></div>`;
+function showPanel() {
+  if (['kappa', 'sockel', 'led'].includes(tool)) { P.innerHTML = `<h3>${{ kappa: '✏️ Rita kappa', sockel: '🖍 Rita sockel', led: '〰️ Rita LED' }[tool]}</h3>
+    <h5>LINJEN FÖLJER</h5>${ch('pat', [['raka', 'Raka + 45°'], ['rat', 'Bara 90°'], ['fri', 'Mjuk kurva']], pattern)}
+    <div class="ch" style="margin-top:8px;color:var(--mut);font-size:12px">Rita slarvigt – den rätas ut, snäpper 5 cm och läggs dikt mot väggen.</div>`; P.classList.add('show'); return; }
+  if (tool === 'spot' && !sel) { P.innerHTML = `<h3>🔆 Spotlight</h3><div style="color:var(--mut);font-size:12.5px">Klicka där den ska sitta. Under en kappa hamnar den i kappans underkant. Tryck 🌙 Kväll för att se ljuset.</div>`; P.classList.add('show'); return; }
+  if (!sel) { P.classList.remove('show'); return; }
+  const o = sel; let h = `<h3>${{ spot: '🔆 Spotlight', kappa: '▔ Kappa', sockel: '▁ Sockel', led: '💡 LED-list', skap: '🗄 BESTÅ-skåp' }[o.kind]}<button data-x>✕</button></h3>`;
+  if (o.kind === 'spot') h += `<h5>SPRIDNING</h5>${ch('beam', [[24, '24° smal'], [36, '36°'], [60, '60° bred']], o.beam)}` + lightUI(o);
+  if (o.kind === 'kappa') h += `<h5>DJUP UT FRÅN VÄGGEN</h5>${ch('w', [[.3, '30'], [.45, '45'], [.6, '60'], [.8, '80 cm']], o.w)}<h5>HÖJD NER FRÅN TAKET</h5>${ch('h', [[.15, '15'], [.25, '25'], [.35, '35 cm']], o.h)}
+    <h5>SPOTLIGHTS</h5>${ch('nsp', [[0, 'Inga'], [2, '2'], [3, '3'], [4, '4'], [5, '5']], things.filter(t => t.host === o).length)}<div style="color:var(--mut);font-size:12px;margin-top:4px">Fördelas jämnt – dra sen den du vill flytta</div>
+    <h5>LED I KANTEN (INDIREKT LJUS)</h5>${ch('cove', [[1, 'Ja'], [0, 'Nej']], o.cove ? 1 : 0)}${o.cove ? lightUI(o) : ''}`;
+  if (o.kind === 'sockel') h += `<h5>DJUP</h5>${ch('w', [[.3, '30'], [.4, '40'], [.6, '60'], [.9, '90 cm']], o.w)}<h5>HÖJD</h5>${ch('h', [[.08, '8'], [.12, '12'], [.2, '20'], [.4, '40 cm']], o.h)}`;
+  if (o.kind === 'led') h += lightUI(o);
+  if (o.kind === 'skap') h += `<h5>BREDD</h5>${ch('cw', [[.6, '60'], [1.2, '120'], [1.8, '180 cm']], o.w)}<h5>FÄRG (LAPPVIKEN)</h5>${ch('cc', [[0xf1f0ec, 'vit'], [0x2e2a27, 'svartbrun'], [0xd9cdb7, 'vitbets ek'], [0xcfc6b8, 'gråbeige']], o.color)}`;
+  h += `<div class="acts"><button data-dup>⧉ Kopiera</button><button data-del>🗑 Ta bort</button></div>`;
+  P.innerHTML = h; P.classList.add('show'); }
+P.onclick = e => { const b = e.target.closest('button'); if (!b) return; const d = b.dataset, o = sel;
+  if (d.pat) { pattern = d.pat; return showPanel(); }
+  if ('x' in d) return select(null);
+  if (!o) return;
+  if ('del' in d) return remove(o);
+  if ('dup' in d) { const c = o.kind === 'spot' ? addSpot(o.g.position.x + .3, o.g.position.z, o.g.position.y, o.host) : o.kind === 'skap' ? addCab(Math.min(RW - .6, o.g.position.x + o.w), o.g.position.y) : addBand(o.kind, o.pts.map(p => ({ x: p.x, z: p.z + .5 }))); Object.assign(c, { k: o.k, lm: o.lm }); c.refresh?.(); return select(c); }
+  if (d.typ) { o.k = +d.typ; o.refresh(); return showPanel(); }
+  if (d.beam) { o.beam = +d.beam; o.refresh(); return showPanel(); }
+  if (d.w) { o.w = +d.w; o.build(); placeSpots(o); }
+  if (d.h) { o.h = +d.h; o.build(); placeSpots(o); }
+  if (d.cove) { o.cove = d.cove === '1'; o.build(); }
+  if (d.nsp !== undefined) { for (const s of things.filter(t => t.host === o)) remove(s); select(o); spreadSpots(o, +d.nsp); }
+  if (d.cw) { o.w = +d.cw; o.build(); }
+  if (d.cc) { o.color = +d.cc; o.build(); }
+  hl.setFromObject(o.g); showPanel(); };
+P.oninput = e => { const t = e.target; if (!t.dataset.r || !sel) return; sel[t.dataset.r] = +t.value; t.nextElementSibling.textContent = t.dataset.r === 'k' ? t.value + ' K' : t.value + ' lm'; sel.refresh(); };
+function spreadSpots(o, n) { // jämnt längs kappans mittlinje
+  const segs = []; let tot = 0; for (let i = 0; i < o.pts.length - 1; i++) { const a = o.pts[i], b = o.pts[i + 1], l = Math.hypot(b.x - a.x, b.z - a.z); segs.push([a, b, l]); tot += l; }
+  for (let i = 0; i < n; i++) { let d = tot * (i + .5) / n; for (const [a, b, l] of segs) { if (d <= l) { addSpot(a.x + (b.x - a.x) * d / l, a.z + (b.z - a.z) * d / l, CH - o.h, o); break; } d -= l; } } }
+function placeSpots(o) { for (const s of things.filter(t => t.host === o)) s.g.position.y = CH - o.h; }
+document.getElementById('day').onclick = () => setNight(false); document.getElementById('night').onclick = () => setNight(true);
+addEventListener('keydown', e => { if ((e.key === 'Delete' || e.key === 'Backspace') && sel) remove(sel); if (e.key === 'Escape') { select(null); setTool('valj'); } });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+function size() { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+addEventListener('resize', size); size(); setNight(false);
+R.setAnimationLoop(() => { ctl.update(); R.render(scene, cam); });
+window.__b3 = { setNight, setTool, things, addBand, select };
+</script>
+</body>
+</html>
