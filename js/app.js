@@ -1,20 +1,20 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794479499';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794479499';
-import { createPlan } from './plan2d.js?v=1794479499';
-import { createView } from './view3d.js?v=1794479499';
-import { createHA } from './ha.js?v=1794479499';
-import { detectPlan } from './autoplan.js?v=1794479499';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794479499';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794479499';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794479499';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794479499';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794479499';
-import { checkHome } from './check.js?v=1794479499';
-import { openTakStudio, takList } from './tak.js?v=1794479499';
-import { openByggStudio } from './byggstudio.js?v=1794479499';
-import { byggList } from './bygg.js?v=1794479499';
-import { openElfaStudio } from './elfastudio.js?v=1794479499';
+import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794482121';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794482121';
+import { createPlan } from './plan2d.js?v=1794482121';
+import { createView } from './view3d.js?v=1794482121';
+import { createHA } from './ha.js?v=1794482121';
+import { detectPlan } from './autoplan.js?v=1794482121';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794482121';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794482121';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794482121';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794482121';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794482121';
+import { checkHome } from './check.js?v=1794482121';
+import { openTakStudio, takList } from './tak.js?v=1794482121';
+import { openByggStudio } from './byggstudio.js?v=1794482121';
+import { byggList } from './bygg.js?v=1794482121';
+import { openElfaStudio } from './elfastudio.js?v=1794482121';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -451,20 +451,34 @@ function roomWalls(h, r) {
     let enx = -ey, eny = ex; if (!inPoly({ x: (a.x + b.x) / 2 + enx * .05, y: (a.y + b.y) / 2 + eny * .05 }, P)) { enx = -enx; eny = -eny; }
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; let face = null, best = .45;
     for (const w of solid) { const wl = wallLen(w); let wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl; if (Math.abs(wx * ey - wy * ex) > .2) continue;   // upp till ~11° snett
+      const t = (mx - w.a.x) * wx + (my - w.a.y) * wy; if (t < -.05 || t > wl + .05) continue;
       if (wx * ex + wy * ey < 0) { wx = -wx; wy = -wy; }
       let nx = -wy, ny = wx; if (nx * enx + ny * eny < 0) { nx = -nx; ny = -ny; }
-      const t = (mx - w.a.x) * wx + (my - w.a.y) * wy; if (t < -.05 || t > wl + .05) continue;
       const dc = (w.a.x - mx) * nx + (w.a.y - my) * ny;   // väggens mittlinje vid kantens mitt: + = inne i rummet
-      if (Math.abs(dc) < best) { best = Math.abs(dc); const th = (w.t || .1) / 2; face = { px: w.a.x + nx * th, py: w.a.y + ny * th, ux: wx, uy: wy, nx, ny }; } }
+      if (Math.abs(dc) < best) { best = Math.abs(dc); const th = (w.t || .1) / 2; face = { px: w.a.x + nx * th, py: w.a.y + ny * th, ux: wx, uy: wy, nx, ny, real: true }; } }
     return face || { px: a.x, py: a.y, ux: ex, uy: ey, nx: enx, ny: eny }; });
   // var linjen f skär linjen parallell med e på djupet d (mätt längs e:s riktning r)
   const along = (e, f, d) => { const ox = e.px + e.nx * d, oy = e.py + e.ny * d, den = e.ux * f.uy - e.uy * f.ux;
     if (Math.abs(den) < 1e-6) return null; const t = ((f.px - ox) * f.uy - (f.py - oy) * f.ux) / den; return t * (e.ux * e.ny - e.uy * e.nx); };
+  // var väggytan e tar slut nära läget a0 (sida -1 = början, 1 = slutet), inkl. tjockleken på väggar som möts i ändpunkten
+  const wallEnd = (e, a0, side) => { const rx = e.ny, ry = -e.nx, key = p => Math.round(p.x * 200) + ',' + Math.round(p.y * 200); let best = null;
+    for (const w of solid) { const wl = wallLen(w), wx = (w.b.x - w.a.x) / wl, wy = (w.b.y - w.a.y) / wl; if (Math.abs(wx * e.uy - wy * e.ux) > .2) continue;
+      if (Math.abs(Math.abs((w.a.x - e.px) * e.nx + (w.a.y - e.py) * e.ny) - (w.t || .1) / 2) > .03) continue;   // väggen vars yta det är
+      for (const p of [w.a, w.b]) { let a = (p.x - e.px) * rx + (p.y - e.py) * ry; if (Math.abs(a - a0) > .2) continue;
+        let ext = 0; for (const o of solid) { if (o === w || (key(o.a) !== key(p) && key(o.b) !== key(p))) continue;
+          const ol = wallLen(o), s = Math.abs(((o.b.x - o.a.x) * e.uy - (o.b.y - o.a.y) * e.ux) / ol); if (s > .5) ext = Math.max(ext, (o.t || .1) / 2 / s); }
+        a += side * ext; if (side * a > (best == null ? -1e9 : side * best)) best = a; } }
+    return best; };
   return E.map((e, i) => { const { nx, ny } = e, rx = ny, ry = -nx;
     // ändarna: där sidoväggens yta möts – både vid väggen och 65 cm ut, så ett snett hörn aldrig ger glapp (biten går in i väggen istället)
     const ends = [E[(i - 1 + n) % n], E[(i + 1) % n]].map(f => { const a0 = along(e, f, 0), aD = along(e, f, D); return a0 == null ? null : [a0, aD != null && Math.abs(aD - a0) < .3 ? aD : a0]; });
     const [A, B] = ends[0] && ends[1] ? (ends[0][0] < ends[1][0] ? ends : [ends[1], ends[0]]) : [[0, 0], [1, 1]];
-    const lo = Math.min(...A), hi = Math.max(...B), len = Math.max(.2, hi - lo);
+    let lo = Math.min(...A), hi = Math.max(...B);
+    // öppen sida (osynlig rumsgräns): sluta exakt där den riktiga väggen slutar, inte vid gränslinjen
+    if (e.real) { const nb = ends[0] && ends[0][0] < ends[1][0] ? [E[(i - 1 + n) % n], E[(i + 1) % n]] : [E[(i + 1) % n], E[(i - 1 + n) % n]];
+      if (!nb[0].real) { const v = wallEnd(e, lo, -1); if (v != null) lo = v; }
+      if (!nb[1].real) { const v = wallEnd(e, hi, 1); if (v != null) hi = v; } }
+    const len = Math.max(.2, hi - lo);
     const s0 = { x: e.px + rx * lo, y: e.py + ry * lo };
     const x1 = s0.x, y1 = s0.y, win = [], doors = [];
     for (const o of h.openings) { const w = h.walls.find(x => x.id === o.wall); if (!w) continue;

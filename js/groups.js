@@ -1,9 +1,9 @@
 // Smarta grupper: en "förälder" (bord, säng, soffa) äger sina delar (stolar, sängbord, soffbord, matta).
 // Delarna placeras automatiskt och följer med när föräldern flyttas, vrids eller ändras.
 // Plan-koordinater: x, y (y = djupet i 3D), rot i grader. Möblernas framsida är lokal +y.
-import { makeItem } from './store.js?v=1794479499';
-import { syncF } from './furnbridge.js?v=1794479499';
-import { PRESETS } from './presets.js?v=1794479499';
+import { makeItem } from './store.js?v=1794482121';
+import { syncF } from './furnbridge.js?v=1794482121';
+import { PRESETS } from './presets.js?v=1794482121';
 
 const D2R = Math.PI / 180;
 const toWorld = (p, lx, ly) => { const r = p.rot * D2R, c = Math.cos(r), s = Math.sin(r); return { x: p.x + lx * c - ly * s, y: p.y + lx * s + ly * c }; };

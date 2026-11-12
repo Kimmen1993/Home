@@ -1,7 +1,7 @@
 // Takverkstan: sänkt tak (hela, kappa runt om, kappa på en sida, tak-ö, fritt) med reglar, gips, spotlights och indirekt LED.
 // Ytorna mäts från rummets övre vänstra hörn (plan-koordinater). drop = hur mycket taket sänks.
 // Reglar: c/c 40 cm som säker standard för 12,5 mm takgips (kontrollera alltid skivtillverkarens anvisning, c/c 60 kan gå med rätt skiva).
-import { STUDIO_CSS } from './elfastudio.js?v=1794479499';
+import { STUDIO_CSS } from './elfastudio.js?v=1794482121';
 
 const cm = v => Math.round(v * 100), esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 let nid = 1; const aid = () => 'a' + Date.now().toString(36) + (nid++);
