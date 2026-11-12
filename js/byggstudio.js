@@ -1,8 +1,8 @@
 // Byggverkstan: 1) välj vägg + börja tomt eller från ett förslag  2) bygg väggen framifrån (dra, snäpp, ändra storlek)
 // 3) inköpslista + sätt in. Varianter A/B/C av samma vägg. Samma utseende som Elfa-verkstan.
-import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794482121';
-import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794482121';
-import { MATS, GROUPS, swatch } from './materials.js?v=1794482121';
+import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794487840';
+import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794487840';
+import { MATS, GROUPS, swatch } from './materials.js?v=1794487840';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);
@@ -23,6 +23,7 @@ const CSS2 = `
 .bs-shop h3{margin:0 0 6px;font-size:14px}
 .es-svg .bp{cursor:grab}.es-svg .bp.on>.ol{stroke:#ff7a2f;stroke-width:2.5}.es-svg .bp:hover>.ol{stroke:#ffb27f}
 .es-svg .rh{fill:#ff7a2f;cursor:nwse-resize}
+.bs-cap{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;margin-top:6px;font-size:13px;color:#8f9a8b;text-align:center}.bs-cap b{color:#ff7a2f;font-weight:600}
 @media (max-width:900px){.bs-shop{grid-template-columns:1fr}}
 `;
 
@@ -54,11 +55,14 @@ export function wallSvg(parts, m, { crop = null, L, H, win = [], doors = [], ite
     if (bad) out += `<text x="${x + w / 2}" y="${y - 4}" fill="#ff7a6a" font-size="10" text-anchor="middle">${cm(p.h)} cm hög får inte hängas på vägg</text>`;
   }
   for (const g of guides) out += g.x !== undefined ? `<line x1="${X(g.x)}" x2="${X(g.x)}" y1="0" y2="${X(H)}" stroke="#ff7a2f" stroke-width="1.3" stroke-dasharray="6 5"/>` : `<line x1="0" x2="${X(L)}" y1="${Y(g.y)}" y2="${Y(g.y)}" stroke="#ff7a2f" stroke-width="1.3" stroke-dasharray="6 5"/>`;
-  const sp = sel && parts.find(p => p.id === sel);
-  if (sp && interactive) out += `<text x="${X(sp.x + sp.w / 2)}" y="${X(H) + 26}" fill="#ff7a2f" font-size="13" text-anchor="middle">↔ ${cm(sp.w)} · ↕ ${cm(sp.h)} · ${cm(sp.x)} cm från vänster · ${cm(sp.y)} cm upp</text>`;
-  out += `<text x="${X(L / 2)}" y="${X(H) + (interactive ? 46 : 24)}" fill="#8f9a8b" font-size="13" text-anchor="middle">${cm(L)} cm vägg · ${cm(H)} cm till taket</text>`;
+  // i verkstaden visas måtten som vanlig text under ritningen (bildtext i svg:n skalas med zoomen och kapas i kanten)
+  if (!interactive) out += `<text x="${X(L / 2)}" y="${X(H) + 24}" fill="#8f9a8b" font-size="13" text-anchor="middle">${cm(L)} cm vägg · ${cm(H)} cm till taket</text>`;
   const c0 = crop ? Math.max(0, crop[0]) : 0, c1 = crop ? Math.min(L, crop[1]) : L;
-  return `<svg class="${cls}" viewBox="${X(c0) - 14} -14 ${X(c1 - c0) + 28} ${X(H) + (interactive ? 62 : 40)}" preserveAspectRatio="xMidYMid meet">${out}</svg>`;
+  return `<svg class="${cls}" viewBox="${X(c0) - 14} -14 ${X(c1 - c0) + 28} ${X(H) + (interactive ? 36 : 40)}" preserveAspectRatio="xMidYMid meet">${out}</svg>`;
+}
+export function wallCap(parts, sel, L, H) {
+  const sp = sel && parts.find(p => p.id === sel);
+  return `<div class="bs-cap">${sp ? `<b>↔ ${cm(sp.w)} · ↕ ${cm(sp.h)} cm · ${cm(sp.x)} cm från vänster · ${cm(sp.y)} cm upp</b>` : ''}<span>${cm(L)} cm vägg · ${cm(H)} cm till taket</span></div>`;
 }
 
 export function openByggStudio({ item, rooms, startRoom = 0, startWall = 0, roomH = 2.5, onDone }) {
@@ -103,6 +107,7 @@ export function openByggStudio({ item, rooms, startRoom = 0, startWall = 0, room
       <div class="es-cv"><div class="es-hd"><div class="bs-tabs">${o.variants.map((v, i) => `<button data-var="${i}" class="${i === o.active ? 'on' : ''}">${esc(v.name)}</button>`).join('')}<button data-var="new" title="Ny variant (kopia)">＋</button></div>
         <span>Dra delar hit · dra för att flytta · orange ruta = ändra storlek</span></div>
         ${wallSvg(parts(), m, { crop: crop(), L: L(), H, win: W().win, doors: W().doors, items: W().items || [], sel: S.sel, guides: S.drag?.guides || [], interactive: true, showIkea: S.showIkea })}
+        ${wallCap(parts(), S.sel, L(), H)}
         ${L() >= 4 ? `<div class="es-seg" style="margin-top:6px;justify-content:center"><button data-whole>${S.whole ? '🔍 Zooma in på bygget' : '↔ Visa hela väggen'}</button></div>` : ''}</div>
       <div class="es-card">${p ? partPanel(p) : `<h4>GÖR DET INBYGGT</h4>
         <div class="es-seg" style="flex-direction:column;align-items:stretch">${[['passbit', '▕ Passbitar mot väggarna'], ['kappa', '▔ Kappa ända upp till taket'], ['sockel', '▁ Sockel under stående skåp']].map(([k, l]) => `<button data-auto="${k}" class="${parts().some(q => q.auto === k) ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -145,7 +150,8 @@ export function openByggStudio({ item, rooms, startRoom = 0, startWall = 0, room
   // ---------- händelser ----------
   const svgPt = e => { const sv = ov.querySelector('.es-cv svg'); if (!sv) return null; const pt = sv.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const r = pt.matrixTransform(sv.getScreenCTM().inverse()); return { x: r.x / 100, y: H - r.y / 100 }; };
   const redrawSvg = () => { const host = ov.querySelector('.es-cv'); if (!host) return; const t = document.createElement('div');
-    t.innerHTML = wallSvg(parts(), m, { crop: S.drag?.crop ?? crop(), L: L(), H, win: W().win, doors: W().doors, items: W().items || [], sel: S.sel, guides: S.drag?.guides || [], interactive: true, showIkea: S.showIkea }); host.querySelector('svg').replaceWith(t.firstChild); };
+    t.innerHTML = wallSvg(parts(), m, { crop: S.drag?.crop ?? crop(), L: L(), H, win: W().win, doors: W().doors, items: W().items || [], sel: S.sel, guides: S.drag?.guides || [], interactive: true, showIkea: S.showIkea }); host.querySelector('svg').replaceWith(t.firstChild);
+    t.innerHTML = wallCap(parts(), S.sel, L(), H); host.querySelector('.bs-cap')?.replaceWith(t.firstChild); };
   ov.addEventListener('pointerdown', e => {
     if (S.step !== 2) return;
     const pal = e.target.closest('[data-pal]'), rs = e.target.closest('[data-rs]'), bp = e.target.closest('.bp'), q = svgPt(e);
