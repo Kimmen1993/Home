@@ -1,9 +1,9 @@
 // Byggverkstan: 1) välj vägg + börja tomt eller från ett förslag  2) bygg väggen framifrån (dra, snäpp, ändra storlek)
 // 3) inköpslista + sätt in. Varianter A/B/C av samma vägg. Samma utseende som Elfa-verkstan.
-import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794501654';
-import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, FRONT_SERIES, GLASS_SERIES, HANDTAG, RAM_DIR, LED_DIR, SPOT_BEAM, frontOf, lightParts, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794501654';
-import { kRGB, hueRGB, css, ljusHtml, ljusSet, ljusText, LJUS_CSS } from './ljus.js?v=1794501654';
-import { MATS, GROUPS, swatch } from './materials.js?v=1794501654';
+import { STUDIO_CSS, wallPlanSvg } from './elfastudio.js?v=1794926502';
+import { PARTS, CATS, IKEA, FRONTS, PANEL_STIL, FRONT_SERIES, GLASS_SERIES, HANDTAG, RAM_DIR, LED_DIR, SPOT_BEAM, frontOf, lightParts, newPart, isIkea, hangOk, snapMove, builtIn, suggestions, byggList, tvSize } from './bygg.js?v=1794926502';
+import { kRGB, hueRGB, css, ljusHtml, ljusSet, ljusText, LJUS_CSS } from './ljus.js?v=1794926502';
+import { MATS, GROUPS, swatch } from './materials.js?v=1794926502';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cm = v => Math.round(v * 100);

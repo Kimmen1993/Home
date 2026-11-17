@@ -1,21 +1,23 @@
 // Hemma – kopplar ihop ritning, 3D, panelerna och smarta hemmet.
-import { flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794501654';
-import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794501654';
-import { createPlan } from './plan2d.js?v=1794501654';
-import { createView } from './view3d.js?v=1794501654';
-import { createHA } from './ha.js?v=1794501654';
-import { detectPlan } from './autoplan.js?v=1794501654';
-import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794501654';
-import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794501654';
-import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794501654';
-import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794501654';
-import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794501654';
-import { checkHome } from './check.js?v=1794501654';
-import { openTakStudio, takList } from './tak.js?v=1794501654';
-import { openByggStudio } from './byggstudio.js?v=1794501654';
-import { lt as ljusLt, lumen, ljusText, TYPER } from './ljus.js?v=1794501654';
-import { byggList } from './bygg.js?v=1794501654';
-import { openElfaStudio } from './elfastudio.js?v=1794501654';
+import { saveHooks, flushSave, syncFromStorage, STORAGE_KEY, rawHome, addLevel, levelView, S, home, emit, on, load, save, commit, undo, redo, clearHistory, template, uid, movePoint, wallLen, nameOf, polyArea, roomAt, inPoly, makeItem, wallGap, insidePoint, trackProj, trackLen, panelS, migrate, splitWalls, mergeWalls, cleanWalls, wallSides, rebuildRooms, touchRooms } from './store.js?v=1794926502';
+import { CATS, ITEMS, OPENINGS, PALETTE, FLOORS, WALLMATS, HOME_TYPES } from './catalog.js?v=1794926502';
+import { createPlan } from './plan2d.js?v=1794926502';
+import { createView } from './view3d.js?v=1794926502';
+import { createHA } from './ha.js?v=1794926502';
+import { createSync, cfgFromHash, linkFor } from './sync.js?v=1794926502';
+import { detectPlan } from './autoplan.js?v=1794926502';
+import { openFoto } from './foto.js?v=1794926502';
+import { FURN, ELFA_SYS, elfaSys } from './furniture.js?v=1794926502';
+import { furnKey, ensureFurn, syncF, furnObj } from './furnbridge.js?v=1794926502';
+import { furnPanelHtml, bindFurnPanel } from './furnpanel.js?v=1794926502';
+import { PRESETS, findPreset, FAMILIES } from './presets.js?v=1794926502';
+import { arrange, arrangeAll, groupKind, setChairs, CHAIRS } from './groups.js?v=1794926502';
+import { checkHome } from './check.js?v=1794926502';
+import { openTakStudio, takList } from './tak.js?v=1794926502';
+import { openByggStudio } from './byggstudio.js?v=1794926502';
+import { lt as ljusLt, lumen, ljusText, TYPER } from './ljus.js?v=1794926502';
+import { byggList } from './bygg.js?v=1794926502';
+import { openElfaStudio } from './elfastudio.js?v=1794926502';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -27,6 +29,17 @@ const ui = { trackDone(t) { const n = panelsForWindows(home(), t); window.toast(
 const plan = createPlan($('#plan'), ui);
 const view = createView($('#pane3d'), { device: onDevice, toast: window.toast, toolDone: ui.toolDone, levelChanged() { renderAll(); emit('full'); }, viewChanged: st => renderVtools(st) });
 const ha = createHA({ onState: haState, onStatus: (s, msg) => { renderSide(); if (msg) window.toast(msg); if (s === 'on') { window.toast('Ansluten till Home Assistant ✔'); renderRight(); } } });
+const sync = createSync({
+  getData: () => ({ homes: S.homes }),
+  applyData(d, info) {
+    if (!d?.homes?.length) return;
+    S.homes = d.homes; migrate(S.homes); if (!S.homes.some(h => h.id === S.cur)) S.cur = S.homes[0].id;
+    S.sel = null; S.placing = null; renderAll(); emit('full');
+    window.toast(info.conflicts ? `⚠️ Samma sak ändrades på två enheter – den här enhetens version behölls (${info.conflicts} st)` : '🔄 Uppdaterat från en annan enhet');
+  },
+  onStatus() { renderSide(); const el = $('#modal:not([hidden]) #syStat'); if (el) el.innerHTML = syncStat(); },
+});
+saveHooks.push(() => sync.schedule());
 let catTab = 'oppningar';
 
 // ---------- händelser från datan ----------
@@ -58,18 +71,20 @@ function renderSide() {
     <div class="sec hidem">KOPPLAT</div>
     <div class="sys hidem" data-ha>Home Assistant <span class="dot ${ha.status}"></span></div>
     <div class="note hidem" style="padding:0 10px 6px">Apple Home, Homey, Hue, IKEA, Sonos… kopplas in via Home Assistant.</div>
+    <div class="sys" data-sync title="${esc(sync.msg)}">☁️ Synk mellan enheter <span class="dot ${syncDot()}"></span></div>
     <div class="sec hidem">FIL</div>
     <button class="small hidem" data-export>⬇ Spara som fil</button>
     <button class="small hidem" data-import>⬆ Öppna fil</button>`;
 }
 $('#side').addEventListener('click', e => {
-  const t = e.target.closest('[data-mode],[data-home],[data-new],[data-ha],[data-export],[data-import],[data-del]'); if (!t) return;
+  const t = e.target.closest('[data-mode],[data-home],[data-new],[data-ha],[data-sync],[data-export],[data-import],[data-del]'); if (!t) return;
   if (t.dataset.del) { e.stopPropagation(); if (S.homes.length < 2) return window.toast('Du behöver minst ett hem');
     const x = S.homes.find(h => h.id === t.dataset.del); if (confirm(`Ta bort "${x.name}"?`)) { S.homes = S.homes.filter(h => h !== x); if (S.cur === x.id) switchHome(S.homes[0].id); else emit('full'); } return; }
   if (t.dataset.mode) setMode(t.dataset.mode);
   else if (t.dataset.home) switchHome(t.dataset.home);
   else if (t.hasAttribute('data-new')) newHomeDialog();
   else if (t.hasAttribute('data-ha')) haDialog();
+  else if (t.hasAttribute('data-sync')) syncDialog();
   else if (t.hasAttribute('data-export')) exportHome();
   else if (t.hasAttribute('data-import')) $('#fileJson').click();
 });
@@ -780,6 +795,67 @@ function haDialog() {
   const off = m.querySelector('#haOff'); if (off) off.onclick = () => { S.ha = { url: '', token: '' }; save(); ha.disconnect(); ha.connect(); m.hidden = true; };
 }
 
+// ---------- synk mellan enheter (privat GitHub-repo) ----------
+const SYNC_TXT = { ok: 'Synkat', syncing: 'Synkar…', idle: 'Startar…', error: 'Fel', offline: 'Ingen anslutning', off: 'Inte kopplad' };
+const syncDot = () => ({ ok: 'on', syncing: 'connecting', idle: 'connecting', error: 'error', offline: 'error' }[sync.status] || 'off');
+const syncStat = () => `Status: <span class="dot ${syncDot()}"></span> ${SYNC_TXT[sync.status] || ''}${sync.lastOk ? ' · senast ' + new Date(sync.lastOk).toLocaleTimeString('sv-SE') : ''}${sync.msg ? '<br>' + esc(sync.msg) : ''}`;
+function syncDialog(pre) {
+  const c = sync.cfg;
+  if (c) {
+    const m = modal(`<h2>☁️ Synk mellan enheter</h2>
+      <p class="note">Husen sparas i ditt privata repo <b>${esc(c.repo)}</b> och följer med till alla enheter som är kopplade. Utan nät sparas allt här och synkas när nätet kommer tillbaka.</p>
+      <p class="note" id="syStat">${syncStat()}</p>
+      <div id="qr" style="display:none;text-align:center;margin:10px 0"></div>
+      <p class="note" id="qrNote" style="display:none">Skanna med mobilens kamera. Koden innehåller nyckeln – visa den inte för andra, och skicka inte länken i öppna kanaler.</p>
+      <div class="btns" style="flex-wrap:wrap"><button class="btn" data-close>Stäng</button><button class="btn danger" id="syOff">Koppla från den här enheten</button><button class="btn" id="syLink">📋 Kopiera länk</button><button class="btn" id="syQr">📱 Koppla mobil (QR)</button><button class="btn acc" id="syNow">Synka nu</button></div>`);
+    m.querySelector('#syNow').onclick = () => sync.now();
+    m.querySelector('#syOff').onclick = async () => { if (!confirm('Sluta synka den här enheten? Husen finns kvar här och på GitHub.')) return; await sync.unlink(); m.hidden = true; window.toast('Synken är avstängd på den här enheten'); };
+    m.querySelector('#syLink').onclick = async () => { try { await navigator.clipboard.writeText(linkFor(c)); window.toast('Länken är kopierad – öppna den på den andra enheten'); } catch (e) { prompt('Kopiera länken:', linkFor(c)); } };
+    m.querySelector('#syQr').onclick = async () => {
+      if (!window.qrcode) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; s.onload = res; s.onerror = rej; document.head.append(s); }).catch(() => window.toast('Kunde inte ladda QR – använd Kopiera länk'));
+      if (!window.qrcode) return;
+      const q = window.qrcode(0, 'L'); q.addData(linkFor(c)); q.make();
+      const box = m.querySelector('#qr'); box.innerHTML = `<div style="background:#fff;display:inline-block;padding:10px;border-radius:8px">${q.createSvgTag({ cellSize: 4, margin: 0 })}</div>`; box.style.display = 'block'; m.querySelector('#qrNote').style.display = 'block';
+    };
+    return;
+  }
+  const m = modal(`<h2>☁️ Synka husen mellan dina enheter</h2>
+    <div class="steps"><div><b>1</b><span>Skapa ett <strong>privat</strong> repo på GitHub, t.ex. <i>hemma-data</i> (<a href="https://github.com/new" target="_blank" rel="noopener" style="color:var(--acc)">github.com/new</a>)</span></div>
+    <div><b>2</b><span>Skapa en nyckel: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--acc)">Fine-grained token</a> → <i>Only select repositories</i> → välj repot → <i>Permissions → Contents: Read and write</i></span></div>
+    <div><b>3</b><span>Klistra in repo och nyckel här. Första enheten laddar upp huset, de andra hämtar det.</span></div></div>
+    <label class="f">Repo<input id="syRepo" value="${esc(pre?.repo || '')}" placeholder="Kimmen1993/hemma-data"></label>
+    <label class="f">Nyckel<input id="syTok" type="password" value="${esc(pre?.token || '')}" placeholder="github_pat_…" autocomplete="off"></label>
+    <p class="note">Nyckeln sparas bara i den här webbläsaren. Den hamnar aldrig i appens kod.</p>
+    <p class="note" id="syErr" style="color:var(--bad)"></p>
+    <div class="btns"><button class="btn" data-close>Avbryt</button><button class="btn acc" id="syGo">Koppla</button></div>`);
+  const go = m.querySelector('#syGo');
+  go.onclick = async () => {
+    const cfg = { repo: $('#syRepo').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$|\/$/g, ''), token: $('#syTok').value.trim(), ...(pre?.api ? { api: pre.api } : {}) };
+    go.disabled = true; go.textContent = 'Kollar…'; $('#syErr').textContent = '';
+    try {
+      const remote = await sync.peek(cfg);
+      if (!remote) { await sync.link(cfg); m.hidden = true; renderSide(); window.toast('☁️ Huset är uppladdat till GitHub ✔'); return; }
+      syncChoice(cfg, remote);
+    } catch (e) { $('#syErr').textContent = e.message; go.disabled = false; go.textContent = 'Koppla'; }
+  };
+  if (pre?.repo && pre?.token) go.click();
+}
+// Det finns redan hus på GitHub: hämta dem, eller slå ihop med det som finns här?
+function syncChoice(cfg, remote) {
+  const m = modal(`<h2>☁️ Det finns redan hus på GitHub</h2>
+    <p class="note">På GitHub: <b>${remote.homes.map(esc).join(', ')}</b><br>Här i webbläsaren: <b>${S.homes.map(h => esc(h.name)).join(', ')}</b></p>
+    <div class="big4">
+      <button data-m="take"><b>⬇️</b>Hämta från GitHub<br><span class="note">Vanligast på en ny enhet. Det som finns här sparas som reservkopia.</span></button>
+      <button data-m="merge"><b>🔀</b>Behåll båda<br><span class="note">Husen här läggs till bland dem på GitHub.</span></button></div>
+    <p class="note" id="syErr" style="color:var(--bad)"></p>
+    <div class="btns" style="margin-top:14px"><button class="btn" data-close>Avbryt</button></div>`);
+  m.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => {
+    try { await sync.link(cfg, b.dataset.m); m.hidden = true; view.buildNow(); view.fitCam(); plan.fit(); window.toast('☁️ Kopplad – husen synkas nu ✔'); }
+    catch (e) { $('#syErr').textContent = e.message; }
+  });
+}
+{ const c = cfgFromHash(); if (c) setTimeout(() => syncDialog(c), 300); }
+
 // ---------- planritning → hem ----------
 async function autoPlan() {
   const h = home(); if (!h.bg) return;
@@ -911,6 +987,7 @@ function renderVtools(st) {
     ${st.hidden || st.iso ? `<button data-vt="all" class="on" title="Visa allt igen (Shift+H)">🔄<small>Visa allt${st.hidden ? ' (' + st.hidden + ')' : ''}</small></button>` : ''}
     <button data-vt="xray" class="${st.xray ? 'on' : ''}" title="Genomskinliga väggar">🫥<small>Genomskin</small></button>
     <button data-vt="measure" class="${st.measure ? 'on' : ''}" title="Mät – klicka på två punkter">📐<small>Mät</small></button>
+    <button data-vt="foto" title="Räkna fram en realistisk bild av det du ser">📷<small>Foto</small></button>
     <button data-vt="views" class="${vt._open ? 'on' : ''}" title="Sparade vyer">🎥<small>Vyer</small></button>
     ${vt._open ? `<div class="vmenu">${views.map((v, i) => `<div class="vrow"><button data-vgo="${i}">🎥 ${esc(v.name)}</button><button data-vdel="${i}" title="Ta bort">✕</button></div>`).join('') || '<div class="note" style="padding:6px">Inga sparade vyer än</div>'}
       <button data-vsave>＋ Spara den här vyn</button></div>` : ''}`;
@@ -921,6 +998,7 @@ vt.addEventListener('click', e => { const b = e.target.closest('button'); if (!b
   if (d.vt === 'cut') T.cut(); if (d.vt === 'xray') T.xray(); if (d.vt === 'measure') { T.measure(); window.toast(view.tools.state().measure ? '📐 Klicka på två punkter i 3D' : 'Mätning av'); }
   if (d.vt === 'hide' || d.vt === 'iso') { if (!S.sel) return window.toast('Välj något först – eller högerklicka direkt i 3D'); d.vt === 'hide' ? T.hideSel(S.sel) : T.isoSel(S.sel); if (d.vt === 'hide') { S.sel = null; emit('sel'); } }
   if (d.vt === 'all') T.showAll();
+  if (d.vt === 'foto') openFoto(view, { day: S.day, name: home().name || 'Hemma' });
   if (d.vt === 'views') { vt._open = !vt._open; renderVtools(); }
   if ('vsave' in d) { const n = prompt('Namn på vyn', `Vy ${(home().views || []).length + 1}`); if (!n) return; commit(); home().views = [...(home().views || []), { name: n.trim(), ...T.getView() }]; save(); renderVtools(); }
   if (d.vgo !== undefined) T.goView(home().views[+d.vgo]);

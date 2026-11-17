@@ -1,6 +1,6 @@
 // Datamodell, sparning, ångra och mallar.
-import { ITEMS, OPENINGS } from './catalog.js?v=1794501654';
-import { furnKey, ensureFurn, syncF } from './furnbridge.js?v=1794501654';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794926502';
+import { furnKey, ensureFurn, syncF } from './furnbridge.js?v=1794926502';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const KEY = 'hemma.v1';
@@ -47,6 +47,7 @@ export function addLevel(raw, kind) {
 }
 
 let lastSaved = '';
+export const saveHooks = [];   // t.ex. synken – körs efter varje lokal sparning
 export function save() {
   const data = JSON.stringify({ homes: S.homes, cur: S.cur, ha: S.ha });
   try { const now = localStorage.getItem(KEY); if (lastSaved && now && now !== lastSaved && now !== data) window.toast?.('⚠️ Hemma är öppet i en annan flik som sparar över – stäng de andra flikarna');
@@ -55,6 +56,7 @@ export function save() {
     try { const slim = JSON.parse(data); slim.homes.forEach(h => (h.levels || []).forEach(L => { if (L.bg) L.bg = null; }));
       localStorage.setItem(KEY, JSON.stringify(slim)); window.toast?.('Sparat – men planritningsbilden var för stor för att sparas'); }
     catch (e2) { window.toast?.('⚠️ Kunde inte spara! Använd "Spara som fil"'); } }
+  for (const f of saveHooks) f();
 }
 // Om Hemma är öppet i en annan flik: ta in dess ändringar i stället för att skriva över varandra
 export function syncFromStorage(json) {

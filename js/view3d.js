@@ -7,11 +7,11 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794501654';
-import { ITEMS, OPENINGS } from './catalog.js?v=1794501654';
-import { lightRGB, power } from './ljus.js?v=1794501654';
-import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794501654';
-import { insideSign } from './plan2d.js?v=1794501654';
+import { S, home, emit, commit, snapToWall, findWall, makeItem, makeOpening, wallLen, roomAt, inPoly, proj, levelView, trackAt, panelS, curtainParts } from './store.js?v=1794926502';
+import { ITEMS, OPENINGS } from './catalog.js?v=1794926502';
+import { lightRGB, power } from './ljus.js?v=1794926502';
+import { furnKey, buildF, onTopElev } from './furnbridge.js?v=1794926502';
+import { insideSign } from './plan2d.js?v=1794926502';
 
 export function createView(host, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -818,10 +818,10 @@ export function createView(host, api) {
   // ---------- loop ----------
   function resize() { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h); composer.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); }
   new ResizeObserver(resize).observe(host);
-  let last = performance.now();
+  let last = performance.now(), paused = false;
   renderer.setAnimationLoop(() => {
     const now = performance.now(), dt = (now - last) / 1000; last = now;
-    if (!host.offsetParent) return;
+    if (!host.offsetParent || paused) return;
     if (need) build();
     animate(dt); controls.update(); if (selBox) selBox.update(); assignShadows(false);
     if (screenTex && now - tvLast > 66 && Object.values(refs.items).some(r => r.screen && r.cur > .05)) { tvLast = now; drawTV(now / 1000); screenTex.needsUpdate = true; }
@@ -845,6 +845,24 @@ export function createView(host, api) {
       goView(v) { const p0 = cam.position.clone(), t0 = controls.target.clone(), p1 = new THREE.Vector3(...v.pos), t1 = new THREE.Vector3(...v.target), t = performance.now();
         const step = () => { const k = Math.min(1, (performance.now() - t) / 700), e = k * k * (3 - 2 * k); cam.position.lerpVectors(p0, p1, e); controls.target.lerpVectors(t0, t1, e); controls.update(); if (k < 1) requestAnimationFrame(step); }; step(); },
       state: viewState,
+      pause(b) { paused = !!b; if (!b) last = performance.now(); },
+      // 📷 Foto: scenen som den syns, utan markering och hjälplinjer, med en himmel som ljuskälla. restore() lämnar tillbaka allt.
+      photoScene({ env, envIntensity = 1 }) {
+        if (need) build();
+        const keep = { environment: scene.environment, background: scene.background, fog: scene.fog, ei: scene.environmentIntensity, bi: scene.backgroundIntensity }, hidden = [];
+        if (selBox) scene.remove(selBox);
+        if (V.cut) { const { min, max } = V.cut, c = new THREE.Vector3(); world.traverse(o => { if (!o.isMesh || !o.visible) return; bb.setFromObject(o); bb.getCenter(c);
+          if (bb.min.y > max.y - .01 || c.x < min.x || c.x > max.x || c.z < min.z || c.z > max.z || c.y > max.y) { o.visible = false; hidden.push(o); } }); }
+        // speglar (Reflector) och andra specialmaterial byts mot en riktig spegelyta – path tracern räknar speglingen själv
+        const swapped = [], mirror = new THREE.MeshStandardMaterial({ color: 0xeef1f3, metalness: 1, roughness: .02 });
+        world.traverse(o => { if (o.isMesh && o.visible && !o.material?.color) { swapped.push([o, o.material]); o.material = mirror; } });
+        // väggar har geometrigrupper men ett enda material – path tracern tappar dem då, så grupperna plockas bort under fotot
+        const grouped = []; world.traverse(o => { if (o.isMesh && !Array.isArray(o.material) && o.geometry?.groups?.length) { grouped.push([o.geometry, o.geometry.groups]); o.geometry.groups = []; } });
+        hemi.visible = amb.visible = false;
+        Object.assign(scene, { environment: env, background: env, fog: null, environmentIntensity: envIntensity, backgroundIntensity: envIntensity });
+        return { scene, restore() { Object.assign(scene, { environment: keep.environment, background: keep.background, fog: keep.fog, environmentIntensity: keep.ei, backgroundIntensity: keep.bi });
+          hidden.forEach(o => o.visible = true); swapped.forEach(([o, m]) => o.material = m); grouped.forEach(([g, gr]) => g.groups = gr); hemi.visible = amb.visible = true; if (selBox) scene.add(selBox); } };
+      },
     },
     build() { need = true; },
     buildNow: build,
